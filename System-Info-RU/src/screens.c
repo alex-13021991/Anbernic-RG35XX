@@ -85,30 +85,41 @@ void draw_system(const System *s,const Volume volumes[2]) {
     footer("L1/R1 Вкладки      A Обновить      B Выход");
     flip();
 }
-void draw_storage(const Volume *v,int slot,const Report *r,int platforms,int top,
-                  const char *status,int busy) {
-    const Inventory *c=&r->cards[slot];
+void draw_storage(const Catalog *c,int slot,const Report *r,int platforms,int top,
+                  SortMode sort,const char *status,int busy) {
+    static const char *const card_names[CARD_VIEW_COUNT]={"TF1","TF2","Обе карты"};
+    static const int card_widths[CARD_VIEW_COUNT]={60,60,112};
     const char *const names[]={"Игры · всего","Приложения","Сохранения игр","Состояния эмулятора","Скриншоты","Файлы BIOS"};
     char buf[200];
     heading(1);
-    for (int i=0;i<2;i++) {
-        int x=18+80*i;
-        box(x,109,72,31,i==slot?SELECTED:PANEL);center(x,114,72,i?"TF2":"TF1",small,C_TEXT);
+    int x=18;
+    for (int i=0;i<CARD_VIEW_COUNT;i++) {
+        box(x,109,card_widths[i],31,i==slot?SELECTED:PANEL);
+        center(x,114,card_widths[i],card_names[i],small,C_TEXT);
+        x+=card_widths[i]+8;
     }
-    volume_text(buf,sizeof(buf),v);text(187,114,buf,small,C_TEXT,435);
-    if (!v->present) {
-        center(18,226,604,"Карта отсутствует",font,C_TEXT);
-        center(18,266,604,"← →  Выбрать другую карту",small,C_MUTED);
+    if (!c->volume.present) {
+        center(18,226,604,slot==CARD_BOTH?"Карты памяти недоступны":"Карта отсутствует",font,C_TEXT);
+        if (slot!=CARD_BOTH) center(18,266,604,"← →  Выбрать другую карту",small,C_MUTED);
     } else {
-        text(22,156,platforms?"ПЛАТФОРМЫ":"СВОДКА",small,C_ACCENT,299);
-        text(333,156,"Количество",small,C_ACCENT,141);text(486,156,"Размер",small,C_ACCENT,126);
+        volume_text(buf,sizeof(buf),&c->volume);
+        text(x+6,114,buf,small,C_TEXT,622-(x+6));
+        const char *first="СВОДКА",*count="Количество",*size="Размер";
+        if (platforms) {
+            first=sort==SORT_PLATFORM?"ПЛАТФОРМЫ ↑":"ПЛАТФОРМЫ";
+            if (sort==SORT_COUNT) count="Количество ↓";
+            if (sort==SORT_SIZE) size="Размер ↓";
+        }
+        text(22,156,first,small,C_ACCENT,299);
+        text(333,156,count,small,C_ACCENT,141);
+        text(486,156,size,small,C_ACCENT,126);
         box(18,182,604,1,BORDER);
         int rows=platforms?(int)c->nplatforms:CATEGORY_COUNT;
-        if (top>rows-6) top=rows-6;
+        if (top>rows-PLATFORM_ROWS) top=rows-PLATFORM_ROWS;
         if (top<0) top=0;
         if (!r->completed) center(18,246,604,busy?"Подсчитываем файлы…":"Статистика ещё не собрана",font,C_TEXT);
         else if (!rows) center(18,246,604,"Платформ с играми не найдено",font,C_TEXT);
-        else for (int i=top;i<rows && i<top+6;i++) {
+        else for (int i=top;i<rows && i<top+PLATFORM_ROWS;i++) {
             const Measure *m=platforms?&c->platforms[i].files:&c->category[i];
             int y=187+35*(i-top);
             if ((i-top)%2==0) box(18,y,604,34,PANEL);
@@ -119,15 +130,19 @@ void draw_storage(const Volume *v,int slot,const Report *r,int platforms,int top
             else snprintf(buf,sizeof(buf),"—");
             text(486,y+4,buf,font,C_TEXT,131);
         }
-        if (platforms && rows>6) {
+        if (platforms && rows>PLATFORM_ROWS) {
             box(620,187,3,209,TRACK);
-            box(620,187+top*209/rows,3,6*209/rows+1,METER);
+            box(620,187+top*209/rows,3,PLATFORM_ROWS*209/rows+1,METER);
         }
     }
     text(18,411,status,small,C_MUTED,604);
-    footer(busy?"L1/R1 Вкладки    ←→ Карта    B Отмена":
-           platforms?"←→ Карта   ↑↓ Список   X Сводка   A Скан   B Выход":
-                     "←→ Карта   X Платформы   A Сканировать   B Выход");
+    if (platforms) {
+        footer(busy?"←→ Карта   ↑↓ Список   X Сводка   Y Сортировка   B Отмена":
+                    "←→ Карта   ↑↓ Список   X Сводка   Y Сортировка   A Скан   B Выход");
+    } else {
+        footer(busy?"←→ Карта   X Платформы   B Отмена":
+                    "←→ Карта   X Платформы   A Сканировать   B Выход");
+    }
     flip();
 }
 

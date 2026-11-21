@@ -1,7 +1,9 @@
 #include "ui_fixture.h"
 #include "system.h"
+#include "photo_report.h"
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -13,6 +15,8 @@ static FixtureFormat format={16};static FixtureScreen panel={640,480,&format};
 FixtureScreen *screen=&panel;
 static SDL_Thread job;
 static int running,step;
+enum { FILES, PHOTOS, LONG_LIST };
+static int scenario;
 static Uint32 clock_ms=100;
 const char *const card_paths[]={"TF1","TF2"};
 int ui_init(const char *s) {
@@ -21,6 +25,22 @@ int ui_init(const char *s) {
     assert(!chdir("/fixtures"));
 #endif
     unlink("inventory.cache");
+    const char *mode=getenv("SYSINFO_FIXTURE");
+    if (mode) {
+        scenario=!strcmp(mode,"photos")?PHOTOS:LONG_LIST;
+        assert(scenario==PHOTOS || !strcmp(mode,"long-list"));
+        Volume v[2];
+        static Report sample;
+        read_volumes(v);
+        photo_report(&sample,v);
+        if (scenario==LONG_LIST) {
+            /* Populated art directories without a launchable ROM can appear in a full scan. */
+            Inventory *tf1=&sample.cards[0];
+            tf1->platforms[tf1->nplatforms++]=(Platform){"VECTREX",{0,256}};
+            tf1->platforms[tf1->nplatforms++]=(Platform){"ZX",{0,256}};
+        }
+        assert(cache_save(&sample));
+    }
     return 1;
 }
 void ui_close(void) {unlink("inventory.cache");}
@@ -38,9 +58,14 @@ void SDL_Delay(Uint32 ms) {
     if (running && ++job.age==2) {job.fn(job.arg);running=0;}
 }
 int key(void) {
-    static const int keys[]={KEY_R,KEY_NONE,KEY_NONE,KEY_X,KEY_RIGHT,KEY_X,KEY_A,
-        KEY_NONE,KEY_NONE,KEY_LEFT,KEY_X,KEY_A,KEY_B,KEY_NONE,KEY_NONE,KEY_L,KEY_B};
-    assert(step<(int)(sizeof(keys)/sizeof(keys[0])));
+    static const int files[]={KEY_R,KEY_NONE,KEY_NONE,KEY_X,KEY_RIGHT,KEY_RIGHT,KEY_Y,KEY_Y,
+        KEY_A,KEY_NONE,KEY_NONE,KEY_A,KEY_B,KEY_NONE,KEY_NONE,KEY_L,KEY_B};
+    static const int photos[]={KEY_R,KEY_RIGHT,KEY_RIGHT,KEY_X,KEY_Y,KEY_Y,KEY_RIGHT,KEY_LEFT,
+        KEY_LEFT,KEY_L,KEY_R,KEY_RIGHT,KEY_Y,KEY_X,KEY_B};
+    static const int scroll[]={KEY_R,KEY_LEFT,KEY_X,KEY_DOWN,KEY_DOWN,KEY_Y,KEY_B};
+    const int *keys=scenario==PHOTOS?photos:scenario==LONG_LIST?scroll:files;
+    size_t count=(scenario==PHOTOS?sizeof(photos):scenario==LONG_LIST?sizeof(scroll):sizeof(files))/sizeof(keys[0]);
+    assert((size_t)step<count);
     return keys[step++];
 }
 void read_volumes(Volume v[2]) {
@@ -59,7 +84,7 @@ void center(int x,int y,int w,const char *s,TTF_Font *f,SDL_Color c) {
     printf("CENTER\t%d\t%d\t%d\t%d\t%06x\t%s\n",x,y,w,*f,c,s);
 }
 void page(const char *h,const char *r) {
-    puts("FRAME");box(0,0,640,480,0x191f27);box(0,0,640,54,0x485765);
+    printf("FRAME\nSTEP\t%d\n",step);box(0,0,640,480,0x191f27);box(0,0,640,54,0x485765);
     text(18,12,h,title,C_TEXT,470);text(495,20,r,small,C_TEXT,130);
 }
 void footer(const char *h) {box(0,445,640,35,0x485765);text(18,452,h,small,C_TEXT,604);}

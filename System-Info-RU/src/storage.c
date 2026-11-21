@@ -1,5 +1,4 @@
 #include "storage.h"
-#include "diag.h"
 #include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
@@ -34,10 +33,6 @@ typedef struct {
     size_t ngames, capacity;
 } Scan;
 
-static void read_error(Scan *s,const char *action,const char *path) {
-    if (s->out->errors<8) diag_log("%s: %s: %s",action,path,strerror(errno));
-    s->out->errors++;
-}
 
 static int ext_is(const char *name, const char *list) {
     const char *ext = strrchr(name, '.');
@@ -103,7 +98,7 @@ static int entry_mode(Scan *s,const char *path,const struct dirent *e,int need_s
     (void)e; (void)need_size;
 #endif
     struct stat st;
-    if (lstat(path,&st)!=0) { read_error(s,"lstat",path); return 0; }
+    if (lstat(path,&st)!=0) { s->out->errors++; return 0; }
     if (S_ISDIR(st.st_mode)) return 2;
     if (!S_ISREG(st.st_mode)) return 0;
     *bytes=st.st_size<0?0:(uint64_t)st.st_size;
@@ -113,11 +108,11 @@ static void add_game(Scan *s,const char *path) {
     if (s->ngames==s->capacity) {
         size_t cap=s->capacity?2*s->capacity:64;
         Game *new_games=realloc(s->games,cap*sizeof(Game));
-        if (!new_games) {diag_log("Not enough memory for the game list");s->cancelled=1;return;}
+        if (!new_games) {s->cancelled=1;return;}
         s->games=new_games; s->capacity=cap;
     }
     char *copy=strdup(path);
-    if (!copy) {diag_log("Not enough memory for a game path");s->cancelled=1;return;}
+    if (!copy) {s->cancelled=1;return;}
     s->games[s->ngames++]=(Game){copy,0};
 }
 static int compare_games(const void *a,const void *b) {
@@ -161,7 +156,7 @@ static void read_refs(Scan *s,const char *path) {
         return;
     }
     FILE *f=fopen(path,"rb");
-    if (!f) { read_error(s,"open descriptor",path); return; }
+    if (!f) { s->out->errors++; return; }
     char line[PATH_MAX];
     while (fgets(line,sizeof(line),f) && checkpoint(s)) {
         char *p=line;
@@ -191,7 +186,7 @@ static void read_refs(Scan *s,const char *path) {
         } else if (gdi) p[strcspn(p," \t")]=0;
         mark_ref(s,path,p);
     }
-    if (ferror(f)) read_error(s,"read descriptor",path);
+    if (ferror(f)) s->out->errors++;
     fclose(f);
 }
 static void finish_games(Scan *s) {
@@ -210,12 +205,12 @@ static int ignored_data(int category,const char *name) {
 static void visit(Scan *s,const char *path,int depth,int assets) {
     if (depth>MAX_DEPTH) {s->out->errors++;return;}
     DIR *dir=opendir(path);
-    if (!dir) {if (depth || errno!=ENOENT) read_error(s,"opendir",path);return;}
+    if (!dir) {if (depth || errno!=ENOENT) s->out->errors++;return;}
     struct dirent *e;
     for (;;) {
         errno=0;
         e=readdir(dir);
-        if (!e) {if (errno) read_error(s,"readdir",path);break;}
+        if (!e) {if (errno) s->out->errors++;break;}
         const char *name=e->d_name;
         if (!strcmp(name,".") || !strcmp(name,"..") || junk(name)) continue;
         int collection=s->category==GAMES || s->category==APPS;
@@ -248,9 +243,9 @@ static int compare_platforms(const void *a,const void *b) {
 }
 static DIR *optional_dir(Scan *s,const char *path) {
     struct stat st;
-    if (lstat(path,&st)!=0) { if (errno!=ENOENT) read_error(s,"lstat",path); return NULL; }
+    if (lstat(path,&st)!=0) { if (errno!=ENOENT) s->out->errors++; return NULL; }
     if (!S_ISDIR(st.st_mode)) return NULL;
-    DIR *d=opendir(path); if (!d) read_error(s,"opendir",path);
+    DIR *d=opendir(path); if (!d) s->out->errors++;
     return d;
 }
 static void scan_roms(Scan *s,const char *path) {
@@ -258,7 +253,7 @@ static void scan_roms(Scan *s,const char *path) {
     struct dirent *e;
     while (checkpoint(s)) {
         errno=0; e=readdir(dir);
-        if (!e) {if (errno) read_error(s,"readdir",path);break;}
+        if (!e) {if (errno) s->out->errors++;break;}
         const char *name=e->d_name;
         if (name[0]=='.' || artwork(name) || junk(name) || equal(name,"BIOS") ||
             equal(name,"MUSIC") || equal(name,"MEDIA") || equal(name,"PDF") || equal(name,"VIDEOS")) continue;
@@ -286,7 +281,7 @@ static void group(Scan *s,const char *parent,const char *name,int cat) {
     char path[PATH_MAX];
     if (!append_path(path,sizeof(path),parent,name)) {s->out->errors++;return;}
     struct stat st;
-    if (lstat(path,&st)<0) {if (errno!=ENOENT) read_error(s,"lstat",path);return;}
+    if (lstat(path,&st)<0) {if (errno!=ENOENT) s->out->errors++;return;}
     if (!S_ISDIR(st.st_mode)) return;
     s->category=cat; s->measure=&s->out->category[cat];
     visit(s,path,0,0);
@@ -297,7 +292,7 @@ static void scan_saves(Scan *s,const char *root) {
     DIR *d=optional_dir(s,path); if (!d) return;
     struct dirent *e;
     while (checkpoint(s)) {
-        errno=0; e=readdir(d); if (!e) {if (errno) read_error(s,"readdir",path);break;}
+        errno=0; e=readdir(d); if (!e) {if (errno) s->out->errors++;break;}
         if (e->d_name[0]=='.' || junk(e->d_name)) continue;
         if (equal(e->d_name,"saves") || equal(e->d_name,"states")) {
             group(s,path,e->d_name,equal(e->d_name,"saves")?SAVES:STATES); continue;

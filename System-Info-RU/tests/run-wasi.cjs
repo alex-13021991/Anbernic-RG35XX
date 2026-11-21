@@ -2,7 +2,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { WASI } = require('node:wasi');
 (async () => {
-  const wasi = new WASI({ version:'preview1', args:[], env:{}, preopens:{'/fixtures':path.resolve(process.argv[3])} });
+  const env=process.argv[4]?{SYSINFO_FIXTURE:process.argv[4]}:{};
+  const wasi = new WASI({ version:'preview1', args:[], env, preopens:{'/fixtures':path.resolve(process.argv[3])} });
   const wasm = await WebAssembly.compile(fs.readFileSync(process.argv[2]));
   let instance;
   const wasiImports = {...wasi.wasiImport};

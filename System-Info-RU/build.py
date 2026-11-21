@@ -18,7 +18,7 @@ build = base / "build"
 build.mkdir(exist_ok=True)
 env = {**os.environ, "ZIG_GLOBAL_CACHE_DIR": str(build / "zig-global"),
        "ZIG_LOCAL_CACHE_DIR": str(build / "zig-local")}
-sources = ["main", "ui", "screens", "system", "storage", "cache", "diag"]
+sources = ["main", "ui", "screens", "system", "storage", "catalog", "cache"]
 flags = ["-triple", "armv7-unknown-linux-gnueabi", "-target-cpu", "cortex-a9",
          "-target-abi", "aapcs-linux", "-mfloat-abi", "soft", "-target-feature", "+vfp3",
          "-emit-obj", "-Os", "-std=gnu99", "-fgnuc-version=4.2.1", "-D_GNU_SOURCE",

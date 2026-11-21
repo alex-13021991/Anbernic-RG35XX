@@ -1,14 +1,95 @@
 #include "storage.h"
 #include "cache.h"
+#include "catalog.h"
+#include "photo_report.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include <strings.h>
 #include <unistd.h>
 
 static Report r,copy;
 static Volume volumes[2];
 static int stop(void *p) {return --*(int *)p>0;}
 static void matches(Measure m,uint64_t n,uint64_t bytes) {assert(m.count==n);assert(m.bytes==bytes);}
+
+static Catalog catalog;
+
+static void expect_names(const char *const names[],unsigned count) {
+    assert(catalog.nplatforms==count);
+    for (unsigned i=0;i<count;i++) assert(!strcasecmp(catalog.platforms[i].name,names[i]));
+}
+static void check_catalog(void) {
+    Volume v[2]={{1,64,30,"first"},{1,32,18,"second"}};
+    photo_report(&r,v);
+    r.cards[0].errors=3;
+    r.cards[1].errors=1;
+    memcpy(&copy,&r,sizeof(r));
+    catalog_build(&catalog,&r,v,CARD_BOTH,SORT_PLATFORM);
+    assert(catalog.volume.present && catalog.volume.total==96 && catalog.volume.available==48);
+    assert(catalog.errors==4);
+    const unsigned combined[]={1237,4,17,133,13,1382};
+    for (int k=0;k<CATEGORY_COUNT;k++) {
+        matches(catalog.category[k],combined[k],r.cards[0].category[k].bytes+r.cards[1].category[k].bytes);
+    }
+    const char *const alpha[]={"FC","FDS","MD","PORTS","PS","SFC"};
+    expect_names(alpha,6);
+    matches(catalog.platforms[0].files,808,186ULL*1048576);
+    matches(catalog.platforms[2].files,346,500ULL*1048576);
+    catalog_build(&catalog,&r,v,CARD_BOTH,SORT_COUNT);
+    const char *const by_count[]={"FC","MD","SFC","PS","FDS","PORTS"};
+    expect_names(by_count,6);
+    catalog_build(&catalog,&r,v,CARD_BOTH,SORT_SIZE);
+    const char *const by_size[]={"PS","PORTS","MD","FC","SFC","FDS"};
+    expect_names(by_size,6);
+    catalog_build(&catalog,&r,v,CARD_TF1,SORT_COUNT);
+    const char *const tf1_sort[]={"FC","MD","SFC","PS","FDS"};
+    expect_names(tf1_sort,5);
+    assert(catalog.category[GAMES].count==282 && catalog.volume.total==64);
+    catalog_build(&catalog,&r,v,CARD_TF2,SORT_SIZE);
+    const char *const tf2_sort[]={"PORTS","MD","FC"};
+    expect_names(tf2_sort,3);
+    assert(catalog.category[GAMES].count==955 && catalog.volume.total==32);
+    assert(!memcmp(&r,&copy,sizeof(r)));  /* Views must never mutate the cache payload. */
+
+    v[1].present=0;
+    catalog_build(&catalog,&r,v,CARD_BOTH,SORT_COUNT);
+    expect_names(tf1_sort,5);
+    assert(catalog.category[GAMES].count==282 && catalog.errors==3 && catalog.volume.total==64);
+    v[0].present=0;
+    catalog_build(&catalog,&r,v,CARD_BOTH,SORT_PLATFORM);
+    assert(!catalog.volume.present && !catalog.nplatforms && !catalog.category[GAMES].count);
+    v[1].present=1;
+    catalog_build(&catalog,&r,v,CARD_BOTH,SORT_SIZE);
+    expect_names(tf2_sort,3);
+    assert(catalog.volume.total==32 && catalog.errors==1);
+    v[0].present=1;
+    v[0].total=0;
+    catalog_build(&catalog,&r,v,CARD_BOTH,SORT_PLATFORM);
+    assert(catalog.volume.present && !catalog.volume.total && catalog.category[GAMES].count==1237);
+
+    /* The merged list can be larger than the per-card cache layout.
+       Equal counts/sizes break ties alphabetically for both numeric sorts. */
+    memset(&r,0,sizeof(r));
+    for (int slot=0;slot<2;slot++) {
+        r.present[slot]=1;
+        Inventory *c=&r.cards[slot];
+        c->nplatforms=MAX_PLATFORMS;
+        for (unsigned i=0;i<MAX_PLATFORMS;i++) {
+            Platform *p=&c->platforms[i];
+            snprintf(p->name,sizeof(p->name),"%c-%03u",'B'-slot,MAX_PLATFORMS-1-i);
+            p->files=(Measure){1,UINT64_C(1)<<34};
+        }
+    }
+    for (SortMode mode=SORT_PLATFORM;mode<SORT_MODE_COUNT;mode++) {
+        catalog_build(&catalog,&r,v,CARD_BOTH,mode);
+        assert(catalog.nplatforms==2*MAX_PLATFORMS);
+        for (unsigned i=1;i<catalog.nplatforms;i++)
+            assert(strcasecmp(catalog.platforms[i-1].name,catalog.platforms[i].name)<0);
+    }
+    puts("PASS: photo totals 1237 games / FC 808; sort columns, ties and 512 rows; "
+         "single/absent cards, category sums, capacity and cache immutability.");
+}
 int main(void) {
     /* For a native Linux run, start in the two-card fixture directory. */
 #ifdef __wasi__
@@ -52,6 +133,7 @@ int main(void) {
     printf("PASS: quick and detailed scans; both cards; multidisc/track grouping; >4 GiB; "
            "apps; screenshots, BIOS, saves and states; cancellation; empty card; "
            "cache round-trip, corruption, card swap and partial result rejection.\n");
+    check_catalog();
     return 0;
 }
 

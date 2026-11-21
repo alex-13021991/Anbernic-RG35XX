@@ -1,4 +1,4 @@
-# Сборка System Info RU 1.0.0
+# Сборка System Info RU 1.1.0
 
 Цель — оригинальная Anbernic RG35XX, GarlicOS 1.4.9, ARMv7 Cortex-A9, 32-битный EABI5, вызовы soft-float, загрузчик `/lib/ld-uClibc.so.0`. Приложение динамически использует SDL 1.2, SDL_ttf и uClibc. Для ввода в комплекте тот же адаптер j2k.so, что в USB Manager 0.1.4.
 
@@ -23,15 +23,19 @@ python package.py --out dist
 ```sh
 mkdir -p build
 python3 tests/fixtures.py build/fixture
-cc -std=gnu99 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -Isrc tests/test_storage.c src/storage.c src/cache.c src/diag.c -o build/test-storage
+cc -std=gnu99 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -Isrc tests/test_storage.c src/storage.c src/cache.c src/catalog.c -o build/test-storage
 (cd build/fixture && ../test-storage)
-cc -std=gnu99 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -Isrc -include tests/ui_fixture.h src/main.c src/screens.c src/storage.c src/cache.c src/diag.c tests/ui_fixture.c -o build/test-ui
+cc -std=gnu99 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -Isrc -include tests/ui_fixture.h src/main.c src/screens.c src/storage.c src/cache.c src/catalog.c tests/ui_fixture.c -o build/test-ui
 (cd build/fixture && ../test-ui)
+(cd build/fixture && SYSINFO_FIXTURE=photos ../test-ui)
+(cd build/fixture && SYSINFO_FIXTURE=long-list ../test-ui)
 ```
 
 Создавайте тестовую коллекцию в пустом каталоге. Навигационный тест подставляет события кнопок, показания приборов и отложенный запуск сканирования. Он выполняет основной цикл приложения, код экранов и сканер и выводит команды рисования. Для повторения на WASI предусмотрены tests/run-wasi.cjs (чтение каталога на Windows) и tests/wasi_temp.* (создание временного файла кэша).
 
 ## Проверки сборки
 
-Исполняемый файл собран для ARM. Проверены класс ELF, машинная архитектура, EABI, интерпретатор, зависимости и разрешение импортов в библиотеках SDK. На Windows в WASI исполнен тот же код подсчёта в быстром и полном режимах. Проверены отдельные TF1/TF2, M3U/CUE/BIN, CCD/IMG, итог больше 4 ГиБ, APPS, сейвы двух профилей, состояния, скриншоты, BIOS, отмена, пустая карта, повреждённый кэш и замена карты. Для интерфейса проверены смена вкладок, выбор карт, переход к платформам, отмена, диагностические записи и размещение текста при 640×480 на тестовых данных. Физическая приставка и её датчики в проверках не участвовали.
+Исполняемый файл собран для ARM. Проверены ELF, EABI, загрузчик и импорты из SDK. Код сканера прошёл проверки для одной и двух карт, M3U/CUE/BIN, CCD/IMG, сумм свыше 4 ГиБ, приложений, сохранений, состояний, скриншотов и BIOS. Проверены отмена, пустая карта, повреждение кэша и замена карты.
+
+В тестовом наборе по фотографиям TF1 и TF2 дают 282 и 955 игр. Общая сводка показывает 1 237 игр, строка FC — 808. Проверены все три порядка сортировки, равенство значений, список из 512 платформ, прокрутка и стрелка над активным столбцом. На макете 640×480 нижняя строка с кнопкой Y занимает около 574 пикселей из 604 при штатном FreeSans 18. Проверки 1.1.0 выполнены на тестовом стенде.
 

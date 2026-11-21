@@ -90,8 +90,8 @@ int key(void) {
         }
         if(e.type!=SDL_KEYDOWN) continue;
         int sym=e.key.keysym.sym;
-        int repeatable=sym==SDLK_w||sym==SDLK_s||sym==SDLK_q||sym==SDLK_d||
-            sym==SDLK_UP||sym==SDLK_DOWN||sym==SDLK_LEFT||sym==SDLK_RIGHT||
+        int repeatable=sym==SDLK_w||sym==SDLK_s||
+            sym==SDLK_UP||sym==SDLK_DOWN||
             sym==SDLK_h||sym==SDLK_j||sym==SDLK_l||sym==SDLK_k||sym==SDLK_PAGEUP||sym==SDLK_PAGEDOWN;
         if(sym>=0 && sym<SDLK_LAST) {if(held[sym]&&!repeatable)continue;held[sym]=1;}
         switch(e.key.keysym.sym) {
