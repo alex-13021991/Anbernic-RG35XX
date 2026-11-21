@@ -18,7 +18,11 @@ echo "10d6" > "$usb_gandroid0/idVendor"
 
 if [ -f /misc/enableADB ]; then
     echo "4e42" > "$usb_gandroid0/idProduct"
-    echo "mtp,adb" > "$usb_gandroid0/functions"
+    if [ -f /misc/enableMTP ]; then
+        echo "mtp,adb" > "$usb_gandroid0/functions"
+    else
+        echo "adb" > "$usb_gandroid0/functions"
+    fi
 else
     echo "4e41" > "$usb_gandroid0/idProduct"
     echo "mtp" > "$usb_gandroid0/functions"
