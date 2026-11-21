@@ -1,0 +1,6 @@
+System Info RU uses the palette, UI primitives and input mappings of RG35XX Utilities 0.1.4 (MIT, see LICENSE.txt).
+FreeSans.ttf is GNU FreeFont, distributed with its font exception. See FreeSans.txt and GPL-3.0.txt. Font sources: https://ftp.gnu.org/gnu/freefont/freefont-src-20120503.tar.gz
+j2k.so is the unchanged GarlicOS input adapter from the user's USB Manager 0.1.4 package, originally from DinguxCommander. Its separate source and license were not included with that component.
+SDL 1.2, SDL_ttf and uClibc are supplied by the target OS.
+The menu illustration was generated for System Info RU using the two existing utility covers as style references.
+

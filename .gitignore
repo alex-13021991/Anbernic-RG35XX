@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+/System-Info-RU/build/
+/System-Info-RU/dist/
