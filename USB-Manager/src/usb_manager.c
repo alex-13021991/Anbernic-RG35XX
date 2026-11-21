@@ -46,6 +46,40 @@ static int usb_role(void) {
     }
     closedir(d); return result;
 }
+
+/* On older kernels the USB bus may be visible even without the role class.
+   usbN is a root hub; N-P[.P...] is an enumerated downstream device.
+   Interface entries such as 1-0:1.0 do not imply a plugged-in device. */
+enum HostBus { BUS_UNREADABLE, BUS_NO_HUB, BUS_HUB_ONLY, BUS_HAS_DEVICE };
+static enum HostBus host_bus(void) {
+    DIR *dir=opendir("/sys/bus/usb/devices");
+    if(!dir) {
+        /* Some builds unload usbcore along with the host controller. */
+        if(errno==ENOENT && access("/sys/bus",R_OK|X_OK)==0 &&
+           access("/sys/bus/usb",F_OK)<0 && errno==ENOENT) return BUS_NO_HUB;
+        return BUS_UNREADABLE;
+    }
+    enum HostBus result=BUS_NO_HUB;
+    const char *digits="0123456789";
+    struct dirent *entry;
+    errno=0;
+    while((entry=readdir(dir))) {
+        const char *name=entry->d_name;
+        if(!strncmp(name,"usb",3) && name[3] && name[3+strspn(name+3,digits)]=='\0') {
+            result=BUS_HUB_ONLY;
+            continue;
+        }
+        size_t bus=strspn(name,digits);
+        if(!bus || name[bus]!='-') continue;
+        const char *port=name+bus+1;
+        if(*port<'1' || *port>'9' || port[strspn(port,"0123456789.")]!='\0') continue;
+        result=BUS_HAS_DEVICE;
+        break;
+    }
+    if(!entry && errno) result=BUS_UNREADABLE;
+    closedir(dir);
+    return result;
+}
 static int function_has(const char *s,const char *token) {
     size_t n=strlen(token);
     while(*s) { while(*s==' '||*s==',') ++s; const char *e=s; while(*e && *e!=',' && *e!=' ') ++e;
@@ -53,7 +87,7 @@ static int function_has(const char *s,const char *token) {
     } return 0;
 }
 static void status(void) {
-    char enabled[32],functions[128]; int role;
+    char enabled[32]="",functions[128]; int role;
     strcpy(live_mtp,"неизвестно"); strcpy(live_adb,"неизвестно"); strcpy(live_host,"неизвестно");
     if(read_line("/sys/class/android_usb/android0/enable",enabled,sizeof(enabled))) {
         if(!strcmp(enabled,"0")) { strcpy(live_mtp,"выкл."); strcpy(live_adb,"выкл."); }
@@ -66,9 +100,27 @@ static void status(void) {
     }
     /* Do not infer active host mode from waitForUSB, a next-boot flag. */
     role=usb_role();
+    const char *source="usb_role";
     if(role==1) {strcpy(live_host,"вкл.");strcpy(live_mtp,"выкл.");strcpy(live_adb,"выкл.");}
     else if(role==0||role==2) strcpy(live_host,"выкл.");
-
+    else if(!strcmp(enabled,"0")) {
+        enum HostBus bus=host_bus();
+        source="/sys/bus/usb/devices";
+        switch(bus) {
+            case BUS_NO_HUB: strcpy(live_host,"выкл."); break;
+            case BUS_HAS_DEVICE: strcpy(live_host,"вкл."); break;
+            case BUS_HUB_ONLY: strcpy(live_host,"нет устройств"); break;
+            case BUS_UNREADABLE: source="USB bus unavailable"; break;
+        }
+    } else source="android_usb";
+    static char previous[200];
+    char report[sizeof(previous)];
+    snprintf(report,sizeof(report),"MTP=%s ADB=%s USB-input=%s (source=%s, enable=%s)",
+             live_mtp,live_adb,live_host,source,enabled[0]?enabled:"?");
+    if(strcmp(report,previous)) {
+        fprintf(stderr,"%s\n",report);
+        strcpy(previous,report);
+    }
 }
 static void draw(void) {
     char line[200]; page("USB МЕНЕДЖЕР",NULL);

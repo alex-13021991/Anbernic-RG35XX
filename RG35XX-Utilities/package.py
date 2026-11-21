@@ -54,14 +54,14 @@ def add(z,p,name):
 for name,folder in [('USB Manager','USBManager'),('Screenshot Viewer','ScreenshotViewer')]:
     files=[stage/'APPS'/f'{name}.sh',stage/'APPS/Imgs'/f'{name}.png',*sorted((stage/'APPS'/folder).rglob('*')),*sorted(licenses.glob('*'))]
     files=[p for p in files if p.is_file()]
-    filename=folder+'-0.1.3-GarlicOS-1.4.9.zip'
+    filename=folder+'-0.1.4-GarlicOS-1.4.9.zip'
     with zipfile.ZipFile(out/filename,'w') as z:
         for p in files:add(z,p,p.relative_to(stage).as_posix())
         add(z,base/'README_RU.txt','README_RU.txt');add(z,base/'TESTS.txt','TESTS.txt')
         hashes='\n'.join(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.relative_to(stage).as_posix() for p in files)+'\n'
         z.writestr('SHA256.txt',hashes)
     print(filename,(out/filename).stat().st_size)
-with zipfile.ZipFile(out/'RG35XX-Utilities-0.1.3-source.zip','w') as z:
+with zipfile.ZipFile(out/'RG35XX-Utilities-0.1.4-source.zip','w') as z:
     for p in sorted((base/'src').glob('*')):add(z,p,'src/'+p.name)
     for p in sorted((base/'tests').glob('*')):
         if p.is_file():add(z,p,'tests/'+p.name)
@@ -71,7 +71,7 @@ with zipfile.ZipFile(out/'RG35XX-Utilities-0.1.3-source.zip','w') as z:
     add(z,fontpath,'resources/FreeSans.ttf');add(z,resource/'j2k.so','resources/j2k.so')
     for p in (stage/'APPS/Imgs').glob('*.png'):add(z,p,'resources/Imgs/'+p.name)
 # Verify final archives, directory layout, LF, hashes, and PNG headers.
-for archive in out.glob('*0.1.3*.zip'):
+for archive in out.glob('*0.1.4*.zip'):
     with zipfile.ZipFile(archive) as z:
         assert z.testzip() is None
         for name in z.namelist():

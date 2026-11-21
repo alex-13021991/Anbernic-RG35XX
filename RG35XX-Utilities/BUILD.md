@@ -1,4 +1,4 @@
-# RG35XX utilities 0.1.3
+# RG35XX utilities 0.1.4
 
 Two C99 applications for original RG35XX, GarlicOS 1.4.9, SDL 1.2.
 The UI is shared source; the installed apps and launchers are independent.
