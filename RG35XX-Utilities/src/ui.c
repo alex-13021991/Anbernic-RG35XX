@@ -71,9 +71,8 @@ void center(int x,int y,int w,const char *s,TTF_Font *f,SDL_Color c) {
 }
 void page(const char *heading,const char *right) {
     box(0,0,640,480,C_BG_ALT);
-    box(0,0,640,52,C_BAR); text(18,12,heading,title,C_TEXT,470);
+    box(0,0,640,54,C_BAR); text(18,12,heading,title,C_TEXT,470);
     if(right) text(495,20,right,small,C_TEXT,130);
-    box(18,52,604,2,C_BORDER);
 }
 void footer(const char *hint) {
     box(0,445,640,35,C_BAR); text(18,452,hint,small,C_TEXT,604);

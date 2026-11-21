@@ -16,4 +16,4 @@ System dependencies (not redistributed): SDL 1.2, SDL_image, SDL_ttf, uClibc.
 MTP server (not redistributed): https://github.com/IonAgorria/rg35xx-mtp-server
 The existing MTP installation is required for the MTP checkbox to be applied.
 
-New app-menu PNGs: programmatically drawn for this package; no game art/ROMs.
+New app-menu PNGs: created for these apps using the supplied Toggle previews as style references.

@@ -43,25 +43,25 @@ System dependencies (not redistributed): SDL 1.2, SDL_image, SDL_ttf, uClibc.
 MTP server (not redistributed): https://github.com/IonAgorria/rg35xx-mtp-server
 The existing MTP installation is required for the MTP checkbox to be applied.
 
-New app-menu PNGs: programmatically drawn for this package; no game art/ROMs.
+New app-menu PNGs: created for these apps using the supplied Toggle previews as style references.
 '''
 write(licenses/'THIRD-PARTY.txt',notice)
 def add(z,p,name):
-    info=zipfile.ZipInfo(name,(2026,11,19,12,0,0));info.create_system=3
+    info=zipfile.ZipInfo(name,(2026,11,20,12,0,0));info.create_system=3
     executable=p.suffix in ['.sh','.so'] or p.name in ['usb-manager','screenshot-viewer']
     info.external_attr=(0o100755 if executable else 0o100644)<<16;info.compress_type=zipfile.ZIP_DEFLATED
     z.writestr(info,p.read_bytes())
 for name,folder in [('USB Manager','USBManager'),('Screenshot Viewer','ScreenshotViewer')]:
     files=[stage/'APPS'/f'{name}.sh',stage/'APPS/Imgs'/f'{name}.png',*sorted((stage/'APPS'/folder).rglob('*')),*sorted(licenses.glob('*'))]
     files=[p for p in files if p.is_file()]
-    filename=folder+'-0.1.2-GarlicOS-1.4.9.zip'
+    filename=folder+'-0.1.3-GarlicOS-1.4.9.zip'
     with zipfile.ZipFile(out/filename,'w') as z:
         for p in files:add(z,p,p.relative_to(stage).as_posix())
         add(z,base/'README_RU.txt','README_RU.txt');add(z,base/'TESTS.txt','TESTS.txt')
         hashes='\n'.join(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.relative_to(stage).as_posix() for p in files)+'\n'
         z.writestr('SHA256.txt',hashes)
     print(filename,(out/filename).stat().st_size)
-with zipfile.ZipFile(out/'RG35XX-Utilities-0.1.2-source.zip','w') as z:
+with zipfile.ZipFile(out/'RG35XX-Utilities-0.1.3-source.zip','w') as z:
     for p in sorted((base/'src').glob('*')):add(z,p,'src/'+p.name)
     for p in sorted((base/'tests').glob('*')):
         if p.is_file():add(z,p,'tests/'+p.name)
@@ -71,7 +71,7 @@ with zipfile.ZipFile(out/'RG35XX-Utilities-0.1.2-source.zip','w') as z:
     add(z,fontpath,'resources/FreeSans.ttf');add(z,resource/'j2k.so','resources/j2k.so')
     for p in (stage/'APPS/Imgs').glob('*.png'):add(z,p,'resources/Imgs/'+p.name)
 # Verify final archives, directory layout, LF, hashes, and PNG headers.
-for archive in out.glob('*0.1.2*.zip'):
+for archive in out.glob('*0.1.3*.zip'):
     with zipfile.ZipFile(archive) as z:
         assert z.testzip() is None
         for name in z.namelist():
