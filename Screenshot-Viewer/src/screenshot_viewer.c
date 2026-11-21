@@ -18,7 +18,7 @@ static SDL_Surface *load_image(const char *path) {
     SDL_Surface *src=IMG_Load(path); if(!src) {fprintf(stderr,"PNG %s: %s\n",path,IMG_GetError());return NULL;}
     /* Flatten transparency on the application's background before scaling. */
     SDL_Surface *dest=SDL_CreateRGBSurface(SDL_SWSURFACE,src->w,src->h,16,screen->format->Rmask,screen->format->Gmask,screen->format->Bmask,0);
-    if(dest) {SDL_FillRect(dest,NULL,SDL_MapRGB(dest->format,25,20,34));SDL_BlitSurface(src,NULL,dest,NULL);}
+    if(dest) {SDL_FillRect(dest,NULL,SDL_MapRGB(dest->format,25,31,39));SDL_BlitSurface(src,NULL,dest,NULL);}
     SDL_FreeSurface(src);return dest;
 }
 static void cache_page(void) {
@@ -46,7 +46,7 @@ static void render(void) {
         if(current_index!=selected) {
             if(current) SDL_FreeSurface(current);current=load_image(gallery.shots[selected].path);current_index=selected;
         }
-        box(0,0,640,445,0x12161c);
+        box(0,0,640,445,0x191f27);
         if(current) {
             if(original) {
                 int maxx=current->w>640?current->w-640:0,maxy=current->h>445?current->h-445:0;

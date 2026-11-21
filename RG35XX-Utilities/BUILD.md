@@ -1,4 +1,4 @@
-# RG35XX utilities 0.1.1
+# RG35XX utilities 0.1.2
 
 Two C99 applications for original RG35XX, GarlicOS 1.4.9, SDL 1.2.
 The UI is shared source; the installed apps and launchers are independent.
@@ -9,7 +9,7 @@ Use the original Miyoo **uClibc** SDK, not a newer musl/H700 SDK.
 Windows build used Zig 0.13.0 as Clang/LLD, with SDK headers, startup objects
 and dynamic libraries. No Zig libc is linked into the target binaries.
 
-    python build.py --sdk C:/sdk/miyoo --zig C:/zig/zig.exe
+    py -3.14 build.py --sdk C:/sdk/miyoo --zig C:/zig/zig.exe
 
 Downloads / primary references:
 - https://ziglang.org/download/0.13.0/zig-windows-x86_64-0.13.0.zip
@@ -21,6 +21,14 @@ Extract the SDK with symlinks intact. On Windows, links unpacked as text must
 be resolved inside the SDK before linking. Output: build/usb-manager and
 build/screenshot-viewer. ARMv7 Cortex-A9, softfp, /lib/ld-uClibc.so.0.
 SDL 1.2, SDL_image and SDL_ttf remain system dependencies.
+
+From the project directory, package the rebuilt binaries:
+
+    py -3.14 package.py
+
+The installer ZIPs and source ZIP are written to the sibling `outputs`
+directory. Packaging reuses the existing app icons and needs only Python's
+standard library.
 
 The bundled launchers preload the user's existing DinguxCommander j2k.so;
 keyboard mapping matches that program's GarlicOS build (w/s/q/d, a/b/x/y,

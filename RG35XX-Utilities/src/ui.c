@@ -70,9 +70,7 @@ void center(int x,int y,int w,const char *s,TTF_Font *f,SDL_Color c) {
     text(x+(tw<w?(w-tw)/2:0),y,s,f,c,w);
 }
 void page(const char *heading,const char *right) {
-    box(0,0,640,480,C_BG);
-    for(int y=54,row=0;y<445;y+=36,row++)
-        box(0,y,640,y+36>445?445-y:36,(row&1)?C_BG_ALT:C_BG);
+    box(0,0,640,480,C_BG_ALT);
     box(0,0,640,52,C_BAR); text(18,12,heading,title,C_TEXT,470);
     if(right) text(495,20,right,small,C_TEXT,130);
     box(18,52,604,2,C_BORDER);
@@ -81,7 +79,7 @@ void footer(const char *hint) {
     box(0,445,640,35,C_BAR); text(18,452,hint,small,C_TEXT,604);
 }
 void button(int x,int y,int w,const char *s,int selected,int danger) {
-    box(x,y,w,42,selected?C_CURSOR:C_BG_ALT);
+    box(x,y,w,42,selected?C_CURSOR:C_BG);
     if(!selected) outline(x,y,w,42,danger?C_ERROR:C_BORDER);
     center(x+4,y+8,w-8,s,font,selected?C_TEXT:(danger?C_RED:C_TEXT));
 }
@@ -128,7 +126,7 @@ static void release_keys(void) {
 int confirm(const char *heading,const char *l1,const char *l2,const char *yes) {
     int chosen=0,result=0,done=0; release_keys();
     while(!done) {
-        box(42,120,556,246,C_BG_ALT); outline(42,120,556,246,C_BORDER);
+        box(42,120,556,246,C_BG); outline(42,120,556,246,C_BORDER);
         center(58,139,524,heading,title,C_TEXT);
         center(62,189,516,l1,font,C_TEXT);
         center(62,225,516,l2,small,C_MUTED);
@@ -144,7 +142,7 @@ int confirm(const char *heading,const char *l1,const char *l2,const char *yes) {
 void message(const char *heading,const char *l1,const char *l2) {
     release_keys();
     for(;;) {
-        box(32,137,576,206,C_BG_ALT); outline(32,137,576,206,C_BORDER);
+        box(32,137,576,206,C_BG); outline(32,137,576,206,C_BORDER);
         center(45,154,550,heading,title,C_TEXT);
         center(45,204,550,l1,font,C_TEXT); center(45,239,550,l2,small,C_MUTED);
         center(45,292,550,"A / B — закрыть",small,C_ACCENT); flip();
