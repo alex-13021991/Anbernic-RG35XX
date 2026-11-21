@@ -46,7 +46,7 @@ static void render(void) {
         if(current_index!=selected) {
             if(current) SDL_FreeSurface(current);current=load_image(gallery.shots[selected].path);current_index=selected;
         }
-        box(0,0,640,445,0x191422);
+        box(0,0,640,445,0x12161c);
         if(current) {
             if(original) {
                 int maxx=current->w>640?current->w-640:0,maxy=current->h>445?current->h-445:0;
@@ -63,15 +63,15 @@ static void render(void) {
     for(int i=0;i<6;i++) {
         int index=cached_page*6+i;if((size_t)index>=gallery.count)break;
         int x=18+(i%3)*204,y=67+(i/3)*158;
-        box(x,y,196,132,0x0d0b12);
+        box(x,y,196,132,0x191f27);
         if(thumbs[i]) show_image(thumbs[i],x+5,y+5,186,122);
         else center(x+5,y+51,186,"Нет превью",small,C_MUTED);
-        if(selected==index) outline(x-2,y-2,200,136,0xb992ef);
-        box(x+6,y+6,38,23,0x30253f);snprintf(info,sizeof(info),"TF%d",gallery.shots[index].card);
+        if(selected==index) outline(x-2,y-2,200,136,0x485765);
+        box(x+6,y+6,38,23,0x191f27);snprintf(info,sizeof(info),"TF%d",gallery.shots[index].card);
         text(x+9,y+7,info,small,C_TEXT,34);
         text(x,y+135,shot_name(&gallery.shots[index]),small,selected==index?C_ACCENT:C_TEXT,196);
     }
-    box(18,389,604,1,0x655279);
+    box(18,389,604,1,0x485765);
     snprintf(info,sizeof(info),"TF%d · %d / %u",gallery.shots[selected].card,selected+1,(unsigned)gallery.count);
     text(18,397,info,small,C_ACCENT,150);text(172,397,shot_name(&gallery.shots[selected]),small,C_TEXT,450);
     if(gallery.limited) text(18,422,"Достигнут лимит сканирования; часть файлов не показана.",small,C_RED,604);

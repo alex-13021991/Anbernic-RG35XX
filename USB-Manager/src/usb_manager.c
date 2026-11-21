@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
+#include <sys/reboot.h>
 #include <errno.h>
 static UsbChoice saved,choice;
 static char live_mtp[40],live_adb[40],live_host[40],cable[100];
@@ -32,6 +33,62 @@ static int process_running(const char *name) {
     }
     closedir(d); return result;
 }
+/* Linux power_supply is the physical VBUS signal; 0 means the cable is gone. */
+static int usb_power_online(void) {
+    DIR *d=opendir("/sys/class/power_supply"); if(!d) return -1;
+    struct dirent *e; char p[350],type[40],online[16]; int seen=0;
+    while((e=readdir(d))) {
+        if(e->d_name[0]=='.') continue;
+        snprintf(p,sizeof(p),"/sys/class/power_supply/%s/type",e->d_name);
+        int is_usb=read_line(p,type,sizeof(type)) && !strncmp(type,"USB",3);
+        if(!is_usb && strncmp(e->d_name,"usb",3)) continue;
+        snprintf(p,sizeof(p),"/sys/class/power_supply/%s/online",e->d_name);
+        if(!read_line(p,online,sizeof(online))) continue;
+        seen=1;
+        if(!strcmp(online,"1")) { closedir(d); return 1; }
+    }
+    closedir(d); return seen?0:-1;
+}
+static int connection_state(const char *s) {
+    if(!strcmp(s,"DISCONNECTED") || !strcmp(s,"NOT ATTACHED") || !strcmp(s,"not attached")) return 1;
+    if(!strcmp(s,"CONFIGURED") || !strcmp(s,"configured")) return 3;
+    if(!strcmp(s,"CONNECTED") || !strcmp(s,"connected") || !strcmp(s,"ATTACHED") ||
+       !strcmp(s,"attached") || !strcmp(s,"POWERED") || !strcmp(s,"powered") ||
+       !strcmp(s,"DEFAULT") || !strcmp(s,"default") || !strcmp(s,"ADDRESSED") ||
+       !strcmp(s,"addressed") || !strcmp(s,"SUSPENDED") || !strcmp(s,"suspended")) return 2;
+    return 0;
+}
+static int gadget_state(void) {
+    DIR *d=opendir("/sys/class/udc"); struct dirent *e; char p[350],s[64]; int state=0;
+    if(d) {
+        while((e=readdir(d))) {
+            if(e->d_name[0]=='.') continue;
+            snprintf(p,sizeof(p),"/sys/class/udc/%s/state",e->d_name);
+            if(read_line(p,s,sizeof(s))) {
+                int value=connection_state(s);
+                if(value==1) { state=1; break; }
+                if(value>state) state=value;
+            }
+        }
+        closedir(d);
+        if(state) return state;
+    }
+    return read_line("/sys/class/android_usb/android0/state",s,sizeof(s))?connection_state(s):0;
+}
+static int usb_role(void) {
+    DIR *d=opendir("/sys/class/usb_role"); struct dirent *e; char p[350],role[32]; int result=-1;
+    if(!d) return -1;
+    while((e=readdir(d))) {
+        if(e->d_name[0]=='.') continue;
+        snprintf(p,sizeof(p),"/sys/class/usb_role/%s/role",e->d_name);
+        if(read_line(p,role,sizeof(role))) {
+            if(!strcmp(role,"host")) { result=1; break; }
+            if(!strcmp(role,"none")) result=0;
+            else if(!strcmp(role,"device") && result<0) result=2;
+        }
+    }
+    closedir(d); return result;
+}
 static int function_has(const char *s,const char *token) {
     size_t n=strlen(token);
     while(*s) { while(*s==' '||*s==',') ++s; const char *e=s; while(*e && *e!=',' && *e!=' ') ++e;
@@ -39,7 +96,7 @@ static int function_has(const char *s,const char *token) {
     } return 0;
 }
 static void status(void) {
-    char enabled[32],functions[128],state[64];
+    char enabled[32],functions[128]; int role;
     strcpy(live_mtp,"неизвестно"); strcpy(live_adb,"неизвестно"); strcpy(live_host,"неизвестно");
     strcpy(cable,"USB-подключение: неизвестно");
     if(read_line("/sys/class/android_usb/android0/enable",enabled,sizeof(enabled))) {
@@ -51,22 +108,21 @@ static void status(void) {
             strcpy(live_host,"выкл.");
         }
     }
-    /* Do not infer active host mode from waitForUSB, which is a next-boot flag.
-       Kernels exposing a USB role allow a positive live determination. */
-    DIR *d=opendir("/sys/class/usb_role"); struct dirent *e;
-    if(d) { while((e=readdir(d))) { char p[350],role[32];
-        if(e->d_name[0]=='.') continue;
-        snprintf(p,sizeof(p),"/sys/class/usb_role/%s/role",e->d_name);
-        if(read_line(p,role,sizeof(role))) {
-            if(!strcmp(role,"host")) {strcpy(live_host,"вкл.");strcpy(live_mtp,"выкл.");strcpy(live_adb,"выкл.");break;}
-            if(!strcmp(role,"device")||!strcmp(role,"none")) strcpy(live_host,"выкл.");
-        }
-    } closedir(d); }
-    if(read_line("/sys/class/android_usb/android0/state",state,sizeof(state))) {
-        if(!strcmp(state,"CONFIGURED")) strcpy(cable,"USB: соединение с ПК настроено");
-        else if(!strcmp(state,"CONNECTED")) strcpy(cable,"USB: подключён к ПК");
-        else if(!strcmp(state,"DISCONNECTED")) strcpy(cable,"USB: ПК не подключён");
-    }
+    /* Do not infer active host mode from waitForUSB, a next-boot flag. */
+    role=usb_role();
+    if(role==1) {strcpy(live_host,"вкл.");strcpy(live_mtp,"выкл.");strcpy(live_adb,"выкл.");}
+    else if(role==0||role==2) strcpy(live_host,"выкл.");
+
+    /* android0/state may stay CONFIGURED after VBUS disappears. Prefer the
+       physical USB power signal, then the UDC state, then the legacy node. */
+    int power=usb_power_online(),link=gadget_state();
+    if(role==1) strcpy(cable,"USB: режим хоста активен");
+    else if(power==0||(power<0&&role==0)) strcpy(cable,"USB: кабель не подключён");
+    else if(link==3) strcpy(cable,"USB: соединение с ПК настроено");
+    else if(link==2) strcpy(cable,"USB: кабель подключён");
+    else if(power==1) strcpy(cable,"USB: кабель есть, ПК не определён");
+    else if(link==1) strcpy(cable,"USB: ПК не подключён");
+    else strcpy(cable,"USB: статус не определён");
 }
 static void draw(void) {
     char line[180]; page("USB МЕНЕДЖЕР",NULL);
@@ -79,14 +135,14 @@ static void draw(void) {
     const char *labels[]={"MTP — передача файлов","ADB — отладка","USB-ввод — геймпады"};
     int checked[]={choice.mtp,choice.adb,choice.host};
     for(int i=0;i<3;i++) {
-        int y=177+i*43; if(selected==i) box(16,y,608,39,0xb992ef);
-        outline(28,y+9,21,21,selected==i?0x191422:0xb992ef);
-        if(checked[i]) box(33,y+14,11,11,selected==i?0x191422:0xb992ef);
-        text(62,y+6,labels[i],font,selected==i?C_DARK:C_TEXT,546);
+        int y=177+i*43; if(selected==i) box(16,y,608,39,0x305265);
+        outline(28,y+9,21,21,selected==i?0xc0cbd4:0x485765);
+        if(checked[i]) box(33,y+14,11,11,selected==i?0xc0cbd4:0x9aa6b0);
+        text(62,y+6,labels[i],font,C_TEXT,546);
     }
     text(18,314,"MTP и ADB могут работать вместе.",small,C_MUTED,604);
     text(18,337,"USB-ввод работает только отдельно.",small,C_MUTED,604);
-    const char *note=!usb_equal(saved,choice)?"Есть несохранённые изменения":applied?"Сохранено. Применится после перезагрузки.":"Галочки — сохранённые настройки загрузки.";
+    const char *note=!usb_equal(saved,choice)?"Есть несохранённые изменения":applied?"Сохранено. Новый режим включится после перезагрузки.":"Галочки — настройки следующей загрузки.";
     text(18,366,note,small,C_ACCENT,604);
     button(18,396,170,"Применить",selected==3,0);
     button(200,396,248,"Перезагрузить",selected==4,0);
@@ -105,7 +161,7 @@ static void apply(void) {
     if(usb_equal(saved,choice) && access("/misc/.usb-manager-backup",F_OK)!=0) {
         message("Настройки не изменены","Перезагрузка — отдельной кнопкой.","Текущий статус показан вверху."); return;
     }
-    text(18,366,"Сохранение...",small,C_ACCENT,604); flip();
+    box(14,361,612,27,0x12161c); text(18,366,"Сохранение...",small,C_ACCENT,604); flip();
     int rc=run_apply(); saved=read_saved();
     if(rc==0 && usb_equal(saved,choice)) {
         applied=1; message("Настройки сохранены","Для применения нужна перезагрузка.","Можно выйти и перезагрузить позже.");
@@ -140,11 +196,11 @@ int main(void) {
             else if(access("/misc/.usb-manager-backup/ready",F_OK)==0) message("Запись была прервана","Сначала нажмите «Применить» для отката.","Проверьте восстановленные настройки.");
             else if(!usb_equal(saved,choice)) message("Есть изменения","Сначала нажмите «Применить».","Перезагрузка не сохраняет галочки.");
             else if(confirm("Перезагрузить консоль?","Завершите передачу файлов на ПК.","Будут применены сохранённые настройки.","Перезагрузить")) {
-                sync(); pid_t p=fork();
-                if(p==0) {execl("/sbin/reboot","reboot",(char*)NULL);execl("/system/bin/reboot","reboot",(char*)NULL);_exit(127);}
-                int s=0; if(p>0) {while(waitpid(p,&s,0)<0 && errno==EINTR) {} }
-                if(p<0 || !WIFEXITED(s) || WEXITSTATUS(s)!=0) message("Ошибка перезагрузки","Не удалось выполнить reboot.","Выйдите и перезагрузите вручную.");
-                else done=1;
+                sync();
+                if(reboot(RB_AUTOBOOT)<0) {
+                    char detail[100]; snprintf(detail,sizeof(detail),"%s",strerror(errno));
+                    message("Не удалось перезагрузить",detail,"Проверьте права и перезагрузите вручную.");
+                } else done=1;
             }
         }
         SDL_Delay(25);

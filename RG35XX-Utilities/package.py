@@ -3,7 +3,7 @@ from PIL import Image,ImageDraw,ImageFont
 import zipfile,shutil,hashlib,subprocess,os
 base=Path(__file__).resolve().parent
 out=base.parent/'outputs';out.mkdir(exist_ok=True)
-prior=base.parents[2]/'2026-11-17/dingux-commander-dingux-commander-rg35xx-garlicos/work'
+prior=base.parents[1]/'dingux-commander-dingux-commander-rg35xx-garlicos/work'
 resource=prior/'original/DinguxCommander'
 stage=base/'package';stage.mkdir(exist_ok=True)
 fontpath=resource/'res/FreeSans.ttf'
@@ -11,8 +11,8 @@ def write(p,text):
     p.parent.mkdir(parents=True,exist_ok=True);p.write_text(text,encoding='utf8',newline='\n')
 def icon(name,kind):
     im=Image.new('RGBA',(640,480),(0,0,0,0));d=ImageDraw.Draw(im)
-    fg=(239,235,247);accent=(191,151,245);muted=(190,181,205)
-    d.rounded_rectangle((326,54,624,426),radius=20,fill=(25,20,34,248),outline=(101,82,121),width=2)
+    fg=(204,204,204);accent=(150,170,188);muted=(150,160,170)
+    d.rounded_rectangle((326,54,624,426),radius=20,fill=(18,22,28,248),outline=(72,87,101),width=2)
     f=lambda size:ImageFont.truetype(str(fontpath),size)
     if kind=='usb':
         d.line([(470,178),(470,92)],fill=accent,width=7)
@@ -47,8 +47,9 @@ shutil.copy2(base/'README_RU.txt',out/'Установка.txt')
 licenses=stage/'licenses';licenses.mkdir(exist_ok=True)
 shutil.copy2(base/'LICENSE.txt',licenses/'MIT-Applications.txt')
 shutil.copy2(base/'font-license.txt',licenses/'FreeSans.txt')
-with zipfile.ZipFile('D:/Temp/Toggle_ADB_USB_MTP_RU_GarlicOS_1.4.9.zip') as supplied:
-    (licenses/'GPL-3.0.txt').write_bytes(supplied.read('LICENSE_MTP_SERVER.txt'))
+if not (licenses/'GPL-3.0.txt').is_file():
+    with zipfile.ZipFile('D:/Temp/Toggle_ADB_USB_MTP_RU_GarlicOS_1.4.9.zip') as supplied:
+        (licenses/'GPL-3.0.txt').write_bytes(supplied.read('LICENSE_MTP_SERVER.txt'))
 notice='''Third-party resources (unchanged)
 
 FreeSans.ttf: GNU FreeFont 2012, GPL-3.0-or-later with font exception.
@@ -78,14 +79,14 @@ def add(z,p,name):
 for name,folder in [('USB Manager','USBManager'),('Screenshot Viewer','ScreenshotViewer')]:
     files=[stage/'APPS'/f'{name}.sh',stage/'APPS/Imgs'/f'{name}.png',*sorted((stage/'APPS'/folder).rglob('*')),*sorted(licenses.glob('*'))]
     files=[p for p in files if p.is_file()]
-    filename=folder+'-0.1.0-GarlicOS-1.4.9.zip'
+    filename=folder+'-0.1.1-GarlicOS-1.4.9.zip'
     with zipfile.ZipFile(out/filename,'w') as z:
         for p in files:add(z,p,p.relative_to(stage).as_posix())
         add(z,base/'README_RU.txt','README_RU.txt');add(z,base/'TESTS.txt','TESTS.txt')
         hashes='\n'.join(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.relative_to(stage).as_posix() for p in files)+'\n'
         z.writestr('SHA256.txt',hashes)
     print(filename,(out/filename).stat().st_size)
-with zipfile.ZipFile(out/'RG35XX-Utilities-0.1.0-source.zip','w') as z:
+with zipfile.ZipFile(out/'RG35XX-Utilities-0.1.1-source.zip','w') as z:
     for p in sorted((base/'src').glob('*')):add(z,p,'src/'+p.name)
     for p in sorted((base/'tests').glob('*')):
         if p.is_file():add(z,p,'tests/'+p.name)
@@ -95,7 +96,7 @@ with zipfile.ZipFile(out/'RG35XX-Utilities-0.1.0-source.zip','w') as z:
     add(z,fontpath,'resources/FreeSans.ttf');add(z,resource/'j2k.so','resources/j2k.so')
     for p in (stage/'APPS/Imgs').glob('*.png'):add(z,p,'resources/Imgs/'+p.name)
 # Verify final archives, directory layout, LF, hashes, and PNG alpha/size.
-for archive in out.glob('*0.1.0*.zip'):
+for archive in out.glob('*0.1.1*.zip'):
     with zipfile.ZipFile(archive) as z:
         assert z.testzip() is None
         for name in z.namelist():

@@ -8,8 +8,15 @@ SDL_Surface *screen;
 TTF_Font *font, *small, *title;
 volatile sig_atomic_t stopping;
 static unsigned char held[SDLK_LAST];
-const SDL_Color C_TEXT={239,235,247,0}, C_MUTED={188,179,204,0},
- C_ACCENT={191,151,245,0}, C_DARK={25,20,34,0}, C_RED={245,117,134,0};
+/* Match Dingux Commander's dark slate palette. */
+const SDL_Color C_TEXT={204,204,204,0}, C_MUTED={150,160,170,0},
+ C_ACCENT={150,170,188,0}, C_DARK={18,22,28,0}, C_RED={190,105,105,0};
+#define C_BG 0x12161c
+#define C_BG_ALT 0x191f27
+#define C_BAR 0x485765
+#define C_CURSOR 0x305265
+#define C_BORDER 0x485765
+#define C_ERROR 0x803737
 static void stop_handler(int sig) { (void)sig; stopping=1; }
 int ui_init(const char *caption) {
     putenv("SDL_NOMOUSE=1");
@@ -63,17 +70,20 @@ void center(int x,int y,int w,const char *s,TTF_Font *f,SDL_Color c) {
     text(x+(tw<w?(w-tw)/2:0),y,s,f,c,w);
 }
 void page(const char *heading,const char *right) {
-    box(0,0,640,480,0x191422); text(18,12,heading,title,C_TEXT,470);
-    if(right) text(495,20,right,small,C_MUTED,130);
-    box(18,52,604,2,0x655279);
+    box(0,0,640,480,C_BG);
+    for(int y=54,row=0;y<445;y+=36,row++)
+        box(0,y,640,y+36>445?445-y:36,(row&1)?C_BG_ALT:C_BG);
+    box(0,0,640,52,C_BAR); text(18,12,heading,title,C_TEXT,470);
+    if(right) text(495,20,right,small,C_TEXT,130);
+    box(18,52,604,2,C_BORDER);
 }
 void footer(const char *hint) {
-    box(0,445,640,35,0x211b2c); text(18,452,hint,small,C_MUTED,604);
+    box(0,445,640,35,C_BAR); text(18,452,hint,small,C_TEXT,604);
 }
 void button(int x,int y,int w,const char *s,int selected,int danger) {
-    box(x,y,w,42,selected?0xb992ef:0x292133);
-    if(!selected) outline(x,y,w,42,danger?0xb9566c:0x665478);
-    center(x+4,y+8,w-8,s,font,selected?C_DARK:(danger?C_RED:C_TEXT));
+    box(x,y,w,42,selected?C_CURSOR:C_BG_ALT);
+    if(!selected) outline(x,y,w,42,danger?C_ERROR:C_BORDER);
+    center(x+4,y+8,w-8,s,font,selected?C_TEXT:(danger?C_RED:C_TEXT));
 }
 void flip(void) { SDL_Flip(screen); }
 int key(void) {
@@ -118,7 +128,7 @@ static void release_keys(void) {
 int confirm(const char *heading,const char *l1,const char *l2,const char *yes) {
     int chosen=0,result=0,done=0; release_keys();
     while(!done) {
-        box(42,120,556,246,0x30253f); outline(42,120,556,246,0xb992ef);
+        box(42,120,556,246,C_BG_ALT); outline(42,120,556,246,C_BORDER);
         center(58,139,524,heading,title,C_TEXT);
         center(62,189,516,l1,font,C_TEXT);
         center(62,225,516,l2,small,C_MUTED);
@@ -134,7 +144,7 @@ int confirm(const char *heading,const char *l1,const char *l2,const char *yes) {
 void message(const char *heading,const char *l1,const char *l2) {
     release_keys();
     for(;;) {
-        box(32,137,576,206,0x30253f); outline(32,137,576,206,0xb992ef);
+        box(32,137,576,206,C_BG_ALT); outline(32,137,576,206,C_BORDER);
         center(45,154,550,heading,title,C_TEXT);
         center(45,204,550,l1,font,C_TEXT); center(45,239,550,l2,small,C_MUTED);
         center(45,292,550,"A / B — закрыть",small,C_ACCENT); flip();

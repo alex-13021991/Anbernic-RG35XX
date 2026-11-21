@@ -4,7 +4,7 @@ Pass --sdk /path/to/miyoo --zig /path/to/zig; defaults reuse local toolchain.
 from pathlib import Path
 import argparse, os, subprocess, sys
 base=Path(__file__).resolve().parent
-prior=base.parents[2]/'2026-11-17/dingux-commander-dingux-commander-rg35xx-garlicos/work'
+prior=base.parents[1]/'dingux-commander-dingux-commander-rg35xx-garlicos/work'
 p=argparse.ArgumentParser()
 p.add_argument('--sdk',type=Path,default=prior/'toolchain/miyoo')
 p.add_argument('--zig',type=Path,default=prior/'zig/zig-windows-x86_64-0.13.0/zig.exe')
