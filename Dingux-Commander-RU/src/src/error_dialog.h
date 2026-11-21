@@ -26,8 +26,8 @@ inline ErrorDialogResult ErrorDialog(
     };
     if (!is_last)
     {
-        add_option("Continue", ErrorDialogResult::CONTINUE);
-        add_option("Abort", ErrorDialogResult::ABORT);
+        add_option("Продолжить", ErrorDialogResult::CONTINUE);
+        add_option("Прервать", ErrorDialogResult::ABORT);
     }
     else
     {

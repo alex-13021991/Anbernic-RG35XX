@@ -189,7 +189,7 @@ void CKeyboard::init()
             *surface, text_field_rect_.x, text_field_rect_.y);
 
         // OK / Cancel buttons:
-        renderButton(*surface, cancel_rect_, "Cancel");
+        renderButton(*surface, cancel_rect_, "Отмена");
         renderButton(*surface, ok_rect_, "OK");
     }
 
@@ -203,7 +203,7 @@ void CKeyboard::init()
     cancel_highlighted_.reset(
         SDL_utils::createSurface(cancel_rect_.w, cancel_rect_.h));
     renderButtonHighlighted(*cancel_highlighted_,
-        SDL_Rect { 0, 0, cancel_rect_.w, cancel_rect_.h }, "Cancel");
+        SDL_Rect { 0, 0, cancel_rect_.w, cancel_rect_.h }, "Отмена");
     ok_highlighted_.reset(SDL_utils::createSurface(ok_rect_.w, ok_rect_.h));
     renderButtonHighlighted(
         *ok_highlighted_, SDL_Rect { 0, 0, ok_rect_.w, ok_rect_.h }, "OK");
@@ -213,7 +213,7 @@ void CKeyboard::init()
             SDL_MapRGB(surfaces_[0]->format, COLOR_TITLE_BG)));
     SDL_utils::applyText(screen.w / 2, 1, footer_.get(), m_fonts,
 //        "A-Input B-Cancel START-OK L/R⇧ Y← X␣", Globals::g_colorTextTitle,
-        "A-Input B-Cancel START-OK L/R↑ Y← X␣", Globals::g_colorTextTitle,
+        "A-Ввод B-Отмена START-OK L/R↑ Y← X␣", Globals::g_colorTextTitle,
         { COLOR_TITLE_BG }, SDL_utils::T_TEXT_ALIGN_CENTER);
 }
 

@@ -1,0 +1,39 @@
+Build notes (2026-11-17)
+
+Source is from the user-supplied DinguxCommanderDark.zip/src.zip.
+Only UI text and UTF-8-safe construction of operation error titles changed.
+Keyboard keys and theme constants are unchanged. The application still
+passes through OS/utility error details without translation.
+
+Native Linux build: cd src && make
+Requires original Miyoo uClibc GCC toolchain installed at /opt/miyoo,
+with SDL 1.2, SDL_image and SDL_ttf, as specified in the original Makefile.
+Do not substitute the newer musl toolchain.
+
+This binary was built on Windows using Zig 0.13.0 (Clang 18 + LLD) with
+the uClibc headers, startup objects, GCC 7.3 libstdc++ and shared libraries
+from steward-fu's Miyoo toolchain. No Zig libc/libc++ was linked in.
+All 18 translation units compiled and linked successfully.
+
+Windows reproduction directory layout (relative to build.py):
+  src/Makefile, src/src/*.cpp (included)
+  zig/zig-windows-x86_64-0.13.0/zig.exe (download separately)
+  toolchain/miyoo/... (download separately)
+Extract the toolchain with 7-Zip; if symlinks become short text files,
+run python fix_toolchain_links.py, then python build.py.
+The output is build/DinguxCommander. Cache directories stay beside script.
+The compiler and toolchain are not redistributed in these ZIP files.
+
+Downloads used:
+https://ziglang.org/download/0.13.0/zig-windows-x86_64-0.13.0.zip
+https://github.com/steward-fu/website/releases/download/miyoo/env_toolchain.7z
+Background:
+https://github.com/nfriedly/miyoo-toolchain (legacy :steward is uClibc)
+https://github.com/edemirkan/rg35xx-toolchain
+
+Validation: ARM32 EABI5 soft-float ABI, interpreter and dependency names
+match the original ELF. Strong undefined symbols resolve against the
+downloaded toolchain libraries. Cyrillic glyph coverage and approximate
+label widths checked with the supplied FreeSans.ttf at 18px. Layout and
+theme preservation checked against original source. No hardware execution
+or runtime file-operation test has been performed.

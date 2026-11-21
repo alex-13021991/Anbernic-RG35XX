@@ -54,7 +54,7 @@ TextViewer::TextViewer(std::string filename)
     std::ifstream input_file(filename_.c_str());
     if (!input_file.is_open()) {
         ErrorDialog(
-            "Unable to open file", filename_ + "\n" + std::strerror(errno));
+            "Не удалось открыть файл", filename_ + "\n" + std::strerror(errno));
         m_retVal = -1;
         return;
     }
@@ -328,12 +328,12 @@ bool TextViewer::editLine()
         title.resize(len);
         title.append("...");
     }
-    title = "Line " + std::to_string(current_line_ + 1) + ": " + title;
+    title = "Строка " + std::to_string(current_line_ + 1) + ": " + title;
     CDialog dialog { title };
-    dialog.addLabel("Saved automatically");
+    dialog.addLabel("Сохраняется автоматически");
     std::vector<std::function<bool()>> handlers;
 
-    dialog.addOption("Edit line");
+    dialog.addOption("Изменить строку");
     handlers.push_back([&]() {
         CKeyboard keyboard(lines_[current_line_], /*support_tabs=*/true);
         if (keyboard.execute() == 1
@@ -346,7 +346,7 @@ bool TextViewer::editLine()
         return true;
     });
 
-    dialog.addOption("Duplicate line");
+    dialog.addOption("Дублировать строку");
     handlers.push_back([&]() {
         lines_.emplace(
             lines_.begin() + current_line_ + 1, lines_[current_line_]);
@@ -358,7 +358,7 @@ bool TextViewer::editLine()
         return true;
     });
 
-    dialog.addOption("Insert line before");
+    dialog.addOption("Вставить строку выше");
     handlers.push_back([&]() {
         lines_.emplace(lines_.begin() + current_line_);
         lines_for_display_.emplace(lines_for_display_.begin() + current_line_);
@@ -368,7 +368,7 @@ bool TextViewer::editLine()
         return true;
     });
 
-    dialog.addOption("Insert line after");
+    dialog.addOption("Вставить строку ниже");
     handlers.push_back([&]() {
         lines_.emplace(lines_.begin() + current_line_ + 1);
         lines_for_display_.emplace(
@@ -378,7 +378,7 @@ bool TextViewer::editLine()
         return true;
     });
 
-    dialog.addOption("Remove line");
+    dialog.addOption("Удалить строку");
     handlers.push_back([&]() {
         lines_.erase(lines_.begin() + current_line_);
         lines_for_display_.erase(lines_for_display_.begin() + current_line_);

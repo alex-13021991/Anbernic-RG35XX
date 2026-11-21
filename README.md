@@ -9,3 +9,4 @@
 | [Screenshot Viewer](Screenshot-Viewer/) | Просмотр и удаление скриншотов с TF1 и TF2. | [0.1.4](https://github.com/alex-13021991/Anbernic-RG35XX/releases/tag/screenshot-viewer-v0.1.4) |
 | [MTP Server](MTP-Server/) | Сервер передачи файлов по USB для USB Manager и Toggle MTP. | [2026.11.18](https://github.com/alex-13021991/Anbernic-RG35XX/releases/tag/mtp-server-2026.11.18) |
 | [Переключатели USB](USB-Toggles/) | Три пункта APPS для ADB, USB-ввода и MTP. | [2026.11.18](https://github.com/alex-13021991/Anbernic-RG35XX/releases/tag/usb-toggles-2026.11.18) |
+| [Dingux Commander Dark RU](Dingux-Commander-RU/) | Двухпанельный файловый менеджер с русским интерфейсом. | [17.11.2026 · тестовая](https://github.com/alex-13021991/Anbernic-RG35XX/releases/tag/dingux-commander-dark-ru-2026.11.17) |

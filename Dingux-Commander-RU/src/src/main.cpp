@@ -136,7 +136,7 @@ int main(int argc, char *argv[])
     CCommander l_commander(l_path, r_path);
 
     if (!exec_error.empty())
-        ErrorDialog("Exec error", exec_error);
+        ErrorDialog("Ошибка запуска", exec_error);
 
     // Main loop
     l_commander.execute();

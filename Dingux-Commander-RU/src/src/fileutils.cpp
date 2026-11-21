@@ -205,8 +205,8 @@ enum class OverwriteDialogResult
 OverwriteDialogResult OverwriteDialog(
     const std::string &dest_filename, bool is_last)
 {
-    CDialog dlg{"File already exists:"};
-    dlg.addLabel("Overwrite " + dest_filename + "?");
+    CDialog dlg{"Файл уже существует:"};
+    dlg.addLabel("Перезаписать " + dest_filename + "?");
     std::vector<OverwriteDialogResult> options {
         OverwriteDialogResult::CANCEL
     };
@@ -214,10 +214,10 @@ OverwriteDialogResult OverwriteDialog(
         dlg.addOption(text);
         options.push_back(value);
     };
-    add_option("Yes", OverwriteDialogResult::YES);
-    if (!is_last) add_option("Yes to all", OverwriteDialogResult::YES_TO_ALL);
-    add_option("No", OverwriteDialogResult::NO);
-    if (!is_last) add_option("Cancel", OverwriteDialogResult::CANCEL);
+    add_option("Да", OverwriteDialogResult::YES);
+    if (!is_last) add_option("Да для всех", OverwriteDialogResult::YES_TO_ALL);
+    add_option("Нет", OverwriteDialogResult::NO);
+    if (!is_last) add_option("Отмена", OverwriteDialogResult::CANCEL);
     dlg.init();
     auto res = options[dlg.execute()];
     SDL_utils::renderAll();
@@ -267,9 +267,8 @@ void ActionToDir(const std::vector<std::string> &inputs,
         const auto action_result = action_fn(input, dest_filename);
         if (!action_result.ok())
         {
-            std::string title = "Error ";
-            title += AsciiToLower(action_desc[0]);
-            title.append(action_desc.data() + 1, action_desc.size() - 1);
+            std::string title = "Ошибка: ";
+            title.append(action_desc);
             switch (ErrorDialog(title, action_result.message(), is_last))
             {
                 case ErrorDialogResult::CONTINUE: continue;
@@ -300,7 +299,7 @@ std::string getSelfExecutionPath()
 void File_utils::copyFile(
     const std::vector<std::string> &srcs, const std::string &dest_dir)
 {
-    ActionToDir(srcs, dest_dir, "Copying",
+    ActionToDir(srcs, dest_dir, "Копирование",
         [&](const std::string &src, const std::string & /*dest*/) {
             return Run("cp", "-f", "-r", src, dest_dir);
         });
@@ -310,7 +309,7 @@ void File_utils::copyFile(
 void File_utils::moveFile(
     const std::vector<std::string> &srcs, const std::string &dest_dir)
 {
-    ActionToDir(srcs, dest_dir, "Moving",
+    ActionToDir(srcs, dest_dir, "Перемещение",
         [&](const std::string &src, const std::string &dest) {
             return Run("mv", "-f", src, dest_dir);
         });
@@ -320,7 +319,7 @@ void File_utils::moveFile(
 void File_utils::symlinkFile(
     const std::vector<std::string> &srcs, const std::string &dest_dir)
 {
-    ActionToDir(srcs, dest_dir, "Creating symlink",
+    ActionToDir(srcs, dest_dir, "Создание ссылки",
         [&](const std::string &src, const std::string &dest) {
             return Run("ln", "-sf", src, dest_dir);
         });
@@ -338,7 +337,7 @@ void File_utils::renameFile(
         if (result.ok()) result = Run("sync", p_file2);
         if (!result.ok())
         {
-            ErrorDialog("Error renaming " + getFileName(p_file1) + " to "
+            ErrorDialog("Ошибка переименования " + getFileName(p_file1) + " в "
                     + getFileName(p_file2),
                 result.message());
         }
@@ -352,7 +351,7 @@ void File_utils::removeFile(const std::vector<std::string> &p_files)
         auto result = Run("rm", "-rf", path);
         if (!result.ok())
         {
-            switch (ErrorDialog("Error removing " + path, result.message(),
+            switch (ErrorDialog("Ошибка удаления " + path, result.message(),
                 /*is_last=*/&path == &p_files.back()))
             {
                 case ErrorDialogResult::CONTINUE: continue;
@@ -366,7 +365,7 @@ void File_utils::makeDirectory(const std::string &p_file)
 {
     auto result = Run("mkdir", "-p", p_file);
     if (result.ok()) result = Run("sync", p_file);
-    if (!result.ok()) ErrorDialog("Error creating " + p_file, result.message());
+    if (!result.ok()) ErrorDialog("Ошибка создания " + p_file, result.message());
 }
 
 const bool File_utils::fileExists(const std::string &p_path)
@@ -438,7 +437,7 @@ const unsigned long int File_utils::getFileSize(const std::string &p_file)
 {
     struct ::stat l_stat;
     if (::stat(p_file.c_str(), &l_stat) == -1)
-        ErrorDialog("Error getting file size", std::strerror(errno));
+        ErrorDialog("Не удалось узнать размер файла", std::strerror(errno));
     return l_stat.st_size;
 }
 
@@ -454,7 +453,7 @@ void File_utils::diskInfo(const std::string &p_mount)
         FILE *l_pipe = popen(l_command.c_str(), "r");
         if (l_pipe == NULL)
         {
-            ErrorDialog("Error getting disk info", std::strerror(errno));
+            ErrorDialog("Не удалось получить сведения о диске", std::strerror(errno));
             return;
         }
         while (
@@ -471,17 +470,17 @@ void File_utils::diskInfo(const std::string &p_mount)
             std::istream_iterator<std::string>(),
             std::back_inserter<std::vector<std::string>>(l_tokens));
         // Display dialog
-        CDialog l_dialog{"Disk information:"};
-        l_dialog.addLabel("Size: " + l_tokens[1]);
-        l_dialog.addLabel("Used: " + l_tokens[2] + " (" + l_tokens[4] + ")");
-        l_dialog.addLabel("Available: " + l_tokens[3]);
+        CDialog l_dialog{"Сведения о диске:"};
+        l_dialog.addLabel("Объём: " + l_tokens[1]);
+        l_dialog.addLabel("Занято: " + l_tokens[2] + " (" + l_tokens[4] + ")");
+        l_dialog.addLabel("Свободно: " + l_tokens[3]);
         l_dialog.addOption("OK");
         l_dialog.init();
         l_dialog.execute();
     }
     else
         ErrorDialog(
-            "Error getting disk info", p_mount + " not found");
+            "Не удалось получить сведения о диске", p_mount + " не найдено");
 }
 
 void File_utils::diskUsed(const std::vector<std::string> &p_files)
@@ -499,7 +498,7 @@ void File_utils::diskUsed(const std::vector<std::string> &p_files)
         FILE *l_pipe = popen(l_command.c_str(), "r");
         if (l_pipe == NULL)
         {
-            ErrorDialog("Error getting file size", std::strerror(errno));
+            ErrorDialog("Не удалось узнать размер файла", std::strerror(errno));
             return;
         }
         while (fgets(l_buffer, sizeof(l_buffer), l_pipe) != NULL) { }
@@ -517,10 +516,10 @@ void File_utils::diskUsed(const std::vector<std::string> &p_files)
     }
     // Dialog
     std::ostringstream l_stream;
-    CDialog l_dialog{"Disk used:"};
-    l_stream << p_files.size() << " items selected";
+    CDialog l_dialog{"Занято на диске:"};
+    l_stream << p_files.size() << " объектов выбрано";
     l_dialog.addLabel(l_stream.str());
-    l_dialog.addLabel("Disk used: " + l_line);
+    l_dialog.addLabel("Занято на диске: " + l_line);
     l_dialog.addOption("OK");
     l_dialog.init();
     l_dialog.execute();
