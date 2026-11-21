@@ -1,15 +1,33 @@
-ARM32 EABI5 soft-float ABI, dynamic loader and shared-library dependency names: match original
-Original symbol versions: {'libgcc_s.so.1': ['GCC_3.5'], 'libstdc++.so.6': ['CXXABI_1.3', 'CXXABI_1.3.5', 'CXXABI_1.3.9', 'GLIBCXX_3.4', 'GLIBCXX_3.4.14', 'GLIBCXX_3.4.18', 'GLIBCXX_3.4.21', 'GLIBCXX_3.4.9']}
-New symbol versions: {'libstdc++.so.6': ['CXXABI_1.3', 'CXXABI_1.3.5', 'GLIBCXX_3.4', 'GLIBCXX_3.4.11', 'GLIBCXX_3.4.14', 'GLIBCXX_3.4.18', 'GLIBCXX_3.4.21', 'GLIBCXX_3.4.9']}
-New imports: ['_ZNKSt5ctypeIcE13_M_widen_initEv', '_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE4findEPKcjj', '_ZNSo3putEc', '_ZNSo5flushEv', '_ZNSt13basic_filebufIcSt11char_traitsIcEED2Ev', '_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE10_M_replaceEjjPKcj', '_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE14_M_replace_auxEjjjc', '_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6resizeEjc', '_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE7replaceEjjPKcj', '_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE8_M_eraseEjj', '_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_appendEPKcj', '_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEC2EPKcRKS3_', '_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEED2Ev', '_ZNSt7__cxx1119basic_istringstreamIcSt11char_traitsIcESaIcEED2Ev', '_ZNSt7__cxx1119basic_ostringstreamIcSt11char_traitsIcESaIcEED2Ev', '_ZNSt8ios_baseD2Ev', '_ZNSt9basic_iosIcSt11char_traitsIcEE5clearESt12_Ios_Iostate', '_ZSt16__ostream_insertIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_PKS3_i', '_ZSt16__throw_bad_castv', '_ZSt4cerr', '_ZSt4cout', '_ZSt7getlineIcSt11char_traitsIcESaIcEERSt13basic_istreamIT_T0_ES7_RNSt7__cxx1112basic_stringIS4_S5_T1_EES4_', '_ZSt9terminatev', '_ZTTNSt7__cxx1119basic_istringstreamIcSt11char_traitsIcESaIcEEE', '_ZTTNSt7__cxx1119basic_ostringstreamIcSt11char_traitsIcESaIcEEE', '_ZTTSt14basic_ofstreamIcSt11char_traitsIcEE', '_ZTVN10__cxxabiv117__class_type_infoE', '_ZTVN10__cxxabiv119__pointer_type_infoE', '_ZTVN10__cxxabiv120__function_type_infoE', '_ZTVN10__cxxabiv120__si_class_type_infoE', '__cxa_call_unexpected', 'bcmp', 'raise', 'stderr']
-Dynamic tags: ['DT_NEEDED', 'DT_NEEDED', 'DT_NEEDED', 'DT_NEEDED', 'DT_NEEDED', 'DT_NEEDED', 'DT_DEBUG', 'DT_REL', 'DT_RELSZ', 'DT_RELENT', 'DT_JMPREL', 'DT_PLTRELSZ', 'DT_PLTGOT', 'DT_PLTREL', 'DT_SYMTAB', 'DT_SYMENT', 'DT_STRTAB', 'DT_STRSZ', 'DT_GNU_HASH', 'DT_HASH', 'DT_INIT_ARRAY', 'DT_INIT_ARRAYSZ', 'DT_FINI_ARRAY', 'DT_FINI_ARRAYSZ', 'DT_INIT', 'DT_FINI', 'DT_VERSYM', 'DT_VERNEED', 'DT_VERNEEDNUM', 'DT_NULL']
-ARM attributes:
-  <ARMAttribute (TAG_CPU_NAME): 'ARM926EJ-S'>
-  <ARMAttribute (TAG_CPU_ARCH): 5>
-  <ARMAttribute (TAG_ARM_ISA_USE): 1>
-  <ARMAttribute (TAG_THUMB_ISA_USE): 1>
-Font covers every translated character, including Cyrillic
-Widest translated label: (345.0, 'A-Ввод B-Отмена START-OK L/R↑ Y← X␣')
-Keyboard layout and theme unchanged
-Russian menu strings found in built ELF
-NOT TESTED: execution on RG35XX/GarlicOS hardware
+Dingux Commander Dark RU · 2026-11-21
+Source commit: 1369747851c53073297d4c67b898360974dff499
+Clean build with the original Makefile, 18 objects.
+Verified ELF loader, soft-float ABI, Russian menu string and dynamic library names.
+2026-11-21: the owner confirmed this binary works on an original RG35XX running GarlicOS 1.4.9.
+
+arm-miyoo-linux-uclibcgnueabi-g++.br_real (Buildroot 2018.02.9) 7.3.0
+Ubuntu 24.04.5 LTS, WSL 5.15.167.4-microsoft-standard-WSL2
+ ELF 32-bit LSB executable, ARM, EABI5 version 1 (SYSV), dynamically linked, interpreter /lib/ld-uClibc.so.0, stripped
+Attribute Section: aeabi
+File Attributes
+  Tag_CPU_name: "7-A"
+  Tag_CPU_arch: v7
+  Tag_CPU_arch_profile: Application
+  Tag_ARM_ISA_use: Yes
+  Tag_THUMB_ISA_use: Thumb-2
+  Tag_FP_arch: VFPv3
+  Tag_Advanced_SIMD_arch: NEONv1
+  Tag_ABI_PCS_wchar_t: 4
+  Tag_ABI_FP_denormal: Needed
+  Tag_ABI_FP_exceptions: Needed
+  Tag_ABI_FP_number_model: IEEE 754
+  Tag_ABI_align_needed: 8-byte
+  Tag_ABI_enum_size: int
+  Tag_CPU_unaligned_access: v6
+  Tag_FP_HP_extension: Allowed
+libSDL-1.2.so.0
+libSDL_image-1.2.so.0
+libSDL_ttf-2.0.so.0
+libc.so.0
+libgcc_s.so.1
+libstdc++.so.6
+0d49e0403708aad7a2ec9e2843a03dc09403e747e8ba113832b71f7c4d6a525f

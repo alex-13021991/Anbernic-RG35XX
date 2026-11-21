@@ -1,39 +1,20 @@
-Build notes (2026-11-17)
+Dingux Commander Dark RU · 21.11.2026
 
-Source is from the user-supplied DinguxCommanderDark.zip/src.zip.
-Only UI text and UTF-8-safe construction of operation error titles changed.
-Keyboard keys and theme constants are unchanged. The application still
-passes through OS/utility error details without translation.
+Выпуск собран штатным Makefile в WSL 2 с Ubuntu 24.04.5 LTS. Использован Miyoo GCC 7.3.0 с uClibc. Владелец подтвердил работу этого бинарника на оригинальной RG35XX под GarlicOS 1.4.9.
 
-Native Linux build: cd src && make
-Requires original Miyoo uClibc GCC toolchain installed at /opt/miyoo,
-with SDL 1.2, SDL_image and SDL_ttf, as specified in the original Makefile.
-Do not substitute the newer musl toolchain.
-
-This binary was built on Windows using Zig 0.13.0 (Clang 18 + LLD) with
-the uClibc headers, startup objects, GCC 7.3 libstdc++ and shared libraries
-from steward-fu's Miyoo toolchain. No Zig libc/libc++ was linked in.
-All 18 translation units compiled and linked successfully.
-
-Windows reproduction directory layout (relative to build.py):
-  src/Makefile, src/src/*.cpp (included)
-  zig/zig-windows-x86_64-0.13.0/zig.exe (download separately)
-  toolchain/miyoo/... (download separately)
-Extract the toolchain with 7-Zip; if symlinks become short text files,
-run python fix_toolchain_links.py, then python build.py.
-The output is build/DinguxCommander. Cache directories stay beside script.
-The compiler and toolchain are not redistributed in these ZIP files.
-
-Downloads used:
-https://ziglang.org/download/0.13.0/zig-windows-x86_64-0.13.0.zip
+Для сборки распакуйте оригинальный Miyoo SDK в файловую систему Linux с сохранением символических ссылок. Архив SDK:
 https://github.com/steward-fu/website/releases/download/miyoo/env_toolchain.7z
-Background:
-https://github.com/nfriedly/miyoo-toolchain (legacy :steward is uClibc)
-https://github.com/edemirkan/rg35xx-toolchain
+SHA-256 env_toolchain.7z: 70d4ea2d477f931eedbc7e049cddd672098a92c7b9e5672bd90b65143db73c70
 
-Validation: ARM32 EABI5 soft-float ABI, interpreter and dependency names
-match the original ELF. Strong undefined symbols resolve against the
-downloaded toolchain libraries. Cyrillic glyph coverage and approximate
-label widths checked with the supplied FreeSans.ttf at 18px. Layout and
-theme preservation checked against original source. No hardware execution
-or runtime file-operation test has been performed.
+Из каталога Dingux-Commander-RU укажите путь к распакованному каталогу miyoo и выполните:
+
+    sdk=/opt/miyoo
+    export LD_LIBRARY_PATH="$sdk/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+    cxx="$sdk/bin/arm-miyoo-linux-uclibcgnueabi-g++"
+    sys=$("$cxx" -print-sysroot)
+    make -C src -j4 CXX="$cxx" "SDL_CONFIG=$sys/usr/bin/sdl-config --prefix=$sys/usr"
+
+Исполняемый файл: src/output/DinguxCommander
+SHA-256 выпущенного ARM-бинарника: 0d49e0403708aad7a2ec9e2843a03dc09403e747e8ba113832b71f7c4d6a525f
+
+Сведения о загрузчике, зависимостях и проверке приведены в verification.txt. Скрипт build.py относится к прежней сборке с Zig для Windows.
