@@ -1,0 +1,76 @@
+diff --git a/src/main.cpp b/src/main.cpp
+index 50d2306..bfd88af 100644
+--- a/src/main.cpp
++++ b/src/main.cpp
+@@ -523,6 +523,38 @@ int loop (LoopType type, PaletteEffect* paletteEffects, bool effectsStopped) {
+ 	// Process system events
+ 	while (SDL_PollEvent(&event)) {
+ 
++#if defined(OJ_SDL1)
++        // RG35XX GarlicOS 1.4.9
++        if (event.type == SDL_JOYBUTTONDOWN ||
++            event.type == SDL_JOYBUTTONUP) {
++
++            const bool pressed =
++                (event.type == SDL_JOYBUTTONDOWN);
++            const Uint8 button = event.jbutton.button;
++
++            // MENU: graceful exit
++            if (button == 9) {
++                if (pressed) return E_QUIT;
++                continue;
++            }
++
++            // SELECT: game menu
++            // START: pause
++            if (button == 7 || button == 8) {
++                SDL_Event key = {};
++                key.type = pressed ? SDL_KEYDOWN : SDL_KEYUP;
++                key.key.state = pressed ?
++                    SDL_PRESSED : SDL_RELEASED;
++                key.key.keysym.sym = (button == 7) ?
++                    SDLK_ESCAPE : SDLK_p;
++
++                int keyRet = controls.update(&key, type);
++                if (keyRet != E_NONE) return keyRet;
++                continue;
++            }
++        }
++#endif
++
+ 		if (event.type == SDL_EVENT_QUIT) return E_QUIT;
+ 
+ 		ret = controls.update(&event, type);
+@@ -531,6 +563,20 @@ int loop (LoopType type, PaletteEffect* paletteEffects, bool effectsStopped) {
+ 
+ 		video.update(&event);
+ 
++#if OJ_SDL1
++        // RG35XX: аппаратные кнопки громкости
++        if (event.type == SDL_JOYBUTTONDOWN) {
++            if (event.jbutton.button == 10) {
++                setMusicVolume(getMusicVolume() + 4);
++                setSoundVolume(getSoundVolume() + 4);
++            }
++            else if (event.jbutton.button == 11) {
++                setMusicVolume(getMusicVolume() - 4);
++                setSoundVolume(getSoundVolume() - 4);
++            }
++        }
++#endif
++
+ #if defined(WIZ) || defined(GP2X)
+ 		if ((event.type == SDL_JOYBUTTONDOWN) ||
+ 			(event.type == SDL_JOYBUTTONUP)) {
+@@ -646,6 +692,11 @@ int main(int argc, char *argv[]) {
+ 	}
+ 	logSDLVersion();
+ 
++#if OJ_SDL1
++    // RG35XX: скрыть курсор мыши
++    SDL_ShowCursor(SDL_DISABLE);
++#endif
++
+ 	// Load configuration and establish a window
+ 
+ 	try {
