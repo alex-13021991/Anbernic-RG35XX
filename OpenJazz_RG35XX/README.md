@@ -1,54 +1,79 @@
-# OpenJazz RG35XX — GarlicOS 1.4.9
 
-Модифицированный OpenJazz для оригинального
-Anbernic RG35XX (не Plus, не H700).
+# ![OJ Logo][logo] OpenJazz
 
-Основа: [AlisterT/OpenJazz](https://github.com/AlisterT/openjazz),
-коммит `f2aed10` (Implement game saving).
+## About
 
-## Возможности
+*OpenJazz* is a free, open-source version of the classic Jazz Jackrabbit™ games.
 
-| Кнопка | Действие |
-|---|---|
-| MENU | Выход в GarlicOS |
-| SELECT | Игровое меню |
-| START | Пауза |
-| VOL+ / VOL- | Изменение громкости |
+OpenJazz can be compiled on a wide range of operating systems, including
+Windows, macOS, GNU/Linux and BSD flavors. Also ports are available for some
+homebrew platforms, consoles and handhelds. See [Platforms][platforms] for
+details. You can even play it [inside your web browser][web port].
 
-Дополнительно:
-- Сохранение и загрузка игры
-- Сохранение настроек при выходе
-- Скрытый курсор мыши
-- SDL 1.2, ARM/uClibc
+To play, you will need the files from one of the original games.
 
-## Сборка
+With the demise of DOS-based operating systems, it has become necessary to use
+emulators to play old DOS games. Jazz Jackrabbit™ deserves more - and would
+benefit greatly from new features.
 
-Требуется MiyooCFW ARM/uClibc SDK.
+*Jazz Jackrabbit™* is a PC platform game. Produced by Epic Games (then Epic
+MegaGames), it was first released in 1994. The fast-paced, colourful gameplay
+proved popular, and the game won PC Format's Arcade Game of the Year award.
+Many people still fondly recall the shareware versions.
 
-```bash
-cmake -S . -B build-rg35xx -G Ninja \
-  -DCMAKE_TOOLCHAIN_FILE=/opt/miyoo/share/buildroot/toolchainfile.cmake \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DLEGACY_SDL=ON \
-  -DPORTABLE=ON \
-  -DNETWORK=OFF \
-  -DSCALE=OFF \
-  -DENABLE_JJ2=OFF
+## History
 
-cmake --build build-rg35xx -j 8
-```
+OpenJazz was started on the 23rd of August, 2005, by AJ Thomson.
+Academic pressures put the project on hold until late December 2005.
+The source code was released on the 25th, and the first version with a degree
+of playability was released on the 15th of January, 2006.
+Since then, a variety of ports have been released by other people. A lot of
+them have since been merged back into the main code base.
+More academic pressures meant there were few updates over the following few
+years, but in 2009 a multiplayer version was released.
+After that, more eye candy features have made it into the engine. These are 
+features not directly involving the levels. However, without bonus levels, movie
+playback and the menu plasma effect, OpenJazz would be incomplete.
+In 2014, the project has been moved to GitHub to allow others to easily propose
+changes, report bugs and also fix them. This also lead to more ports being made. 
+Nowadays, development has slowed down. The original author is involved with
+other projects and there is no clear roadmap for new features, besides striving
+for a "true" and faithful Jazz Jackrabbit™ adaption on all possible platforms.
+GitHub user [carstene1ns][carstene1ns] has cleaned and restructured parts of
+the code base, integrated some ports and tries to resolve bug reports.
 
-Исходники с внесёнными изменениями и ARM-бинарник
-доступны в разделе Releases.
+## License
 
-## Авторы и лицензия
+OpenJazz is available under the GNU General Public License version 2 or later,
+see [licenses.txt][licenses] for additional information and other included
+software.
 
-Оригинальный движок: AJ Thomson, Carsten Teibes
-и другие участники OpenJazz.
+## [Controls](res/unix/OpenJazz.6.adoc#ingame-controls) (See manual)
 
-Порт для RG35XX основан на оригинальном OpenJazz
-и доработках для GarlicOS.
+## [Building][building]
 
-Лицензия движка: GPL-2.0-or-later.
+## Running [![Play in Browser][web badge]][web port]
 
-Файлы оригинальной игры Jazz Jackrabbit не включены.
+Execute `OpenJazz`. Depending on the platform and compile time options, the
+data files are expected to be under different paths (alongside the executable
+works always as a general fallback). You can also specifiy a game folder as
+command line argument.
+
+## Authors
+
+Original author: AJ Thomson (alister_j_t at yahoo dot com)
+Current Maintainer: Carsten Teibes (dev f4ke de)
+
+[Additional Authors](res/unix/OpenJazz.6.adoc#authors) (See manual)
+
+## Homepage
+
+http://alister.eu/jazz/oj/
+
+[logo]: res/unix/OpenJazz.png
+[carstene1ns]: https://github.com/carstene1ns
+[platforms]: doc/PLATFORMS.md
+[licenses]: doc/licenses.txt
+[building]: doc/BUILDING.md
+[web badge]: https://img.shields.io/badge/Play_in-Browser-blue?style=plastic
+[web port]: https://openjazz.github.io
