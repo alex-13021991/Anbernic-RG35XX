@@ -1,23 +1,13 @@
-Compiled ui
-Compiled gallery
-Compiled usb_manager
-Compiled screenshot_viewer
-Linked usb-manager
-Linked screenshot-viewer
-PASS: 25 saved-mode transitions; invalid args; missing MTP/hook; mount failures; rollback with original contents; lock; interrupted-save recovery; post-commit cleanup
-C:\Users\admin\Documents\Codex\2026-11-19\usb-mode-manager-rg35xx-garlicos-1\work\tests\fixtures
-scan count=5 errors=0
-PASS: 15 USB transitions; UTF-8; navigation; 2-card scan, dedup, PNG limits, changed-file refusal, exact-file delete, empty cards
-(node:15688) ExperimentalWarning: WASI is an experimental feature and might change at any time
-(Use `node --trace-warnings ...` to show where the warning was created)
-usb-manager ARM32 EABI5 softfp; uClibc loader; imports resolved: libSDL-1.2.so.0, libSDL_image-1.2.so.0, libSDL_ttf-2.0.so.0, libc.so.0, libgcc_s.so.1
-screenshot-viewer ARM32 EABI5 softfp; uClibc loader; imports resolved: libSDL-1.2.so.0, libSDL_image-1.2.so.0, libSDL_ttf-2.0.so.0, libc.so.0, libgcc_s.so.1
-Font license metadata: ['Copyright 2002, 2003, 2005, 2008, 2009, 2010, 2012 GNU Freefont contributors.', 'This computer font is part of GNU FreeFont.  It is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.\n\nThis font is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.\n\nYou should have received a copy of the GNU General Public License along with this font.  If not, see \n    http://www.gnu.org/licenses/\n\nAs a special exception, if you create a document which uses this font, and embed this font or unaltered portions of this font into the document, this font does not by itself cause the resulting document to be covered by the GNU General Public License. This exception does not however invalidate any other reasons why the document might be covered by the GNU General Public License. If you modify this font, you may extend this exception to your version of the font, but you are not obligated to do so. If you do not wish to do so, delete this exception statement from your version.', 'http://www.gnu.org/copyleft/gpl.html']
-Cyrillic/control glyph coverage: PASS
-Footer width 505.0 ↑↓←→ Сдвиг   L/R Листать   Y Вписать   X Удалить   B Назад
-Footer width 411.0 ←→ Листать   Y Размер 1:1   X Удалить   B Назад
-Footer width 507.0 A Открыть   X Удалить   Y Обновить   L/R Страница   B Выход
-Footer width 303.0 ↑↓ Выбор   A Подтвердить   B Выход
-PASS: ELF compatibility, symbols, font coverage, control hint widths
-PASS: launcher/helper shell syntax, LF and no BOM.
-NOT TESTED: target hardware, SDL framebuffer, actual mount/reboot, live USB role.
+Screenshot Viewer и USB Manager 0.1.5 · 22 ноября 2026
+
+Сборка в WSL 2, Ubuntu 24.04, Miyoo GCC 7.3.0, ARMv7 Cortex-A9, uClibc.
+У обеих программ проверены ELF32 EABI5, softfp, загрузчик /lib/ld-uClibc.so.0
+и разрешение обязательных импортов в библиотеках Miyoo SDK.
+Оба ELF из установочных ZIP запущены под QEMU ARM с SDL dummy, FreeSans и j2k.so.
+После инициализации интерфейса приложения штатно обработали SIGTERM.
+Проверены структура ZIP, исполняемые права, синтаксис sh, LF и контрольные суммы.
+
+USB Manager. Сценарий сохранения прошёл 25 переходов между режимами на временных
+файлах в WSL. Проверены откат при ошибке, блокировка и восстановление после прерывания.
+Галерея и общая логика. ARM-проверки прошли для 15 переключений, UTF-8, навигации,
+поиска PNG на двух картах, одноимённых файлов и защиты изменённого файла от удаления.

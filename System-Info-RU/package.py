@@ -25,7 +25,7 @@ source={}
 for folder in ["src","resources","licenses","tests"]:
     for file in sorted((base/folder).glob("*")):
         if file.is_file(): source[file.relative_to(base).as_posix()]=file
-for name in ["build.py","package.py","verify.py","BUILD.md","README_RU.txt"]:
+for name in ["build-wsl.sh","build.py","package.py","verify.py","BUILD.md","README_RU.txt"]:
     source[name]=base/name
 def pack(name, files):
     archive=dest/name
@@ -35,7 +35,7 @@ def pack(name, files):
             executable=path.endswith((".sh",".so","/system-info"))
             if path.endswith(".sh"):
                 assert data.startswith(b"#!/bin/sh\n") and b"\r" not in data
-            info=zipfile.ZipInfo(path,(2026,11,21,0,0,0))
+            info=zipfile.ZipInfo(path,(2026,11,22,0,0,0))
             info.create_system=3
             info.external_attr=(0o100755 if executable else 0o100644)<<16
             info.compress_type=zipfile.ZIP_DEFLATED
@@ -44,6 +44,6 @@ def pack(name, files):
         assert z.testzip() is None and set(z.namelist())==set(files)
         for file,original in files.items():assert z.read(file)==original.read_bytes()
     print(archive,archive.stat().st_size)
-pack("SystemInfoRU-1.1.0-RG35XX-GarlicOS-1.4.9.zip",install)
-pack("SystemInfoRU-1.1.0-source.zip",source)
+pack("SystemInfoRU-1.1.1-RG35XX-GarlicOS-1.4.9.zip",install)
+pack("SystemInfoRU-1.1.1-source.zip",source)
 

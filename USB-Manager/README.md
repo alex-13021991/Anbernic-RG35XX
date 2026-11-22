@@ -1,9 +1,13 @@
-# USB Manager 0.1.4
+# USB Manager 0.1.5
 
 Настраивает MTP, ADB и USB-ввод. Для оригинальной RG35XX с GarlicOS 1.4.9.
 
+В версии 0.1.5 исполняемый файл пересобран в WSL 2 с Miyoo GCC 7.3.0. По сравнению с 0.1.4 его размер уменьшился с 60 824 до 17 788 байт (на 70,8%).
+
+Работа приложения проверена на оригинальной Anbernic RG35XX с GarlicOS 1.4.9.
+
 Скопируйте содержимое папки `APPS` из установочного ZIP в `Roms/APPS` на карте TF1 или TF2. Откройте приложение в меню **Консоли → APPS**.
 
-[Скачать выпуск 0.1.4](https://github.com/alex-13021991/Anbernic-RG35XX/releases/tag/usb-manager-v0.1.4) · [Общая сборка и тесты](../RG35XX-Utilities/) · [Полная инструкция](../RG35XX-Utilities/README_RU.txt)
+[Скачать выпуск 0.1.5](https://github.com/alex-13021991/Anbernic-RG35XX/releases/tag/usb-manager-v0.1.5) · [Общая сборка и тесты](../RG35XX-Utilities/) · [Полная инструкция](../RG35XX-Utilities/README_RU.txt)
 
 Для передачи файлов по MTP установите [сервер](https://github.com/alex-13021991/Anbernic-RG35XX/releases/tag/mtp-server-2026.11.18) на TF1. Режим можно включить в USB Manager или через [отдельные переключатели](https://github.com/alex-13021991/Anbernic-RG35XX/releases/tag/usb-toggles-2026.11.18).

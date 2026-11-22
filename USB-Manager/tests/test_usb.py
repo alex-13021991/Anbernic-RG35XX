@@ -5,7 +5,10 @@ root=Path(tempfile.mkdtemp(prefix='usb-fixture-',dir=base))
 root.mkdir(exist_ok=True)
 misc=root/'misc';mmc=root/'mmc';lock=root/'lock'
 for d in [misc,mmc/'CFW/autostart',mmc/'CFW/mtp']:d.mkdir(parents=True,exist_ok=True)
-shell=Path('C:/Users/admin/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/git/usr/bin/sh.exe')
+shell_path = shutil.which("sh")
+if not shell_path and os.name == "nt":
+    shell_path = "C:/Users/admin/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/git/usr/bin/sh.exe"
+shell = Path(shell_path or "/bin/sh")
 env=os.environ.copy();env['PATH']=str(shell.parent)+os.pathsep+env['PATH']
 source=(base.parent/'src/apply-usb.sh').read_text(encoding='utf8')
 for name,value in [('MISC',misc),('MMC',mmc),('LOCK',lock)]:
@@ -43,6 +46,7 @@ def run(s,expected=0,**fail):
     return result
 setstate((0,1,0));run((1,1,0),11);assert state()==(0,1,0)
 for p in [misc/'usb.sh',mmc/'CFW/autostart/mtp.sh',mmc/'CFW/mtp/run.sh',mmc/'CFW/mtp/mtp-server']:p.write_text('#!/bin/sh\n',newline='\n')
+(mmc/'CFW/mtp/mtp-server').chmod(0o755)
 run((1,1,0),11)
 (misc/'dmenu.bin').write_text('  /misc/usb.sh\n')
 valid=[(0,0,0),(1,0,0),(0,1,0),(1,1,0),(0,0,1)]

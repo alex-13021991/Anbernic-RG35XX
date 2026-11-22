@@ -1,20 +1,18 @@
-# Сборка System Info RU 1.1.0
+# Сборка System Info RU 1.1.1
 
-Цель — оригинальная Anbernic RG35XX, GarlicOS 1.4.9, ARMv7 Cortex-A9, 32-битный EABI5, вызовы soft-float, загрузчик `/lib/ld-uClibc.so.0`. Приложение динамически использует SDL 1.2, SDL_ttf и uClibc. Для ввода в комплекте тот же адаптер j2k.so, что в USB Manager 0.1.4.
+Для сборки в WSL 2 с Ubuntu нужен оригинальный [Miyoo SDK](https://github.com/steward-fu/website/releases/download/miyoo/env_toolchain.7z) и Python 3. Распакуйте SDK на файловую систему Linux с сохранением символических ссылок. SHA-256 архива `env_toolchain.7z` — `70d4ea2d477f931eedbc7e049cddd672098a92c7b9e5672bd90b65143db73c70`.
 
-## Сборка и упаковка
+Сборка использует GCC 7.3.0, Cortex-A9, ARMv7-A, softfp и загрузчик `/lib/ld-uClibc.so.0`. Ключи `-Os` и `-flto` оптимизируют размер, компоновщик удаляет неиспользуемые секции и отладочные символы.
 
-Нужны Python 3.8+, Zig 0.13.0 и оригинальный Miyoo SDK с uClibc и GCC 7.3.0. Параметр `--sdk` указывает на каталог, содержащий `arm-miyoo-linux-uclibcgnueabi/sysroot`. При распаковке SDK сохраните цели символических ссылок. Заголовки SDL и стартовые объекты берутся из SDK. Для компиляции используется вход Clang `zig -cc1`, для линковки — `zig ld.lld`.
+В каталоге `System-Info-RU` или в корне распакованных исходников выполните команды.
 
 ```sh
-python build.py --sdk /opt/miyoo --zig /opt/zig/zig
-python verify.py --sdk /opt/miyoo
-python package.py --out dist
+sh build-wsl.sh /opt/miyoo
+python3 verify.py --sdk /opt/miyoo
+python3 package.py --out dist
 ```
 
-В Windows передайте пути к каталогу SDK и к zig.exe. Команды выполняются из корня распакованных исходников. Готовый ELF появляется в build/system-info. Последняя команда собирает оба ZIP и сверяет каждую запись с исходным файлом.
-
-Инструменты доступны у авторов [Zig](https://ziglang.org/download/0.13.0/) и [архива Miyoo SDK](https://github.com/steward-fu/website/releases/download/miyoo/env_toolchain.7z).
+Готовый бинарник появится в `build/system-info`, установочный архив и исходники — в `dist`. Для прежнего варианта сборки Windows с Zig 0.13 в исходниках сохранён `build.py`.
 
 ## Проверка подсчёта и управления
 
