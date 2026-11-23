@@ -1,0 +1,15 @@
+Third-party resources (unchanged)
+
+FreeSans.ttf: GNU FreeFont 2012, GPL-3.0-or-later with font exception.
+Copyright and exception: licenses/FreeSans.txt; full GPL: licenses/GPL-3.0.txt.
+Upstream font sources: https://ftp.gnu.org/gnu/freefont/freefont-src-20120503.tar.gz
+Homepage: https://www.gnu.org/software/freefont/
+This is the user's existing font from DinguxCommander/res/FreeSans.ttf.
+
+j2k.so: unchanged input adapter from the user's existing DinguxCommander.
+Original attribution/license is retained by that supplied component; it is
+not newly authored or covered by the MIT license for these applications.
+Provenance: local user DinguxCommander package, RG35XX GarlicOS build.
+Its separate source/license was not present in the supplied resource folder.
+
+System dependencies: SDL 1.2, SDL_ttf and uClibc.

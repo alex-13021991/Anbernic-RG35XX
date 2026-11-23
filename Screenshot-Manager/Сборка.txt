@@ -1,0 +1,29 @@
+Сборка Screenshot Manager 0.1.0 для оригинальной RG35XX с GarlicOS 1.4.9
+
+Понадобятся Python 3.8 или новее, Zig 0.13.0 и Miyoo uClibc SDK с файлами
+GCC 7.3.0. В Ubuntu распакуйте инструменты в файловую систему Linux,
+сохраняя символические ссылки SDK.
+
+Zig 0.13.0 для Ubuntu x86_64
+https://ziglang.org/download/0.13.0/zig-linux-x86_64-0.13.0.tar.xz
+SHA-256  d45312e61ebcc48032b77bc4cf7fd6915c11fa16e4aad116b66c9468211230ea
+
+Miyoo SDK
+https://github.com/steward-fu/website/releases/download/miyoo/env_toolchain.7z
+SHA-256  70d4ea2d477f931eedbc7e049cddd672098a92c7b9e5672bd90b65143db73c70
+
+Откройте каталог с build.py в репозитории или в распакованном архиве
+исходников. Укажите каталог miyoo из SDK и исполняемый файл zig.
+
+python3 build.py --sdk /path/to/miyoo --zig /path/to/zig
+
+Сценарий компилирует src/main.c, src/ui.c и src/daemon.c. Результат
+сборки — один исполняемый файл build/manager.
+
+Для проверки сборки сравните его с файлом из готового установочного ZIP.
+Из каталога с build.py выполните команды, подставив путь к архиву.
+
+unzip -p /path/to/ScreenshotManager-0.1.0-GarlicOS-1.4.9.zip Roms/APPS/ScreenshotManager/manager | cmp build/manager -
+
+Готовый установочный архив содержит скрипт запуска, менеджер, демон,
+адаптер ввода, шрифт, обложку, лицензии и инструкцию по установке.
