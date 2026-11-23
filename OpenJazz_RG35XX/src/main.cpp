@@ -224,6 +224,12 @@ void startUp (const char *argv0, int pathCount, char *paths[]) {
 
 	// Load settings from config file
 	config = setup.load();
+#ifdef OJ_RG35XX
+	// SELECT supplies Escape. Drop the duplicate L1 binding in defaults and v7 configs.
+	constexpr int l1Button = 5;
+	if (controls.getButton(C_ESCAPE) == l1Button)
+		controls.setButton(C_ESCAPE, -1);
+#endif
 	if (!config.valid) {
 
 		// Invalid config - apply defaults
@@ -523,7 +529,7 @@ int loop (LoopType type, PaletteEffect* paletteEffects, bool effectsStopped) {
 	// Process system events
 	while (SDL_PollEvent(&event)) {
 
-#if defined(OJ_SDL1)
+#ifdef OJ_RG35XX
         // RG35XX GarlicOS 1.4.9
         if (event.type == SDL_JOYBUTTONDOWN ||
             event.type == SDL_JOYBUTTONUP) {
@@ -563,7 +569,7 @@ int loop (LoopType type, PaletteEffect* paletteEffects, bool effectsStopped) {
 
 		video.update(&event);
 
-#if OJ_SDL1
+#ifdef OJ_RG35XX
         // RG35XX: аппаратные кнопки громкости
         if (event.type == SDL_JOYBUTTONDOWN) {
             if (event.jbutton.button == 10) {
@@ -692,7 +698,7 @@ int main(int argc, char *argv[]) {
 	}
 	logSDLVersion();
 
-#if OJ_SDL1
+#ifdef OJ_RG35XX
     // RG35XX: скрыть курсор мыши
     SDL_ShowCursor(SDL_DISABLE);
 #endif

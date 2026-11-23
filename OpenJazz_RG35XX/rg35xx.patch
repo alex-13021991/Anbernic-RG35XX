@@ -1,12 +1,40 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index ad88819..7e776a8 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -157,6 +157,10 @@ elseif(EMSCRIPTEN)
+ elseif(LEGACY_SDL)
+ 	find_package(SDL REQUIRED)
+ 	target_compile_definitions(OpenJazz PRIVATE OJ_SDL1)
++	option(RG35XX "Enable GarlicOS controls for the original RG35XX" ON)
++	if(RG35XX)
++		target_compile_definitions(OpenJazz PRIVATE OJ_RG35XX)
++	endif()
+ 	target_include_directories(OpenJazz PRIVATE ${SDL_INCLUDE_DIR})
+ 	target_link_libraries(OpenJazz ${SDL_LIBRARY})
+ 	set(SDL_STATUS "SDL1.2 (legacy)")
 diff --git a/src/main.cpp b/src/main.cpp
-index 50d2306..bfd88af 100644
+index 50d2306..fe34d43 100644
 --- a/src/main.cpp
 +++ b/src/main.cpp
-@@ -523,6 +523,38 @@ int loop (LoopType type, PaletteEffect* paletteEffects, bool effectsStopped) {
+@@ -224,6 +224,12 @@ void startUp (const char *argv0, int pathCount, char *paths[]) {
+ 
+ 	// Load settings from config file
+ 	config = setup.load();
++#ifdef OJ_RG35XX
++	// SELECT supplies Escape. Drop the duplicate L1 binding in defaults and v7 configs.
++	constexpr int l1Button = 5;
++	if (controls.getButton(C_ESCAPE) == l1Button)
++		controls.setButton(C_ESCAPE, -1);
++#endif
+ 	if (!config.valid) {
+ 
+ 		// Invalid config - apply defaults
+@@ -523,6 +529,38 @@ int loop (LoopType type, PaletteEffect* paletteEffects, bool effectsStopped) {
  	// Process system events
  	while (SDL_PollEvent(&event)) {
  
-+#if defined(OJ_SDL1)
++#ifdef OJ_RG35XX
 +        // RG35XX GarlicOS 1.4.9
 +        if (event.type == SDL_JOYBUTTONDOWN ||
 +            event.type == SDL_JOYBUTTONUP) {
@@ -41,11 +69,11 @@ index 50d2306..bfd88af 100644
  		if (event.type == SDL_EVENT_QUIT) return E_QUIT;
  
  		ret = controls.update(&event, type);
-@@ -531,6 +563,20 @@ int loop (LoopType type, PaletteEffect* paletteEffects, bool effectsStopped) {
+@@ -531,6 +569,20 @@ int loop (LoopType type, PaletteEffect* paletteEffects, bool effectsStopped) {
  
  		video.update(&event);
  
-+#if OJ_SDL1
++#ifdef OJ_RG35XX
 +        // RG35XX: аппаратные кнопки громкости
 +        if (event.type == SDL_JOYBUTTONDOWN) {
 +            if (event.jbutton.button == 10) {
@@ -62,11 +90,11 @@ index 50d2306..bfd88af 100644
  #if defined(WIZ) || defined(GP2X)
  		if ((event.type == SDL_JOYBUTTONDOWN) ||
  			(event.type == SDL_JOYBUTTONUP)) {
-@@ -646,6 +692,11 @@ int main(int argc, char *argv[]) {
+@@ -646,6 +698,11 @@ int main(int argc, char *argv[]) {
  	}
  	logSDLVersion();
  
-+#if OJ_SDL1
++#ifdef OJ_RG35XX
 +    // RG35XX: скрыть курсор мыши
 +    SDL_ShowCursor(SDL_DISABLE);
 +#endif

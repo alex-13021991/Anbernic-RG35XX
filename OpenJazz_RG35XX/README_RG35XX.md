@@ -6,12 +6,26 @@ Anbernic RG35XX (не Plus, не H700).
 Основа: [AlisterT/OpenJazz](https://github.com/AlisterT/openjazz),
 коммит `f2aed10` (Implement game saving).
 
+## Проверенные игры и обновление до v1.1
+
+Порт проверен на оригинальной Anbernic RG35XX с GarlicOS 1.4.9 и файлами игр из GOG-релиза. Обе игры работают с этими данными. Названия установочных архивов и каталоги на карте приведены ниже.
+
+| Установочный архив | Игра | Файл движка на карте |
+|---|---|---|
+| `Jazz Jackrabbit CD.ZIP` | Jazz Jackrabbit CD | `PORTS/Jazz Jackrabbit/OpenJazz` |
+| `Jazz Holiday 95.ZIP` | Jazz Jackrabbit Holiday Hare '95 | `PORTS/Jazz Holiday 95/OpenJazz` |
+
+В v1.1 убрана вторая привязка игрового меню к L1. После обновления меню открывается по SELECT, пауза включается по START. Обработка кнопок проверена также в ARM-эмуляторе с конфигурациями обеих игр, включая сохранение назначений и повторный запуск.
+
+Для обновления установленной игры закройте её и распакуйте `OpenJazz_RG35XX_v1.1.zip` в каталог карты, содержащий папку `PORTS`. При обновлении одной игры скопируйте только её файл движка из таблицы. Сохранения и настройки остаются на карте. Для запуска нужны игровые данные из собственной копии игры.
+
 ## Возможности
 
 | Кнопка | Действие |
 |---|---|
 | MENU | Выход в GarlicOS |
 | SELECT | Игровое меню |
+| L1 | Свободна для назначения в настройках управления |
 | START | Пауза |
 | VOL+ / VOL- | Изменение громкости |
 
@@ -29,7 +43,7 @@ Anbernic RG35XX (не Plus, не H700).
 cmake -S . -B build-rg35xx -G Ninja \
   -DCMAKE_TOOLCHAIN_FILE=/opt/miyoo/share/buildroot/toolchainfile.cmake \
   -DCMAKE_BUILD_TYPE=Release \
-  -DLEGACY_SDL=ON \
+  -DLEGACY_SDL=ON -DRG35XX=ON \
   -DPORTABLE=ON \
   -DNETWORK=OFF \
   -DSCALE=OFF \
