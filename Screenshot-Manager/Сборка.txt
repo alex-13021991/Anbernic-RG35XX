@@ -18,7 +18,13 @@ SHA-256  70d4ea2d477f931eedbc7e049cddd672098a92c7b9e5672bd90b65143db73c70
 python3 build.py --sdk /path/to/miyoo --zig /path/to/zig
 
 Сценарий компилирует src/main.c, src/ui.c и src/daemon.c. Результат
-сборки — один исполняемый файл build/manager.
+сборки — один исполняемый файл build/manager. Порядок и размеры полей
+строк для версии 0.1.0 заданы в src/release_strings.h и layout.ld.
+
+Контрольный файл с оригинальной RG35XX занимает 12 588 байт.
+SHA-256  3715aad290099bacfcca84c3cb1c753f72b594bed31f253416ce085673dfde83
+
+sha256sum build/manager
 
 Для проверки сборки сравните его с файлом из готового установочного ZIP.
 Из каталога с build.py выполните команды, подставив путь к архиву.

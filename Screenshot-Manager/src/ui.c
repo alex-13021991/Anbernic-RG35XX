@@ -1,3 +1,4 @@
+#include "release_strings.h"
 #include "ui.h"
 static size_t utf8_previous(const char *s, size_t n) {
     if (!n) return 0;
@@ -28,16 +29,16 @@ int ui_init(const char *caption) {
     SDL_ShowCursor(SDL_DISABLE);
     screen=SDL_SetVideoMode(640,480,16,SDL_SWSURFACE);
     if (!screen || TTF_Init() < 0) goto fail;
-    font=TTF_OpenFont("res/FreeSans.ttf",22);
-    small=TTF_OpenFont("res/FreeSans.ttf",18);
-    title=TTF_OpenFont("res/FreeSans.ttf",28);
+    font=TTF_OpenFont(sm_font_file,22);
+    small=TTF_OpenFont(sm_font_file,18);
+    title=TTF_OpenFont(sm_font_file,28);
     if (!font || !small || !title) goto fail;
     SDL_WM_SetCaption(caption,caption);
     SDL_EnableKeyRepeat(320,100);
     signal(SIGTERM,stop_handler); signal(SIGINT,stop_handler);
     return 1;
 fail:
-    fprintf(stderr,"UI initialization: %s / %s\n",SDL_GetError(),TTF_GetError());
+    fprintf(stderr,sm_init_error,SDL_GetError(),TTF_GetError());
     ui_close(); return 0;
 }
 void ui_close(void) {

@@ -31,7 +31,7 @@ for name in sources:
     subprocess.run([zig, "-cc1", *flags, base / "src" / (name + ".c"), "-o", obj],
                    env=env, check=True)
     objects.append(obj)
-subprocess.run([zig, "ld.lld", "-s", "-m", "armelf_linux_eabi", "--sysroot=" + str(root),
+subprocess.run([zig, "ld.lld", "-s", "-T", base / "layout.ld", "-m", "armelf_linux_eabi", "--sysroot=" + str(root),
                 "-dynamic-linker", "/lib/ld-uClibc.so.0", "-o", build / "manager",
                 libs / "crt1.o", libs / "crti.o", gcc / "crtbegin.o", *objects,
                 "-L" + str(libs), "-L" + str(root / "lib"), "-L" + str(gcc),
