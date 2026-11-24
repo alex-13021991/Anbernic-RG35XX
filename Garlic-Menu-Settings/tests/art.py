@@ -1,4 +1,4 @@
-"""Rebuild the two original pixel illustrations with Pillow and the bundled font."""
+"""Rebuild the pixel-art preview cover with Pillow and the bundled font."""
 from pathlib import Path
 from math import sin
 from PIL import Image, ImageDraw, ImageFont
@@ -35,19 +35,3 @@ d.rectangle((0,222,207,287),fill="#163237")
 d.text((12,223),"NORTHERN",font=font(22),fill="#fae7bb")
 d.text((12,245),"PASSAGE",font=font(31),fill="#fff2d9")
 im.save(assets/"preview.png")
-icon=Image.new("RGBA",(640,480),(0,0,0,0))
-d=ImageDraw.Draw(icon)
-d.rounded_rectangle((334,86,614,388),radius=18,fill="#142522",outline="#9dbcaa",width=3)
-d.rounded_rectangle((355,111,593,268),radius=8,fill="#30483f")
-d.rectangle((367,129,434,247),fill="#17302c")
-for y,w in [(144,51),(164,40),(184,54),(204,35),(224,46)]:
-    d.rectangle((374,y,374+w,y+4),fill="#b1d6b8" if y==184 else "#779988")
-icon.paste(im.resize((77,107),Image.Resampling.NEAREST),(498,136))
-for x in (446,460,474):
-    d.rectangle((x,145,x+2,239),fill="#81a68e")
-for x,y in [(446,165),(460,210),(474,186)]:
-    d.rounded_rectangle((x-5,y,x+7,y+10),radius=2,fill="#d6ebb3")
-d.text((355,287),"Garlic Menu",font=font(36),fill="#f4f4d9")
-d.text((356,330),"Settings",font=font(30),fill="#a8d2ae")
-icon.save(project/"Garlic Menu Settings.png")
-

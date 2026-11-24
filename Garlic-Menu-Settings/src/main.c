@@ -9,7 +9,8 @@
 #include <unistd.h>
 
 enum { BG=0x182321, PANEL=0x24332f, EDGE=0x4b635a, INK=0xf4f6ec,
-       MUTED=0xb2c6b8, GREEN=0xaee3a8, SELECTED=0x325548, AMBER=0xf1c584 };
+       MUTED=0xb2c6b8, DIM=0x86948c, GREEN=0xaee3a8, SELECTED=0x325548, AMBER=0xf1c584 };
+enum { ALIGN_ROW, MARGIN_ROW, WIDTH_ROW, SCROLL_ROW, COVER_ROW, SIDE_ROW, RESTORE_ROW, ROW_COUNT };
 typedef enum { INTRO, INSTALLED, EDIT, FULL, CONFIRM, RESTORED, ERROR_PAGE, REPAIR } Page;
 static SDL_Surface *screen;
 static TTF_Font *title,*font,*small;
@@ -43,7 +44,7 @@ static void wrapped(int y,const char *text) {
 }
 static void page_header(const char *text) {
     box(0,0,640,480,BG); box(0,53,640,1,EDGE);
-    label(18,10,title,INK,text); label(566,19,small,GREEN,"v1.0");
+    label(18,10,title,INK,text); label(566,19,small,GREEN,"v1.0.1");
 }
 static void button(int x,int w,const char *s,int on) {
     box(x,410,w,46,on ? GREEN : PANEL);
@@ -86,19 +87,32 @@ static void modal(Page page,int yes,const char *err) {
 static const char *align_name(Alignment a) {
     return a==LEFT ? "Слева" : a==RIGHT ? "Справа" : "Центр";
 }
+static int clipping_enabled(Settings s) {
+    return s.width>0 && s.align==LEFT;
+}
+static int can_scroll(Settings s,int cover) {
+    return clipping_enabled(s) && cover;
+}
+static int next_row(int row,int step,Settings s,int cover) {
+    int next=(row+step+ROW_COUNT)%ROW_COUNT;
+    if (next==SCROLL_ROW && !can_scroll(s,cover)) next+=step;
+    return next;
+}
 static void editor(Settings s,int cover,int right,int row,unsigned *start) {
     const char *names[]={"Выравнивание","Отступ","Макс. ширина","Прокрутка","Обложка","Положение","Восстановить из копий"};
     char margin[24],width[24],timing[96];
     snprintf(margin,sizeof margin,"%d px",s.margin);
     if (s.width) snprintf(width,sizeof width,"%d px",s.width); else strcpy(width,"Без обрезки");
-    const char *values[]={align_name(s.align),margin,width,s.scroll?"Вкл":"Выкл",cover?"Вкл":"Выкл",right?"Справа":"Слева",""};
+    int scrolling=can_scroll(s,cover);
+    const char *values[]={align_name(s.align),margin,width,scrolling && s.scroll?"Вкл":"Выкл",cover?"Вкл":"Выкл",right?"Справа":"Слева",""};
     page_header("Настройки меню");
-    for (int i=0;i<7;i++) {
+    for (int i=0;i<ROW_COUNT;i++) {
         int y=65+i*46;
+        int disabled=i==SCROLL_ROW && !scrolling;
         if (i==row) { box(12,y,290,41,SELECTED); box(12,y,3,41,GREEN); }
-        label(21,y+10,small,i==6 ? AMBER : INK,names[i]);
+        label(21,y+10,small,disabled ? DIM : i==RESTORE_ROW ? AMBER : INK,names[i]);
         int w,h;
-        if (*values[i] && !TTF_SizeUTF8(small,values[i],&w,&h)) label(292-w,y+10,small,GREEN,values[i]);
+        if (*values[i] && !TTF_SizeUTF8(small,values[i],&w,&h)) label(292-w,y+10,small,disabled ? DIM : GREEN,values[i]);
     }
     label(318,69,small,MUTED,"Предпросмотр"); box(316,97,308,232,EDGE);
     preview_draw(screen,s,cover,right,0,start);
@@ -108,23 +122,25 @@ static void editor(Settings s,int cover,int right,int row,unsigned *start) {
     label(318,367,small,MUTED,timing);
     box(0,403,640,1,EDGE);
     label(18,413,small,INK,"↑↓ Выбор     ← → Значение     L1 / R1  ±10 px");
-    label(18,446,small,GREEN,"A  Сохранить       B  Выйти       X  Сброс       Y  Превью");
+    label(18,446,small,row==RESTORE_ROW ? AMBER : GREEN,
+          row==RESTORE_ROW ? "A  Восстановить…" : "A  Сохранить");
+    label(191,446,small,GREEN,"B  Выйти       X  Сброс       Y  Превью");
 }
 static int clamp(int n,int lo,int hi) { return n<lo ? lo : n>hi ? hi : n; }
 static void adjust(Settings *s,int *cover,int *right,int row,int dir,int fast) {
-    if (fast && row!=1 && row!=2) return;
+    if (fast && row!=MARGIN_ROW && row!=WIDTH_ROW) return;
     int step=dir*(fast?10:1);
     switch (row) {
-    case 0: {
+    case ALIGN_ROW: {
         const Alignment order[]={LEFT,CENTER,RIGHT};
         int i=s->align==LEFT?0:s->align==CENTER?1:2;
         s->align=order[(i+dir+3)%3]; break;
     }
-    case 1: s->margin=clamp(s->margin+step,0,320); break;
-    case 2: s->width=clamp(s->width+step,0,640); break;
-    case 3: s->scroll=!s->scroll; break;
-    case 4: *cover=!*cover; break;
-    case 5: *right=!*right; break;
+    case MARGIN_ROW: s->margin=clamp(s->margin+step,0,320); break;
+    case WIDTH_ROW: s->width=clamp(s->width+step,0,640); break;
+    case SCROLL_ROW: if (can_scroll(*s,*cover)) s->scroll=!s->scroll; break;
+    case COVER_ROW: *cover=!*cover; break;
+    case SIDE_ROW: *right=!*right; break;
     }
 }
 static SDLKey getkey(void) {
@@ -208,7 +224,7 @@ int main(void) {
         if (k==SDLK_UNKNOWN) { SDL_Delay(page==EDIT || page==FULL ? 32 : 50); continue; }
         if (page==EDIT) {
             int dir=(k==SDLK_LEFT || k==SDLK_PAGEUP) ? -1 : 1;
-            if (k==SDLK_UP || k==SDLK_DOWN) row=(row+(k==SDLK_UP?6:1))%7;
+            if (k==SDLK_UP || k==SDLK_DOWN) row=next_row(row,k==SDLK_UP ? -1 : 1,s,cover);
             else if (k==SDLK_LEFT || k==SDLK_RIGHT || k==SDLK_PAGEUP || k==SDLK_PAGEDOWN) {
                 adjust(&s,&cover,&right,row,dir,k==SDLK_PAGEUP || k==SDLK_PAGEDOWN); start=SDL_GetTicks();
             } else if (k==SDLK_x) {
@@ -216,8 +232,12 @@ int main(void) {
                 start=SDL_GetTicks();
             } else if (k==SDLK_y) page=FULL;
             else if (k==SDLK_ESCAPE) stop=1;
-            else if (k==SDLK_RETURN && row==6) { page=CONFIRM; yes=0; }
-            else if (k==SDLK_RETURN) { if (save(&s,version)) stop=1; else page=ERROR_PAGE; }
+            else if (k==SDLK_RETURN && row==RESTORE_ROW) { page=CONFIRM; yes=0; }
+            else if (k==SDLK_RETURN) {
+                /* Cover visibility is only a preview option. */
+                if (!clipping_enabled(s)) s.scroll=0;
+                if (save(&s,version)) stop=1; else page=ERROR_PAGE;
+            }
         } else if (page==FULL) {
             if (k==SDLK_ESCAPE || k==SDLK_y) page=EDIT;
         } else if (k==SDLK_RIGHT || k==SDLK_LEFT) yes=!yes;

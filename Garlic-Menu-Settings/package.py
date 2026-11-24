@@ -3,7 +3,7 @@ import argparse,hashlib,stat,zipfile
 from pathlib import Path
 
 project=Path(__file__).resolve().parent
-name="GarlicMenuSettings-1.0"
+name="GarlicMenuSettings-1.0.1"
 parser=argparse.ArgumentParser()
 parser.add_argument("out",type=Path)
 parser.add_argument("--stock",type=Path,default=project/"tests/stock")
