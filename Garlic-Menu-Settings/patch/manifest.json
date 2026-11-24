@@ -1,0 +1,9 @@
+{
+  "system": "GarlicOS 1.4.9",
+  "patch": "GarlicOS Text Clipping v0.5",
+  "stock_main_sha256": "4b3192302227875074f15d6e706abf19721aaebae90c8a9e5b37ecfb3b069157",
+  "patched_main_sha256": "b20853ebb449a85e7f27562d5d2f945a6bbcb3c3127dfa762ffc8e785e6eb988",
+  "additions_sha256": "229f596ea8ed07cddd522c0caa47df0e83e52764acc847f6878b783932c4bbbb",
+  "source_zip_sha256": "2e0447f9ba80130b36eb47a5f46009aa571f0c0be1ece4490c38053368104e62"
+}
+

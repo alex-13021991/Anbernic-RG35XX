@@ -1,0 +1,12 @@
+Garlic Menu Settings 1.0
+
+GarlicOS main / Text Clipping v0.5 is the unmodified binary from the supplied GarlicOS_Text_Clipping_v0.5.zip. GarlicOS is by Black-Seraph. The patch archive did not include a separate license or the patch source code.
+
+FreeSans.ttf is GNU FreeFont with the font exception. See FreeSans.txt and GPL-3.0.txt. Font source: https://ftp.gnu.org/gnu/freefont/freefont-src-20120503.tar.gz
+
+j2k.so is the unchanged GarlicOS input adapter used by Dingux Commander and USB Manager. The supplied adapter did not include its own source or separate license.
+
+yyjson 0.10.0 by YaoYuan, MIT. See yyjson-LICENSE. https://github.com/ibireme/yyjson/tree/0.10.0
+
+SHA-256 implementation by Brad Conte, public domain, revision cfbde48414baacf51fc7c74f275190881f037d32. The message-word load uses explicit unsigned shifts. https://github.com/B-Con/crypto-algorithms
+
