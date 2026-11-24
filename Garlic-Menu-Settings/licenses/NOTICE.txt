@@ -1,4 +1,4 @@
-Garlic Menu Settings 1.0.1
+Garlic Menu Settings 1.0.2
 
 GarlicOS main / Text Clipping v0.5 is the unmodified binary from the supplied GarlicOS_Text_Clipping_v0.5.zip. GarlicOS is by Black-Seraph. The patch archive did not include a separate license or the patch source code.
 

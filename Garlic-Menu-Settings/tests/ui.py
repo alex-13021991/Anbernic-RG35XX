@@ -66,6 +66,33 @@ with tempfile.TemporaryDirectory(prefix="gms-ui-") as tmp:
     for f in alignment[1:]:
         assert region(f,18,210,278,24)==region(zero[0],18,210,278,24)
     assert region(alignment[0],18,210,278,24)!=region(zero[0],18,210,278,24)
+    # Sample unselected text in the SDL framebuffer. Both its label and its
+    # value must switch from their active colours to the dim palette.
+    def dimmed(frame,row):
+        y=75+46*row
+        peaks=[max(region(frame,x,y,w,25)) for x,w in ((21,145),(175,118))]
+        return all(110 < peak < 170 for peak in peaks)
+    for frame,margin_dim,width_dim in zip(alignment,(False,True,False),(False,True,True)):
+        assert dimmed(frame,1)==margin_dim and dimmed(frame,2)==width_dim
+    assert region(alignment[0],18,119,276,26)==region(alignment[2],18,119,276,26)
+    assert region(alignment[1],18,165,276,26)==region(alignment[2],18,165,276,26)
+    assert dimmed(hidden[5],5) and not dimmed(hidden[0],5)
+
+    keys="dswdslswwdssb"
+    nav=run("alignment-navigation",keys,[2]*len(keys))
+    expected_rows=[0,0,4,0,0,1,1,4,1,0,0,1,2]
+    assert all(focused(frame,row) for frame,row in zip(nav,expected_rows,strict=True))
+    assert cfg.read_bytes()==baseline
+    keys="sssssqwdswdsb"
+    side=run("cover-side-memory",keys,[2]*len(keys))
+    assert focused(side[9],6) and focused(side[10],4) and focused(side[12],5)
+    assert region(side[5],18,301,276,28)!=region(side[6],18,301,276,28)
+    assert region(side[6],18,301,276,28)==region(side[12],18,301,276,28)
+    assert cfg.read_bytes()==baseline
+    keys="dsdswwwwb"
+    combined=run("center-without-cover",keys,[2]*len(keys))
+    assert all(focused(frame,row) for frame,row in zip(combined,[0,0,4,4,6,4,0,6,4],strict=True))
+    assert cfg.read_bytes()==baseline
     run("shoulders","shla",[2]*4)
     assert cfg.read_bytes()==baseline
     run("scroll-off","sssda",[2]*5)
@@ -76,10 +103,13 @@ with tempfile.TemporaryDirectory(prefix="gms-ui-") as tmp:
     assert cfg.read_bytes()==baseline
     frames2=run("side","sssssdyyb",[2]*7+[3,2])
     assert frames2[7].read_bytes()!=frames1[1].read_bytes() # Cover on left
-    run("save","dslsqsa",[2]*7)
+    run("save","slsqwwda",[2]*8)
     changed=json.loads(cfg.read_bytes())
     assert changed["text-scroll"] is False
     assert (changed["text-alignment"],changed["text-margin"],changed["text-max-width"])==("center",26,312)
+    run("save-remembered-values","qa",[2]*2)
+    assert json.loads(cfg.read_bytes())==changed|{"text-alignment":"left"}
+    run("save-center-again","da",[2]*2)
     run("cancel-reset","xb",[2,2]); assert json.loads(cfg.read_bytes())==changed
     run("reset","xa",[2,2]); assert cfg.read_bytes()==baseline
     hint=run("cancel-restore","ssssssab b".replace(" ",""),[2]*7+[4,2])

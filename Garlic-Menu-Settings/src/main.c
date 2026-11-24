@@ -44,7 +44,7 @@ static void wrapped(int y,const char *text) {
 }
 static void page_header(const char *text) {
     box(0,0,640,480,BG); box(0,53,640,1,EDGE);
-    label(18,10,title,INK,text); label(566,19,small,GREEN,"v1.0.1");
+    label(18,10,title,INK,text); label(566,19,small,GREEN,"v1.0.2");
 }
 static void button(int x,int w,const char *s,int on) {
     box(x,410,w,46,on ? GREEN : PANEL);
@@ -90,25 +90,34 @@ static const char *align_name(Alignment a) {
 static int clipping_enabled(Settings s) {
     return s.width>0 && s.align==LEFT;
 }
-static int can_scroll(Settings s,int cover) {
-    return clipping_enabled(s) && cover;
+static int row_enabled(int row,Settings s,int cover) {
+    switch (row) {
+    case MARGIN_ROW: return s.align!=CENTER;
+    case WIDTH_ROW: return s.align==LEFT;
+    case SCROLL_ROW: return clipping_enabled(s) && cover;
+    case SIDE_ROW: return cover;
+    default: return 1;
+    }
 }
 static int next_row(int row,int step,Settings s,int cover) {
-    int next=(row+step+ROW_COUNT)%ROW_COUNT;
-    if (next==SCROLL_ROW && !can_scroll(s,cover)) next+=step;
-    return next;
+    do {
+        row=(row+step+ROW_COUNT)%ROW_COUNT;
+    } while (!row_enabled(row,s,cover));
+    return row;
 }
 static void editor(Settings s,int cover,int right,int row,unsigned *start) {
     const char *names[]={"Выравнивание","Отступ","Макс. ширина","Прокрутка","Обложка","Положение","Восстановить из копий"};
     char margin[24],width[24],timing[96];
-    snprintf(margin,sizeof margin,"%d px",s.margin);
-    if (s.width) snprintf(width,sizeof width,"%d px",s.width); else strcpy(width,"Без обрезки");
-    int scrolling=can_scroll(s,cover);
+    if (row_enabled(MARGIN_ROW,s,cover)) snprintf(margin,sizeof margin,"%d px",s.margin);
+    else strcpy(margin,"Выключен");
+    if (clipping_enabled(s)) snprintf(width,sizeof width,"%d px",s.width);
+    else strcpy(width,"Без обрезки");
+    int scrolling=row_enabled(SCROLL_ROW,s,cover);
     const char *values[]={align_name(s.align),margin,width,scrolling && s.scroll?"Вкл":"Выкл",cover?"Вкл":"Выкл",right?"Справа":"Слева",""};
     page_header("Настройки меню");
     for (int i=0;i<ROW_COUNT;i++) {
         int y=65+i*46;
-        int disabled=i==SCROLL_ROW && !scrolling;
+        int disabled=!row_enabled(i,s,cover);
         if (i==row) { box(12,y,290,41,SELECTED); box(12,y,3,41,GREEN); }
         label(21,y+10,small,disabled ? DIM : i==RESTORE_ROW ? AMBER : INK,names[i]);
         int w,h;
@@ -128,6 +137,7 @@ static void editor(Settings s,int cover,int right,int row,unsigned *start) {
 }
 static int clamp(int n,int lo,int hi) { return n<lo ? lo : n>hi ? hi : n; }
 static void adjust(Settings *s,int *cover,int *right,int row,int dir,int fast) {
+    if (!row_enabled(row,*s,*cover)) return;
     if (fast && row!=MARGIN_ROW && row!=WIDTH_ROW) return;
     int step=dir*(fast?10:1);
     switch (row) {
@@ -138,7 +148,7 @@ static void adjust(Settings *s,int *cover,int *right,int row,int dir,int fast) {
     }
     case MARGIN_ROW: s->margin=clamp(s->margin+step,0,320); break;
     case WIDTH_ROW: s->width=clamp(s->width+step,0,640); break;
-    case SCROLL_ROW: if (can_scroll(*s,*cover)) s->scroll=!s->scroll; break;
+    case SCROLL_ROW: s->scroll=!s->scroll; break;
     case COVER_ROW: *cover=!*cover; break;
     case SIDE_ROW: *right=!*right; break;
     }

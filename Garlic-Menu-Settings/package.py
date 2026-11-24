@@ -3,7 +3,7 @@ import argparse,hashlib,stat,zipfile
 from pathlib import Path
 
 project=Path(__file__).resolve().parent
-name="GarlicMenuSettings-1.0.1"
+name="GarlicMenuSettings-1.0.2"
 parser=argparse.ArgumentParser()
 parser.add_argument("out",type=Path)
 parser.add_argument("--stock",type=Path,default=project/"tests/stock")
@@ -11,7 +11,7 @@ a=parser.parse_args(); a.out.mkdir(parents=True,exist_ok=True)
 stock_main=(a.stock/"main").read_bytes()
 assert hashlib.sha256(stock_main).hexdigest()=="4b3192302227875074f15d6e706abf19721aaebae90c8a9e5b37ecfb3b069157"
 def add(z,dest,path,mode=0o644):
-    info=zipfile.ZipInfo(str(dest),(2026,11,24,0,0,0))
+    info=zipfile.ZipInfo(str(dest),(2026,11,25,0,0,0))
     info.create_system=3; info.external_attr=(stat.S_IFREG|mode)<<16
     info.compress_type=zipfile.ZIP_DEFLATED
     z.writestr(info,path.read_bytes())
