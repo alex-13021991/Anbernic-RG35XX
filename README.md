@@ -4,7 +4,7 @@
 
 | Программа | Назначение | Релиз |
 | --- | --- | --- |
-| [Garlic Menu Settings](Garlic-Menu-Settings/) | Настройка выравнивания, обрезки и прокрутки названий игр с живым предпросмотром. | [1.0.1](https://github.com/alex-13021991/Anbernic-RG35XX/releases/tag/garlic-menu-settings-v1.0.1) |
+| [Garlic Menu Settings](Garlic-Menu-Settings/) | Настройка выравнивания, обрезки и прокрутки названий игр с живым предпросмотром. | [1.0.2](https://github.com/alex-13021991/Anbernic-RG35XX/releases/tag/garlic-menu-settings-v1.0.2) |
 | [System Info RU](System-Info-RU/) | Системная информация и статистика коллекции на обеих картах. | [1.1.1](https://github.com/alex-13021991/Anbernic-RG35XX/releases/tag/system-info-ru-v1.1.1) |
 | [USB Manager](USB-Manager/) | Настраивает MTP, ADB и USB-ввод. | [0.1.5](https://github.com/alex-13021991/Anbernic-RG35XX/releases/tag/usb-manager-v0.1.5) |
 | [Screenshot Manager](Screenshot-Manager/) | Включает и выключает службу съёмки экрана по L2 + R2. | [0.1.0](https://github.com/alex-13021991/Anbernic-RG35XX/releases/tag/screenshot-manager-v0.1.0) |
