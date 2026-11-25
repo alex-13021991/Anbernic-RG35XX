@@ -1,0 +1,13 @@
+Preview Editor
+
+FreeSans.ttf — GNU FreeFont с исключением для шрифтов. Авторские права и
+условия находятся в FreeSans.txt и GPL-3.0.txt. Исходный код шрифта:
+https://ftp.gnu.org/gnu/freefont/freefont-src-20120503.tar.gz
+
+j2k.so — адаптер кнопок из локального пакета Dingux Commander для GarlicOS.
+Адаптер поставлялся без отдельных исходников и текста лицензии.
+
+yyjson 0.10.0 — YaoYuan, MIT. См. yyjson-LICENSE.
+SHA-256 — Brad Conte, public domain. См. vendor/sha256/README.md в исходниках.
+SDL 1.2, SDL_ttf и uClibc предоставляются системой.
+В поставку входит libpng из SDK. Условия находятся в libpng-license.txt установочного ZIP.
