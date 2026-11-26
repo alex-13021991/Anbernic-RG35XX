@@ -1,0 +1,9 @@
+/build/
+/dist/
+/Content/
+/Saves/
+/Logs/
+/Tools/Content/
+*.core
+__pycache__/
+*.pyc

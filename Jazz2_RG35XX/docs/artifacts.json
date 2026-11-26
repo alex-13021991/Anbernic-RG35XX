@@ -1,0 +1,57 @@
+[
+  {
+    "path": "RG35XXPackage/Roms/PORTS/Imgs/Jazz Jackrabbit 2.png",
+    "bytes": 283689,
+    "sha256": "b59b035d2442bbac8aa4991fd0b07c960b815396633ee149f052d7733deb9a8c"
+  },
+  {
+    "path": "Tools/AssetPacker-linux",
+    "bytes": 1183888,
+    "sha256": "82dba08cd6fa25fbe5ca8511db93bf66ae92a13cfcabd83a431134761c4da0de"
+  },
+  {
+    "path": "Tools/AssetPacker.exe",
+    "bytes": 4607897,
+    "sha256": "d43a07a4bead0f19e4ef38916c4e5253baf310cea6bf6e822c909dfe537cfb96"
+  },
+  {
+    "path": "assets/Jazz Jackrabbit 2.png",
+    "bytes": 283689,
+    "sha256": "b59b035d2442bbac8aa4991fd0b07c960b815396633ee149f052d7733deb9a8c"
+  },
+  {
+    "path": "assets/jazz2-cover-generated.png",
+    "bytes": 1101485,
+    "sha256": "c48aa6263c3929d8530f860bd826a0688f1ce87c12e3f07ec6fc2bc57253b02b"
+  },
+  {
+    "path": "vendor/garlicos-1.4.9-build-sysroot.tar.gz",
+    "bytes": 9523226,
+    "sha256": "91231a5502215bc4bd80cfe0ec260fe6d1bab474fc312c208fd220046f5b4cfe"
+  },
+  {
+    "path": "vendor/jazz2-miyoo-3de963ee.tar.gz",
+    "bytes": 501349,
+    "sha256": "9a662e11cd4ddfc970b6904961ce34df8e21c933907b098a89f2575b37e81b12"
+  },
+  {
+    "path": "vendor/jazz2-native-b8cba705.tar.gz",
+    "bytes": 5416859,
+    "sha256": "27ec58aae7831b0bcf8df647dde62d0a103f7b8d493f54c7fd9793d0f6497058"
+  },
+  {
+    "path": "vendor/libopenmpt-0.5.34.tar.gz",
+    "bytes": 1493918,
+    "sha256": "e63ededa605a7d663e61fd983b98a0042e07cd6d613853ea27df74f03d0870bf"
+  },
+  {
+    "path": "vendor/openal-soft-1.18.1.tar.gz",
+    "bytes": 774559,
+    "sha256": "de3406a410cebd08ea1290d1f946b4473835e3143c619b16414ae70d8aae7050"
+  },
+  {
+    "path": "vendor/zlib-1.2.11.tar.gz",
+    "bytes": 607698,
+    "sha256": "c3e5e9fdd5004dcb542feda5ee4f0ff0744628baf8ed2dd5d66f8ca1197cb1a1"
+  }
+]

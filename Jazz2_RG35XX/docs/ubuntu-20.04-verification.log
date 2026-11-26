@@ -1,0 +1,22 @@
+/workspace/Anbernic-RG35XX/Jazz2_RG35XX/tests/music.c: In function 'main':
+/workspace/Anbernic-RG35XX/Jazz2_RG35XX/tests/music.c:18:5: warning: 'openmpt_module_create_from_memory' is deprecated [-Wdeprecated-declarations]
+     openmpt_module* mod = openmpt_module_create_from_memory(bytes,size,NULL,NULL,NULL);
+     ^~~~~~~~~~~~~~
+In file included from /workspace/Anbernic-RG35XX/Jazz2_RG35XX/tests/music.c:2:0:
+/build/jazz2/sysroot/usr/include/libopenmpt/libopenmpt.h:713:55: note: declared here
+ LIBOPENMPT_API LIBOPENMPT_DEPRECATED openmpt_module * openmpt_module_create_from_memory( const void * filedata, size_t filesize, openmpt_log_func logfunc, void * loguser, const openmpt_module_initial_ctl * ctls );
+                                                       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+memset: all values, alignments, sizes and guards OK
+framebuffer 16 padded=False garlic=False: pixels, input and bounds OK
+framebuffer 32 padded=False garlic=False: pixels, input and bounds OK
+framebuffer 16 padded=True garlic=False: pixels, input and bounds OK
+framebuffer 32 padded=True garlic=False: pixels, input and bounds OK
+framebuffer 32 padded=False garlic=True: pixels, input and bounds OK
+framebuffer 32 padded=True garlic=True: pixels, input and bounds OK
+J2B frames=4096 peak=12019
+OpenAL OpenAL Soft state=4114
+intro-32: кадров с разным SHA-256 65, MENU exit=0, config=370 B
+prince-01_castle1-32-garlic: кадров с разным SHA-256 61, MENU exit=0, config=369 B
+intro-16: кадров с разным SHA-256 64, MENU exit=0, config=372 B
+intro-32-padded: кадров с разным SHA-256 64, MENU exit=0, config=368 B
+unsupported framebuffer: clean exit=1

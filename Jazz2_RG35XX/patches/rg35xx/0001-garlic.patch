@@ -1,0 +1,273 @@
+diff --git a/Sources/Dependencies/parallel_hashmap/phmap_config.h b/Sources/Dependencies/parallel_hashmap/phmap_config.h
+index ed7d0e78..7a08decf 100644
+--- a/Sources/Dependencies/parallel_hashmap/phmap_config.h
++++ b/Sources/Dependencies/parallel_hashmap/phmap_config.h
+@@ -89,7 +89,7 @@
+ #endif
+ 
+ // We have chosen glibc 2.12 as the minimum
+-#if defined(__GLIBC__) && defined(__GLIBC_PREREQ)
++#if defined(__GLIBC__) && defined(__GLIBC_PREREQ) && !defined(__UCLIBC__)
+     #if !__GLIBC_PREREQ(2, 12)
+         #error "Minimum required version of glibc is 2.12."
+     #endif
+diff --git a/Sources/Main.cpp b/Sources/Main.cpp
+index 0e974229..1a7f9515 100644
+--- a/Sources/Main.cpp
++++ b/Sources/Main.cpp
+@@ -1,4 +1,4 @@
+-﻿#include "Main.h"
++#include "Main.h"
+ 
+ #if defined(DEATH_TARGET_ANDROID)
+ #	include "nCine/Backends/Android/AndroidApplication.h"
+@@ -475,7 +475,7 @@ void GameEventHandler::OnInitialize()
+ 				}
+ 			}
+ 		}
+-#		if defined(DEATH_DEBUG)
++#		if defined(DEATH_DEBUG) || defined(JAZZ2_RG35XX)
+ 		if (arg == "/level"_s && i + 1 < config.argc()) {
+ 			String levelName = config.argv(i + 1);
+ 			StringUtils::lowercaseInPlace(levelName);
+diff --git a/Sources/Shared/Core/Logger.h b/Sources/Shared/Core/Logger.h
+index b02ef6d1..1a16bc43 100644
+--- a/Sources/Shared/Core/Logger.h
++++ b/Sources/Shared/Core/Logger.h
+@@ -545,7 +545,7 @@ namespace Death { namespace Trace {
+ 				// Allocate the memory
+ 				int flags = MAP_PRIVATE | MAP_ANONYMOUS;
+ 
+-#		if defined(__linux__)
++#		if defined(MAP_HUGETLB)
+ 				if (hugesPagesEnabled) {
+ 					flags |= MAP_HUGETLB;
+ 				}
+@@ -553,7 +553,7 @@ namespace Death { namespace Trace {
+ 
+ 				void* mem = ::mmap(nullptr, totalSize, PROT_READ | PROT_WRITE, flags, -1, 0);
+ 
+-#		if defined(__linux__)
++#		if defined(MAP_HUGETLB)
+ 				if (mem == MAP_FAILED && hugesPagesEnabled) {
+ 					flags &= ~MAP_HUGETLB;
+ 					mem = ::mmap(nullptr, totalSize, PROT_READ | PROT_WRITE, flags, -1, 0);
+diff --git a/Sources/Shared/Cpu.cpp b/Sources/Shared/Cpu.cpp
+index 4f55d5e1..0424f5b2 100644
+--- a/Sources/Shared/Cpu.cpp
++++ b/Sources/Shared/Cpu.cpp
+@@ -1,6 +1,6 @@
+ #include "Cpu.h"
+ 
+-#if defined(DEATH_TARGET_ARM) && ((defined(__linux__) && !(defined(DEATH_TARGET_ANDROID) && __ANDROID_API__ < 18)) || defined(__FreeBSD__))
++#if !defined(JAZZ2_RG35XX) && defined(DEATH_TARGET_ARM) && ((defined(__linux__) && !(defined(DEATH_TARGET_ANDROID) && __ANDROID_API__ < 18)) || defined(__FreeBSD__))
+ // getauxval() for ARM on Linux, Android with API level 18+ and FreeBSD
+ #	include <sys/auxv.h>
+ #elif defined(DEATH_TARGET_ARM) && defined(DEATH_TARGET_APPLE)
+@@ -9,6 +9,9 @@
+ #endif
+ 
+ namespace Death { namespace Cpu {
++#if defined(JAZZ2_RG35XX)
++	Features runtimeFeatures() { return compiledFeatures(); }
++#endif
+ //###==##====#=====--==~--~=~- --- -- -  -  -   -
+ 
+ 	// As the types all inherit from each other, there should be no members to keep them zero-cost.
+@@ -45,7 +48,7 @@ namespace Death { namespace Cpu {
+ 	}
+ #endif
+ 
+-#if defined(DEATH_TARGET_ARM) && ((defined(__linux__) && !(defined(DEATH_TARGET_ANDROID) && __ANDROID_API__ < 18)) || defined(DEATH_TARGET_APPLE) || defined(__FreeBSD__))
++#if !defined(JAZZ2_RG35XX) && defined(DEATH_TARGET_ARM) && ((defined(__linux__) && !(defined(DEATH_TARGET_ANDROID) && __ANDROID_API__ < 18)) || defined(DEATH_TARGET_APPLE) || defined(__FreeBSD__))
+ 	Features runtimeFeatures() {
+ 		// Use getauxval() on ARM on Linux and Android
+ #	if defined(DEATH_TARGET_ARM) && defined(__linux__) && !(defined(DEATH_TARGET_ANDROID) && __ANDROID_API__ < 18)
+diff --git a/Sources/nCine/Backends/SdlGfxDevice.cpp b/Sources/nCine/Backends/SdlGfxDevice.cpp
+index 97015341..20df742b 100644
+--- a/Sources/nCine/Backends/SdlGfxDevice.cpp
++++ b/Sources/nCine/Backends/SdlGfxDevice.cpp
+@@ -1,6 +1,10 @@
+ #if defined(WITH_SDL2) || defined(WITH_SDL3)
+ 
+ #include "SdlGfxDevice.h"
++#if defined(JAZZ2_RG35XX)
++#include "RgFramebuffer.h"
++static Rg35xx::Framebuffer rgDisplay;
++#endif
+ #include "../Graphics/ITextureLoader.h"
+ 
+ #include "../Graphics/RHI/Rhi.h"
+@@ -711,6 +715,13 @@ namespace nCine::Backends
+ #if defined(WITH_RHI_SOFTWARE)
+ 	void SdlGfxDevice::initSoftwarePresent(bool hasVSync)
+ 	{
++#if defined(JAZZ2_RG35XX)
++		if (!rgDisplay.openDisplay()) std::exit(EXIT_FAILURE);
++		_drawableWidth = 640;
++		_drawableHeight = 480;
++		RHI::Device::ResizeScreenFramebuffer(JAZZ2_LOGICAL_WIDTH, JAZZ2_LOGICAL_HEIGHT);
++		return;
++#endif
+ #	if defined(WITH_SDL3)
+ 		// SDL3: SDL_CreateRenderer takes only (window, driver-name); the accelerated/vsync flags are gone.
+ 		// Passing a null driver name lets SDL pick a suitable (accelerated when available) renderer, and vsync
+@@ -769,6 +780,13 @@ namespace nCine::Backends
+ 
+ 	void SdlGfxDevice::presentSoftware()
+ 	{
++#if defined(JAZZ2_RG35XX)
++		RHI::Device::FlushSoftwareRenderer();
++		RHI::Device::EndFrame();
++		const auto frame = RHI::Device::GetScreenFramebuffer();
++		rgDisplay.present(frame.pixels, frame.width, frame.height, frame.strideBytes);
++		return;
++#endif
+ 		if (_softwareRenderer == nullptr) {
+ 			return;
+ 		}
+diff --git a/Sources/nCine/Backends/SdlInputManager.cpp b/Sources/nCine/Backends/SdlInputManager.cpp
+index 377232b6..ffcc4473 100644
+--- a/Sources/nCine/Backends/SdlInputManager.cpp
++++ b/Sources/nCine/Backends/SdlInputManager.cpp
+@@ -170,7 +170,9 @@ namespace nCine::Backends
+ 		FATAL_ASSERT_MSG(ret != 0, "SDL video subsystem is not initialized");
+ 
+ 		// Initializing the joystick subsystem
++#if !defined(JAZZ2_RG35XX)
+ 		SDL_InitSubSystem(SDL_INIT_JOYSTICK);
++#endif
+ 		// Enabling joystick event processing
+ #if defined(WITH_SDL3)
+ 		SDL_SetJoystickEventsEnabled(true);
+@@ -190,7 +192,11 @@ namespace nCine::Backends
+ #	if defined(DEATH_TRACE)
+ 			if (_sdlJoysticks[i] != nullptr) {
+ 				SDL_Joystick* joy = _sdlJoysticks[i];
+-				std::int32_t playerIndex = SDL_JoystickGetPlayerIndex(joy);
++				#if SDL_VERSION_ATLEAST(2, 0, 9)
++				const int playerIndex = SDL_JoystickGetPlayerIndex(joy);
++#else
++				const int playerIndex = -1;
++#endif
+ 				const SDL_JoystickGUID joystickGuid = SDL_JoystickGetGUID(joy);
+ 				SDL_JoystickGetGUIDString(joystickGuid, _joyGuidString, 33);
+ 				LOGI("Gamepad {} [{}] \"{}\" [{}] has been connected - {} hats, {} axes, {} buttons, {} balls",
+@@ -207,7 +213,11 @@ namespace nCine::Backends
+ #if defined(DEATH_TRACE) && !defined(DEATH_TARGET_EMSCRIPTEN)
+ 			if (_sdlJoysticks[i] != nullptr) {
+ 				SDL_Joystick* joy = _sdlJoysticks[i];
+-				std::int32_t playerIndex = SDL_JoystickGetPlayerIndex(joy);
++				#if SDL_VERSION_ATLEAST(2, 0, 9)
++				const int playerIndex = SDL_JoystickGetPlayerIndex(joy);
++#else
++				const int playerIndex = -1;
++#endif
+ 				const SDL_JoystickGUID joystickGuid = SDL_JoystickGetGUID(joy);
+ 				SDL_JoystickGetGUIDString(joystickGuid, _joyGuidString, 33);
+ 				LOGI("Gamepad {} [{}] \"{}\" [{}] has been connected - {} hats, {} axes, {} buttons, {} balls",
+@@ -355,9 +365,11 @@ namespace nCine::Backends
+ 			case SDL_FINGERDOWN:
+ 			case SDL_FINGERMOTION:
+ 			case SDL_FINGERUP:
++#if SDL_VERSION_ATLEAST(2, 0, 12)
+ 				if (!SdlGfxDevice::isMainWindow(event.tfinger.windowID)) {
+ 					return;
+ 				}
++#endif
+ 
+ #if defined(WITH_SDL3)
+ 				// SDL3: SDL_GetNumTouchFingers + SDL_GetTouchFinger(index) -> SDL_GetTouchFingers (array of pointers)
+@@ -550,6 +562,8 @@ namespace nCine::Backends
+ 			(std::uint16_t)(std::clamp(lowFreqIntensity, 0.0f, 1.0f) * UINT16_MAX),
+ 			(std::uint16_t)(std::clamp(highFreqIntensity, 0.0f, 1.0f) * UINT16_MAX),
+ 			durationMs);
++#elif !SDL_VERSION_ATLEAST(2, 0, 9)
++		return false;
+ #else
+ 		return SDL_JoystickRumble(_sdlJoysticks[joyId],
+ 			(std::uint16_t)(std::clamp(lowFreqIntensity, 0.0f, 1.0f) * UINT16_MAX),
+@@ -649,7 +663,11 @@ namespace nCine::Backends
+ 
+ #	if defined(DEATH_TRACE)
+ 			SDL_Joystick* joy = _sdlJoysticks[deviceIndex];
+-			std::int32_t playerIndex = SDL_JoystickGetPlayerIndex(joy);
++			#if SDL_VERSION_ATLEAST(2, 0, 9)
++				const int playerIndex = SDL_JoystickGetPlayerIndex(joy);
++#else
++				const int playerIndex = -1;
++#endif
+ 			const SDL_JoystickGUID joystickGuid = SDL_JoystickGetGUID(joy);
+ 			SDL_JoystickGetGUIDString(joystickGuid, _joyGuidString, 33);
+ 			LOGI("Gamepad {} [{}] \"{}\" [{}] has been connected - {} hats, {} axes, {} buttons, {} balls",
+@@ -669,7 +687,11 @@ namespace nCine::Backends
+ 
+ #	if defined(DEATH_TRACE) && !defined(DEATH_TARGET_EMSCRIPTEN)
+ 			SDL_Joystick* joy = _sdlJoysticks[deviceIndex];
+-			std::int32_t playerIndex = SDL_JoystickGetPlayerIndex(joy);
++			#if SDL_VERSION_ATLEAST(2, 0, 9)
++				const int playerIndex = SDL_JoystickGetPlayerIndex(joy);
++#else
++				const int playerIndex = -1;
++#endif
+ 			const SDL_JoystickGUID joystickGuid = SDL_JoystickGetGUID(joy);
+ 			SDL_JoystickGetGUIDString(joystickGuid, _joyGuidString, 33);
+ 			LOGI("Gamepad {} [{}] \"{}\" [{}] has been {} - {} hats, {} axes, {} buttons, {} balls",
+diff --git a/Sources/nCine/MainApplication.cpp b/Sources/nCine/MainApplication.cpp
+index e33a73ed..2fc46f95 100644
+--- a/Sources/nCine/MainApplication.cpp
++++ b/Sources/nCine/MainApplication.cpp
+@@ -1,4 +1,7 @@
+-﻿#include "MainApplication.h"
++#include "MainApplication.h"
++#if defined(JAZZ2_RG35XX)
++#include "Backends/RgInput.h"
++#endif
+ #include "IAppEventHandler.h"
+ #include "Input/IInputManager.h"
+ #include "../Main.h"
+@@ -466,7 +469,7 @@ namespace nCine
+ 		// SDL3 merged the per-controller HIDAPI rumble hints into SDL_HINT_JOYSTICK_ENHANCED_REPORTS
+ 		SDL_SetHint(SDL_HINT_JOYSTICK_ENHANCED_REPORTS, enable ? "1" : "0");
+ 		return true;
+-#elif defined(WITH_SDL2)
++#elif defined(WITH_SDL2) && defined(SDL_HINT_JOYSTICK_HIDAPI_PS4_RUMBLE)
+ 		SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI_PS4_RUMBLE, enable ? "1" : "0");
+ 		// SDL_HINT_JOYSTICK_HIDAPI_PS5_RUMBLE inherits value from SDL_HINT_JOYSTICK_HIDAPI_PS4_RUMBLE
+ 		//SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI_PS5_RUMBLE, enable ? "1" : "0");
+@@ -897,6 +900,10 @@ namespace nCine
+ 	void MainApplication::ProcessEvents()
+ 	{
+ 		ZoneScoped;
++#if defined(JAZZ2_RG35XX)
++		static Rg35xx::Input pad;
++		pad.poll(SDL_GetWindowID(SdlGfxDevice::windowHandle()));
++#endif
+ 
+ 		SDL_Event event;
+ #	if !defined(DEATH_TARGET_EMSCRIPTEN)
+@@ -917,9 +924,11 @@ namespace nCine
+ 						_shouldQuit = true;
+ 					}
+ 					break;
++#if SDL_VERSION_ATLEAST(2, 0, 9)
+ 				case SDL_DISPLAYEVENT:
+ 					_gfxDevice->updateMonitors();
+ 					break;
++#endif
+ 				case SDL_WINDOWEVENT: {
+ 					if (SdlGfxDevice::isMainWindow(event.window.windowID)) {
+ 						switch (event.window.event) {
+diff --git a/cmake/ncine_helpers.cmake b/cmake/ncine_helpers.cmake
+index feafa616..5a56d6c0 100644
+--- a/cmake/ncine_helpers.cmake
++++ b/cmake/ncine_helpers.cmake
+@@ -616,7 +616,7 @@ function(ncine_apply_compiler_options target)
+ 			target_compile_options(${target} PRIVATE $<$<CONFIG:Debug>:-fvar-tracking-assignments>)
+ 
+ 			# Extra optimizations in Release
+-			if(NINTENDO_SWITCH)
++			if(NINTENDO_SWITCH OR JAZZ2_RG35XX)
+ 				# -Ofast is crashing on Nintendo Switch for some reason, use -O2 instead
+ 				target_compile_options(${target} PRIVATE $<$<CONFIG:Release>:-O2>)
+ 			elseif(NINTENDO_WII OR NINTENDO_GAMECUBE OR PLATFORM_DREAMCAST OR PLATFORM_PSP OR PLATFORM_PS3)

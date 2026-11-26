@@ -1,0 +1,54 @@
+diff --git a/Sources/Main.cpp b/Sources/Main.cpp
+--- a/Sources/Main.cpp
++++ b/Sources/Main.cpp
+@@ -425,7 +425,7 @@
+ 	}
+ #endif
+ 
+-#if defined(WITH_THREADS) && !defined(DEATH_TARGET_EMSCRIPTEN)
++#if defined(WITH_THREADS) && !defined(DEATH_TARGET_EMSCRIPTEN) && !defined(JAZZ2_RG35XX)
+ 	// If threading support is enabled, refresh cache during intro cinematics and don't allow skip until it's completed
+ 	Thread thread([](void* arg) {
+ 		Thread::SetCurrentName("Parallel Initialization");
+diff --git a/Sources/Shared/Cpu.cpp b/Sources/Shared/Cpu.cpp
+--- a/Sources/Shared/Cpu.cpp
++++ b/Sources/Shared/Cpu.cpp
+@@ -1,4 +1,7 @@
+ #include "Cpu.h"
++#if defined(JAZZ2_RG35XX)
++#include "../nCine/Backends/RgMemset.h"
++#endif
+ 
+ #if !defined(JAZZ2_RG35XX) && defined(DEATH_TARGET_ARM) && ((defined(__linux__) && !(defined(DEATH_TARGET_ANDROID) && __ANDROID_API__ < 18)) || defined(__FreeBSD__))
+ // getauxval() for ARM on Linux, Android with API level 18+ and FreeBSD
+@@ -101,4 +104,4 @@
+ #	endif
+ 	}
+ #endif
+-}}
+\ No newline at end of file
++}}
+diff --git a/Sources/nCine/Backends/SdlGfxDevice.cpp b/Sources/nCine/Backends/SdlGfxDevice.cpp
+--- a/Sources/nCine/Backends/SdlGfxDevice.cpp
++++ b/Sources/nCine/Backends/SdlGfxDevice.cpp
+@@ -716,7 +716,12 @@
+ 	void SdlGfxDevice::initSoftwarePresent(bool hasVSync)
+ 	{
+ #if defined(JAZZ2_RG35XX)
+-		if (!rgDisplay.openDisplay()) std::exit(EXIT_FAILURE);
++		if (!rgDisplay.openDisplay()) {
++			// Initialization is incomplete: exit() would run static application
++			// destructors against resources that have not been created yet.
++			std::fflush(nullptr);
++			std::_Exit(EXIT_FAILURE);
++		}
+ 		_drawableWidth = 640;
+ 		_drawableHeight = 480;
+ 		RHI::Device::ResizeScreenFramebuffer(JAZZ2_LOGICAL_WIDTH, JAZZ2_LOGICAL_HEIGHT);
+@@ -960,4 +965,4 @@
+ 	}
+ }
+ 
+-#endif
+\ No newline at end of file
++#endif

@@ -1,0 +1,16 @@
+Created with the built-in imagegen tool, 26 November 2026.
+Layout reference supplied by the repository owner: Jazz Jackrabbit CD.png.
+Fan illustration, not original GOG game data.
+
+Prompt: Create a Jazz Jackrabbit 2 launcher preview matching the reference's
+layout: transparent 640x480 canvas, rectangular cover at x=381,y=56,
+width=240,height=360. Replace the Jazz Jackrabbit CD artwork with a vibrant
+1990s game-box illustration: Jazz the green rabbit with red bandana and
+sci-fi blaster alongside Spaz the red rabbit, fantasy castle background,
+large yellow/orange title Jazz Jackrabbit 2. No CD, version or other captions.
+No shadows or artwork outside the cover rectangle. Actual transparency.
+
+The generated master is preserved as jazz2-cover-generated.png.
+scripts/layout-preview.ps1 normalizes its crop to the exact reference layout.
+Final preview: assets/Jazz Jackrabbit 2.png, also in
+RG35XXPackage/Roms/PORTS/Imgs/Jazz Jackrabbit 2.png.

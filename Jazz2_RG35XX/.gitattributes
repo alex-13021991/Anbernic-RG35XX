@@ -1,0 +1,11 @@
+*.sh text eol=lf
+*.py text eol=lf
+*.patch text eol=lf
+*.cmake text eol=lf
+CMakeLists.txt text eol=lf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+*.gz binary
+*.png binary
+*.exe binary
+AssetPacker-linux binary
