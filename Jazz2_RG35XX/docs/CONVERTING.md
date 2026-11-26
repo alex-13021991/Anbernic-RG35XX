@@ -20,7 +20,7 @@
 
 ## Windows: готовый конвертер
 
-1. Распакуйте релиз в обычную папку на ПК. В `Tools` должны находиться `AssetPacker.exe`, `Convert.ps1`, BAT-файл и `EngineContent`.
+1. Распакуйте отдельный архив **Jazz2_RG35XX_Tools_v1.0.0.zip** в обычную папку на ПК. В `Tools` должны находиться `AssetPacker.exe`, `Convert.ps1`, BAT-файл и `EngineContent`. Эти утилиты не входят в установочный архив игры и на карту приставки не копируются.
 2. Перетащите папку установленной GOG-игры на `Tools/Convert Jazz Jackrabbit 2.bat` либо откройте BAT и введите путь.
 3. Дождитесь окончания. Результат появится в `Tools/Content`.
 4. Скопируйте **всю** полученную `Content` в `Roms/PORTS/Jazz Jackrabbit 2/` на карте.

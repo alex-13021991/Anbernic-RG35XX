@@ -1,0 +1,146 @@
+#pragma once
+
+#include "IAudioDevice.h"
+
+#include <memory>
+
+#include <Containers/SmallVector.h>
+#include <Containers/StringView.h>
+
+using namespace Death::Containers;
+
+namespace nCine
+{
+	class IAudioReader;
+	class IAudioLoader;
+
+	/**
+		@brief Streams audio decoded on the fly into a rotating set of backend buffers
+
+		Used for long sounds such as music, where decoding the whole file into memory would be
+		wasteful. Owned by @ref AudioStreamPlayer, which feeds it through @ref enqueue().
+	*/
+	class AudioStream
+	{
+		friend class AudioStreamPlayer;
+
+	public:
+		~AudioStream();
+
+		/** @brief Returns the backend id of the currently playing buffer, or `0` if none */
+		inline std::uint32_t bufferId() const {
+			return _currentBufferId;
+		}
+
+		/** @brief Returns the number of bytes per sample */
+		inline std::int32_t bytesPerSample() const {
+			return _bytesPerSample;
+		}
+		/** @brief Returns the number of audio channels */
+		inline std::int32_t numChannels() const {
+			return _numChannels;
+		}
+		/** @brief Returns the sample frequency */
+		inline std::int32_t frequency() const {
+			return _frequency;
+		}
+
+		/** @brief Returns the total number of samples, or `-1` if unknown */
+		inline std::int32_t numSamples() const {
+			return _numSamples;
+		}
+		/** @brief Returns the duration in seconds */
+		inline float duration() const {
+			return _duration;
+		}
+
+		/** @brief Returns the total decoded size in bytes, or `-1` if unknown */
+		inline std::int32_t bufferSize() const {
+			return (_numSamples == -1 ? -1 : (_numSamples * _numChannels * _bytesPerSample));
+		}
+
+		/** @brief Returns the number of samples held by a single streaming buffer */
+		std::int32_t numStreamSamples() const;
+		/** @brief Returns the size of a single streaming buffer in bytes */
+		inline std::int32_t streamBufferSize() const {
+			return BufferSize;
+		}
+
+		/**
+		 * @brief Decodes and enqueues new buffers and unqueues processed ones
+		 *
+		 * @return `false` once the stream has been entirely decoded and played
+		 */
+		bool enqueue(std::uint32_t source, bool looping);
+		/** @brief Unqueues any remaining buffers and rewinds the reader */
+		void stop(std::uint32_t source);
+
+		/** @brief Returns `true` if the stream is looping */
+		inline bool isLooping() const {
+			return _isLooping;
+		}
+		/** @brief Sets whether the stream should loop */
+		void setLooping(bool value);
+
+	private:
+		/** @brief Number of buffers used for streaming */
+		static const std::int32_t NumBuffers = 3;
+		/** @brief Backend buffer queue used for streaming */
+		SmallVector<std::uint32_t, NumBuffers> _buffersIds;
+		/** @brief Index of the next available buffer, which is also the number of buffers currently queued */
+		std::int32_t _nextAvailableBufferIndex;
+
+		/** @brief Size in bytes of each streaming buffer */
+#if defined(DEATH_TARGET_PSP)
+		// The PSP has no decoding thread, so a buffer is filled synchronously in the middle of a frame and
+		// the whole cost of it lands on that one frame. Decoding a quarter as much at a time is the same
+		// total work spread over four times as many frames, which is what keeps a refill inside the frame
+		// budget instead of visibly dropping one - measured with module music, where quartering this (along
+		// with halving the decoder's output rate) took the dropped frames of a two-and-a-half minute session
+		// from 85 down to 13. Three of these still queue over a hundred milliseconds ahead, far more than a
+		// frame hitch can eat into.
+		static const std::int32_t BufferSize = 4 * 1024;
+#else
+		static const std::int32_t BufferSize = 16 * 1024;
+#endif
+		/** @brief Reusable decode request holding the intermediate buffer, executed ahead of time on the decoding thread when available */
+		std::shared_ptr<StreamDecodeRequest> _decodeRequest;
+
+		/** @brief Backend id of the currently playing buffer, or 0 if none */
+		std::uint32_t _currentBufferId;
+
+		/** @brief Number of bytes per sample */
+		std::int32_t _bytesPerSample;
+		/** @brief Number of channels */
+		std::int32_t _numChannels;
+		/** @brief Sample frequency */
+		std::int32_t _frequency;
+
+		/** @brief Number of samples */
+		std::int32_t _numSamples;
+		/** @brief Duration in seconds */
+		float _duration;
+
+		/** @brief Whether the stream loops */
+		bool _isLooping;
+
+		/** @brief Sample format of the decoded data */
+		IAudioDevice::BufferFormat _format;
+		/** @brief Reader that continuously streams decoded data, shared with @ref _decodeRequest */
+		std::shared_ptr<IAudioReader> _audioReader;
+
+		// Private constructors called only by AudioStreamPlayer
+		AudioStream();
+		explicit AudioStream(StringView filename);
+
+		AudioStream(AudioStream&&);
+		AudioStream& operator=(AudioStream&&);
+		AudioStream(const AudioStream&) = delete;
+		AudioStream& operator=(const AudioStream&) = delete;
+
+		bool loadFromFile(StringView filename);
+
+		void createReader(IAudioLoader& audioLoader);
+
+	};
+}

@@ -1,0 +1,21 @@
+# ARM cross-build env for the Miyoo Mini (Cortex-A7, armv7-a hardfloat, NEON/VFPv4).
+#
+# Uses Debian's armhf multiarch rather than union-miyoomini-toolchain: that ships Arm GNU
+# Toolchain 8.3-2019.03, and NOTES flags C++17 headers gated on __GNUC__ >= 10. Bookworm's
+# cross-GCC is 12, which sidesteps the whole question, and multiarch supplies every runtime
+# dependency (SDL2, OpenAL, libopenmpt, vorbis) already built for armhf.
+#
+# CAVEAT: this targets Debian's glibc, not whatever OnionOS ships. Good enough to answer the
+# performance question under qemu; a shippable binary needs a sysroot matching the device.
+FROM debian:bookworm
+
+RUN dpkg --add-architecture armhf && apt-get update && apt-get install -y --no-install-recommends \
+        cmake ninja-build git ca-certificates pkg-config file time procps \
+        crossbuild-essential-armhf \
+        qemu-user-static \
+        libsdl2-dev:armhf libopenal-dev:armhf libopenmpt-dev:armhf \
+        libcurl4-openssl-dev:armhf zlib1g-dev:armhf \
+        libpng-dev:armhf libwebp-dev:armhf libvorbis-dev:armhf \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /work

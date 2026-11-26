@@ -1,0 +1,24 @@
+# qemu-arm with TCG plugin support, for counting the instructions the ARM build actually executes.
+# Debian's qemu-user-static is built without --enable-plugins, so the contrib "insn" plugin (the
+# thing that gives a real dynamic instruction count) cannot be loaded there.
+#
+# Note: no --static here - plugins are dlopen'd, so a statically linked qemu cannot load them.
+FROM debian:bookworm
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential wget xz-utils python3 python3-venv ninja-build pkg-config \
+        libglib2.0-dev libpixman-1-dev flex bison ca-certificates git \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /opt
+RUN wget -q https://download.qemu.org/qemu-8.2.0.tar.xz && tar xf qemu-8.2.0.tar.xz && rm qemu-8.2.0.tar.xz
+WORKDIR /opt/qemu-8.2.0
+RUN ./configure --target-list=arm-linux-user --enable-plugins --disable-system \
+        --disable-docs --disable-tools --disable-guest-agent \
+    && make -j"$(nproc)" \
+    && make -C contrib/plugins -j"$(nproc)" \
+    && cp build/qemu-arm /usr/local/bin/qemu-arm-plugins \
+    && mkdir -p /opt/qemu-plugins && cp contrib/plugins/*.so /opt/qemu-plugins/ \
+    && ls -la /opt/qemu-plugins/
+
+WORKDIR /work

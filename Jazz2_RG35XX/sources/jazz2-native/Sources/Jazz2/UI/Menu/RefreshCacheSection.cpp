@@ -1,0 +1,88 @@
+﻿#include "RefreshCacheSection.h"
+
+#if defined(NCINE_HAS_WRITABLE_CACHE)
+
+#include "MenuResources.h"
+#include "MainMenu.h"
+
+#include "../../../nCine/I18n.h"
+#include "../../../nCine/Graphics/BinaryShaderCache.h"
+#include "../../../nCine/Graphics/RenderResources.h"
+
+using namespace Jazz2::UI::Menu::Resources;
+using namespace nCine;
+
+namespace Jazz2::UI::Menu
+{
+	RefreshCacheSection::RefreshCacheSection()
+		: _animation(0.0f), _done(false)
+	{
+	}
+
+	void RefreshCacheSection::OnShow(IMenuContainer* root)
+	{
+		MenuSection::OnShow(root);
+
+#if defined(WITH_THREADS)
+		_thread = Thread([](void* arg) {
+			auto _this = static_cast<RefreshCacheSection*>(arg);
+			if (auto mainMenu = runtime_cast<MainMenu>(_this->_root)) {
+				mainMenu->_root->RefreshCacheLevels(true);
+			}
+
+			std::uint32_t filesRemoved = RenderResources::GetBinaryShaderCache().Prune();
+			LOGI("Pruning binary shader cache (removed {} directories)...", filesRemoved);
+
+			_this->_done = true;
+		}, this);
+#else
+		if (auto mainMenu = runtime_cast<MainMenu>(_root)) {
+			mainMenu->_root->RefreshCacheLevels(true);
+		}
+
+		std::uint32_t filesRemoved = RenderResources::GetBinaryShaderCache().Prune();
+		LOGI("Pruning binary shader cache (removed {} directories)...", filesRemoved);
+
+		_done = true;
+#endif
+	}
+
+	void RefreshCacheSection::OnUpdate(float timeMult)
+	{
+		if (_animation < 1.0f) {
+			_animation = std::min(_animation + timeMult * 0.016f, 1.0f);
+		}
+		if (_done) {
+			_root->PlaySfx("MenuSelect"_s, 0.5f);
+			_root->LeaveSection();
+		}
+	}
+
+	void RefreshCacheSection::OnDraw(Canvas* canvas)
+	{
+		Recti contentBounds = _root->GetContentBounds();
+		Vector2f center = Vector2f(contentBounds.X + contentBounds.W * 0.5f, contentBounds.Y + contentBounds.H * 0.5f);
+		float topLine = contentBounds.Y + 31.0f;
+		float bottomLine = contentBounds.Y + contentBounds.H - 42.0f;
+
+		_root->DrawMenuFrame(center.X, topLine, bottomLine);
+
+		center.Y = topLine + (bottomLine - topLine) * 0.4f;
+		std::int32_t charOffset = 0;
+
+		_root->DrawMenuTitle(charOffset, _("Refresh Cache"), center.X, topLine);
+
+		_root->DrawStringShadow(_("Processing of files in \f[c:#9e7056]\"Source\"\f[/c] directory..."), charOffset, center.X, center.Y, IMenuContainer::FontLayer,
+			Alignment::Center, Font::DefaultColor, 0.9f, 0.7f, 1.1f, 1.1f, 0.4f, 0.9f);
+
+		_root->DrawStringShadow(_("Newly added levels and episodes will be available soon."), charOffset, center.X, center.Y + 24.0f, IMenuContainer::FontLayer,
+			Alignment::Top, Font::DefaultColor, 0.8f, 0.7f, 1.1f, 1.1f, 0.4f, 0.9f);
+	}
+
+	void RefreshCacheSection::OnTouchEvent(const nCine::TouchEvent& event, Vector2i viewSize)
+	{
+		// No actions are allowed
+	}
+}
+
+#endif

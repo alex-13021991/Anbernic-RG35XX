@@ -1,0 +1,14 @@
+# Linux build env for jazz2-native with the Software RHI.
+# Deliberately WITHOUT libgl1-mesa-dev / libglew-dev / libglfw3-dev — if the build
+# succeeds like this, the software path really has no OpenGL dependency, which is
+# exactly what the Miyoo Mini (no GPU) needs.
+FROM debian:bookworm
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential cmake ninja-build git ca-certificates pkg-config \
+        libsdl2-dev libopenal-dev libopenmpt-dev libcurl4-openssl-dev zlib1g-dev \
+        libpng-dev libwebp-dev libvorbis-dev \
+        procps time \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /work

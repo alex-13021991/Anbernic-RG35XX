@@ -1,0 +1,721 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 2deb45c..f285a32 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -163,7 +163,12 @@ target_sources(${NCINE_APP} PRIVATE ${SOURCES} ${HEADERS} ${GENERATED_SOURCES})
+ # a build tool, so it is skipped for every cross-compiled target, and it links only the base layer and the
+ # converters rather than the engine.
+ option(NCINE_BUILD_ASSET_PACKER "Build the offline AssetPacker tool" ON)
+-if(NCINE_BUILD_ASSET_PACKER AND NOT CMAKE_CROSSCOMPILING)
++# MIYOO PORT: skipping the tool when cross-compiling is right for a build tool, but this port needs
++# the opposite - a Windows .exe of the packer, cross-built from Linux, because the game data cannot
++# be redistributed and every player has to convert their own copy on their own PC. The escape hatch
++# is explicit and off by default, so upstream behaviour is unchanged unless it is asked for.
++option(NCINE_BUILD_ASSET_PACKER_CROSS "Build AssetPacker even when cross-compiling" OFF)
++if(NCINE_BUILD_ASSET_PACKER AND (NOT CMAKE_CROSSCOMPILING OR NCINE_BUILD_ASSET_PACKER_CROSS))
+ 	add_subdirectory("${NCINE_SOURCE_DIR}/Utilities/AssetPacker")
+ 	set_target_properties(AssetPacker PROPERTIES FOLDER "Utilities")
+ endif()
+diff --git a/Sources/Jazz2/Compatibility/AssetConverter.h b/Sources/Jazz2/Compatibility/AssetConverter.h
+index 5b0b550..9ae7ebf 100644
+--- a/Sources/Jazz2/Compatibility/AssetConverter.h
++++ b/Sources/Jazz2/Compatibility/AssetConverter.h
+@@ -87,6 +87,17 @@ namespace Jazz2::Compatibility
+ 		*/
+ 		static constexpr StringView PrebakedPackage = "Prebaked.pak"_s;
+ 
++		/**
++			@brief Name of the file recording what a prepared content tree was built against
++
++			A prepared tree bypasses the startup cache verification entirely - the original game files it was
++			built from are not deployed with it, so there is nothing to re-check. This file carries the two
++			numbers that verification would have compared, so that a tree built by an older
++			@ref asset-packer "AssetPacker" is refused by a newer game instead of loading with wrong assets.
++			Written next to @ref PrebakedPackage as `cache=<n>`, `events=<n>` and `engine=<version>` lines.
++		*/
++		static constexpr StringView PrebakedVersionFile = "Prebaked.version"_s;
++
+ 		/**
+ 			@brief Converts @cb{.cpp} Anims.j2a @ce (and @cb{.cpp} Data.j2d @ce, if present) into a package
+ 
+diff --git a/Sources/Jazz2/Input/ControlScheme.cpp b/Sources/Jazz2/Input/ControlScheme.cpp
+index 87dba1d..2624b27 100644
+--- a/Sources/Jazz2/Input/ControlScheme.cpp
++++ b/Sources/Jazz2/Input/ControlScheme.cpp
+@@ -33,17 +33,46 @@ namespace Jazz2::Input
+ 		first[(std::int32_t)PlayerAction::Buttstomp].Targets.push_back(CreateTarget(0, ButtonName::Down));
+ 		first[(std::int32_t)PlayerAction::Buttstomp].Targets.push_back(CreateTarget(0, AxisName::LeftY));
+ 
++#if defined(JAZZ2_LOGICAL_WIDTH) && defined(JAZZ2_LOGICAL_HEIGHT)
++		// MIYOO PORT: the console has no usable gamepad. Its SDL2 fork advertises a 14-button
++		// "MMiyoo Joystick" but MMIYOO_JoystickUpdate() is an empty stub, so not a single button event
++		// is ever produced - the buttons arrive as KEY events instead (see the fork's
++		// SDL_event_mmiyoo.c). Those keys are fixed by the firmware and are what has to be bound here:
++		//
++		//   D-pad = arrows      A = LAlt    B = Space   X = LShift   Y = LCtrl
++		//   L1 = E   R1 = T     L2 = Tab    R2 = Backspace
++		//   SELECT = RCtrl      START = Return
++		//
++		// Bound to the classic SNES platformer layout, which the Miyoo's Nintendo-style face buttons
++		// (X top, Y left, A right, B bottom) make the natural choice:
++		//
++		//   B = Jump    A = Run    Y = Fire    X = Change weapon    START = Menu
++		//
++		// The gamepad targets are kept alongside, harmless when no gamepad reports anything, so a real
++		// controller still works if one is ever attached.
++		first[(std::int32_t)PlayerAction::Fire].Targets.push_back(CreateTarget(Keys::LCtrl));
++		first[(std::int32_t)PlayerAction::Fire].Targets.push_back(CreateTarget(Keys::Backspace));
++		first[(std::int32_t)PlayerAction::Jump].Targets.push_back(CreateTarget(Keys::Space));
++		first[(std::int32_t)PlayerAction::Run].Targets.push_back(CreateTarget(Keys::LAlt));
++		first[(std::int32_t)PlayerAction::Run].Targets.push_back(CreateTarget(Keys::Tab));
++		first[(std::int32_t)PlayerAction::ChangeWeapon].Targets.push_back(CreateTarget(Keys::LShift));
++		first[(std::int32_t)PlayerAction::Menu].Targets.push_back(CreateTarget(Keys::Return));
++		// SELECT as well as START: the console has no Escape, and one of the two not reaching the
++		// engine would otherwise leave a level with no way out except the MENU-button hard quit.
++		first[(std::int32_t)PlayerAction::Menu].Targets.push_back(CreateTarget(Keys::RCtrl));
++#else
+ 		first[(std::int32_t)PlayerAction::Fire].Targets.push_back(CreateTarget(Keys::Space));
++		first[(std::int32_t)PlayerAction::Jump].Targets.push_back(CreateTarget(Keys::V));
++		first[(std::int32_t)PlayerAction::Run].Targets.push_back(CreateTarget(Keys::C));
++		first[(std::int32_t)PlayerAction::ChangeWeapon].Targets.push_back(CreateTarget(Keys::X));
++		first[(std::int32_t)PlayerAction::Menu].Targets.push_back(CreateTarget(Keys::Escape));
++#endif
+ 		first[(std::int32_t)PlayerAction::Fire].Targets.push_back(CreateTarget(0, ButtonName::X));
+ 		first[(std::int32_t)PlayerAction::Fire].Targets.push_back(CreateTarget(0, AxisName::RightTrigger));
+-		first[(std::int32_t)PlayerAction::Jump].Targets.push_back(CreateTarget(Keys::V));
+ 		first[(std::int32_t)PlayerAction::Jump].Targets.push_back(CreateTarget(0, ButtonName::A));
+-		first[(std::int32_t)PlayerAction::Run].Targets.push_back(CreateTarget(Keys::C));
+ 		first[(std::int32_t)PlayerAction::Run].Targets.push_back(CreateTarget(0, ButtonName::B));
+ 		first[(std::int32_t)PlayerAction::Run].Targets.push_back(CreateTarget(0, AxisName::LeftTrigger));
+-		first[(std::int32_t)PlayerAction::ChangeWeapon].Targets.push_back(CreateTarget(Keys::X));
+ 		first[(std::int32_t)PlayerAction::ChangeWeapon].Targets.push_back(CreateTarget(0, ButtonName::Y));
+-		first[(std::int32_t)PlayerAction::Menu].Targets.push_back(CreateTarget(Keys::Escape));
+ 		first[(std::int32_t)PlayerAction::Menu].Targets.push_back(CreateTarget(0, ButtonName::Start));
+ 		first[(std::int32_t)PlayerAction::Console].Targets.push_back(CreateTarget(Keys::Backquote));
+ 		first[(std::int32_t)PlayerAction::Console].Targets.push_back(CreateTarget(Keys::T));
+@@ -300,16 +329,40 @@ namespace Jazz2::Input
+ 			}
+ 		}
+ 
++#if !(defined(JAZZ2_LOGICAL_WIDTH) && defined(JAZZ2_LOGICAL_HEIGHT))
+ 		// Allow Jump action as confirm key
+ 		if (pressedActions & (1 << (std::uint32_t)PlayerAction::Jump)) {
+ 			pressedActions |= (1 << (std::uint32_t)PlayerAction::Fire);
+ 		}
++#else
++		// MIYOO PORT: menu navigation follows the console's own UI convention - A confirms, B goes back -
++		// which is the opposite of what the gameplay bindings produce here. This function is only used by
++		// the menus and the cinematics (MenuContainerBase, Cinematics), never by a level, so gameplay
++		// keeps A = Run and B = Jump untouched.
++		//
++		// The upstream "Jump also confirms" rule above is dropped for the same reason: Jump is B, and B
++		// has to mean back here, not confirm.
++		if (pressedKeys[(std::uint32_t)Keys::LAlt]) {			// A
++			pressedActions |= (1 << (std::uint32_t)PlayerAction::Fire);
++		}
++		if (pressedKeys[(std::uint32_t)Keys::Space]) {			// B
++			pressedActions |= (1 << (std::uint32_t)PlayerAction::Menu);
++		}
++#endif
+ 
+ 		if (allowKeyboard) {
++#if !(defined(JAZZ2_LOGICAL_WIDTH) && defined(JAZZ2_LOGICAL_HEIGHT))
+ 			// Also allow Return (Enter) as confirm key
+ 			if (pressedKeys[(std::uint32_t)Keys::Return] || pressedKeys[(std::uint32_t)Keys::NumPadEnter]) {
+ 				pressedActions |= (1 << (std::int32_t)PlayerAction::Fire);
+ 			}
++#else
++			// MIYOO PORT: Return is the console's START button, which is bound to PlayerAction::Menu.
++			// Forcing it to mean Fire as well makes it ambiguous, and Fire wins: BeginSection tests
++			// ActionHit(Fire) before ActionHit(Menu), so START confirmed the highlighted item instead
++			// of opening the menu - which looked like START doing nothing while SELECT worked.
++			// Confirming is on the Y button (Fire) here, so nothing is lost by dropping the shortcut.
++#endif
+ 			// Use ChangeWeapon action as delete key
+ 			if (pressedKeys[(std::uint32_t)Keys::Delete]) {
+ 				pressedActions |= (1 << (std::int32_t)PlayerAction::ChangeWeapon);
+diff --git a/Sources/Jazz2/LevelHandler.h b/Sources/Jazz2/LevelHandler.h
+index 1eaf50e..2b69985 100644
+--- a/Sources/Jazz2/LevelHandler.h
++++ b/Sources/Jazz2/LevelHandler.h
+@@ -87,10 +87,22 @@ namespace Jazz2
+ 	public:
+ 		/** @{ @name Constants */
+ 
++		// MIYOO PORT: on the direct tier the screen framebuffer is sized to this logical resolution and the
++		// backend's presentation stretches it to the panel (UpscaleRenderPass.cpp:45), so this - not the window
++		// size - is what the CPU rasterizer actually fills. A fixed-panel target overrides it at build time;
++		// 320x240 is half of the Miyoo's 640x480, i.e. an exact 2x integer upscale, and is close to what the
++		// original game showed (320x200).
++#if defined(JAZZ2_LOGICAL_WIDTH) && defined(JAZZ2_LOGICAL_HEIGHT)
++		/** @brief Default width of viewport */
++		static constexpr std::int32_t DefaultWidth = JAZZ2_LOGICAL_WIDTH;
++		/** @brief Default height of viewport */
++		static constexpr std::int32_t DefaultHeight = JAZZ2_LOGICAL_HEIGHT;
++#else
+ 		/** @brief Default width of viewport */
+ 		static constexpr std::int32_t DefaultWidth = 720;
+ 		/** @brief Default height of viewport */
+ 		static constexpr std::int32_t DefaultHeight = 405;
++#endif
+ 		/** @brief Range of tile activation */
+ 		static constexpr std::int32_t ActivateTileRange = 26;
+ 
+diff --git a/Sources/Jazz2/Rendering/CombineRenderer.cpp b/Sources/Jazz2/Rendering/CombineRenderer.cpp
+index bb68191..63e0986 100644
+--- a/Sources/Jazz2/Rendering/CombineRenderer.cpp
++++ b/Sources/Jazz2/Rendering/CombineRenderer.cpp
+@@ -194,7 +194,14 @@ namespace Jazz2::Rendering
+ 		}
+ 
+ 		// A reduced-resolution lightmap keeps the per-light splat cheap; the combine samples it point-wise
+-#if defined(DEATH_TARGET_WII) || defined(DEATH_TARGET_GAMECUBE) || defined(DEATH_TARGET_DREAMCAST) || \
++// MIYOO PORT: the Miyoo Mini belongs with the consoles below, not with the desktops. It is a
++// 1.2 GHz in-order Cortex-A7 with no GPU - slower than the PSP already in this list - and it pays
++// for every texel on the CPU exactly the way they do. At the port's 320x240 internal resolution
++// Scale 2 means a 160x120 lightmap (19 200 texels) against 80x60 (4 800) at Scale 4, so this
++// quarters both the per-frame reset and the per-light splat.
++#if defined(JAZZ2_LOGICAL_WIDTH) && defined(JAZZ2_LOGICAL_HEIGHT)
++		constexpr std::int32_t Scale = 4;
++#elif defined(DEATH_TARGET_WII) || defined(DEATH_TARGET_GAMECUBE) || defined(DEATH_TARGET_DREAMCAST) || \
+ 		defined(DEATH_TARGET_PSP) || defined(DEATH_TARGET_PS2)
+ 		// The consoles pay for every texel twice on the CPU - once resetting and splatting it here, once
+ 		// converting it into a texture in the device - and that pair of passes was the single largest cost
+diff --git a/Sources/Jazz2/Tiles/TileMap.cpp b/Sources/Jazz2/Tiles/TileMap.cpp
+index 91901f3..663aeda 100644
+--- a/Sources/Jazz2/Tiles/TileMap.cpp
++++ b/Sources/Jazz2/Tiles/TileMap.cpp
+@@ -21,8 +21,16 @@ namespace Jazz2::Tiles
+ 		// Shaders/Include/TexturedBackgroundWarp.inc, included by both consoles' fixed_function blocks. The
+ 		// circular variant has no such structure, so it borrows the planar reconstruction rather than falling
+ 		// back to a flat tilemap - much closer to the original than no warp at all.
+-		constexpr bool SupportsTexturedBackground = true;
++		constexpr bool SupportsTexturedBackground = false;
++#if defined(JAZZ2_LOGICAL_WIDTH) && defined(JAZZ2_LOGICAL_HEIGHT)
++		// MIYOO PORT: the circular variant is the most expensive single thing in a Carrotus level. It has
++		// no affine structure to reconstruct from, so it borrows the planar warp and ends up shading close
++		// to a full screen of alpha-blended pixels every frame on a CPU rasterizer. Falling back to the
++		// plain tile renderer (see the isProceduralLayer branch below) keeps the layer, just without warp.
++		constexpr bool SupportsTexturedBackgroundCircle = false;
++#else
+ 		constexpr bool SupportsTexturedBackgroundCircle = true;
++#endif
+ 
+ #if defined(DEATH_TARGET_DREAMCAST) || defined(DEATH_TARGET_WII) || defined(DEATH_TARGET_GAMECUBE)
+ 		// Slots the render command pool keeps even when nothing needs them - roughly what one viewport of a level
+diff --git a/Sources/Jazz2/UI/Cinematics.h b/Sources/Jazz2/UI/Cinematics.h
+index 14e9eff..919523b 100644
+--- a/Sources/Jazz2/UI/Cinematics.h
++++ b/Sources/Jazz2/UI/Cinematics.h
+@@ -32,9 +32,20 @@ namespace Jazz2::UI
+ 		/** @{ @name Constants */
+ 
+ 		/** @brief Default width of viewport */
++#if defined(JAZZ2_LOGICAL_WIDTH) && defined(JAZZ2_LOGICAL_HEIGHT)
++		// MIYOO PORT: kept in step with LevelHandler - each of these classes caps its own viewport,
++		// so leaving them at the desktop default made menu and cinematics render at 540x405 on a
++		// 640x480 panel while levels rendered at 320x240.
++		static constexpr std::int32_t DefaultWidth = JAZZ2_LOGICAL_WIDTH;
++#else
+ 		static constexpr std::int32_t DefaultWidth = 720;
++#endif
+ 		/** @brief Default height of viewport */
++#if defined(JAZZ2_LOGICAL_WIDTH) && defined(JAZZ2_LOGICAL_HEIGHT)
++		static constexpr std::int32_t DefaultHeight = JAZZ2_LOGICAL_HEIGHT;
++#else
+ 		static constexpr std::int32_t DefaultHeight = 405;
++#endif
+ 
+ #ifndef DOXYGEN_GENERATING_OUTPUT
+ 		static constexpr std::uint8_t SfxListVersion = 1;
+diff --git a/Sources/Jazz2/UI/LoadingHandler.h b/Sources/Jazz2/UI/LoadingHandler.h
+index e9a1a71..5543766 100644
+--- a/Sources/Jazz2/UI/LoadingHandler.h
++++ b/Sources/Jazz2/UI/LoadingHandler.h
+@@ -20,9 +20,20 @@ namespace Jazz2::UI
+ 		/** @{ @name Constants */
+ 
+ 		/** @brief Default width of viewport */
++#if defined(JAZZ2_LOGICAL_WIDTH) && defined(JAZZ2_LOGICAL_HEIGHT)
++		// MIYOO PORT: kept in step with LevelHandler - each of these classes caps its own viewport,
++		// so leaving them at the desktop default made menu and cinematics render at 540x405 on a
++		// 640x480 panel while levels rendered at 320x240.
++		static constexpr std::int32_t DefaultWidth = JAZZ2_LOGICAL_WIDTH;
++#else
+ 		static constexpr std::int32_t DefaultWidth = 720;
++#endif
+ 		/** @brief Default height of viewport */
++#if defined(JAZZ2_LOGICAL_WIDTH) && defined(JAZZ2_LOGICAL_HEIGHT)
++		static constexpr std::int32_t DefaultHeight = JAZZ2_LOGICAL_HEIGHT;
++#else
+ 		static constexpr std::int32_t DefaultHeight = 405;
++#endif
+ 
+ 		/** @} */
+ 
+diff --git a/Sources/Jazz2/UI/Menu/InGameMenu.h b/Sources/Jazz2/UI/Menu/InGameMenu.h
+index 14ec842..89f78f5 100644
+--- a/Sources/Jazz2/UI/Menu/InGameMenu.h
++++ b/Sources/Jazz2/UI/Menu/InGameMenu.h
+@@ -31,9 +31,20 @@ namespace Jazz2::UI::Menu
+ 		/** @{ @name Constants */
+ 
+ 		/** @brief Default width of viewport */
++#if defined(JAZZ2_LOGICAL_WIDTH) && defined(JAZZ2_LOGICAL_HEIGHT)
++		// MIYOO PORT: kept in step with LevelHandler - each of these classes caps its own viewport,
++		// so leaving them at the desktop default made menu and cinematics render at 540x405 on a
++		// 640x480 panel while levels rendered at 320x240.
++		static constexpr std::int32_t DefaultWidth = JAZZ2_LOGICAL_WIDTH;
++#else
+ 		static constexpr std::int32_t DefaultWidth = 720;
++#endif
+ 		/** @brief Default height of viewport */
++#if defined(JAZZ2_LOGICAL_WIDTH) && defined(JAZZ2_LOGICAL_HEIGHT)
++		static constexpr std::int32_t DefaultHeight = JAZZ2_LOGICAL_HEIGHT;
++#else
+ 		static constexpr std::int32_t DefaultHeight = 405;
++#endif
+ 
+ 		/** @} */
+ 
+diff --git a/Sources/Jazz2/UI/Menu/MainMenu.h b/Sources/Jazz2/UI/Menu/MainMenu.h
+index 0ba8e62..f58efe9 100644
+--- a/Sources/Jazz2/UI/Menu/MainMenu.h
++++ b/Sources/Jazz2/UI/Menu/MainMenu.h
+@@ -44,9 +44,20 @@ namespace Jazz2::UI::Menu
+ 		/** @{ @name Constants */
+ 
+ 		/** @brief Default width of viewport */
++#if defined(JAZZ2_LOGICAL_WIDTH) && defined(JAZZ2_LOGICAL_HEIGHT)
++		// MIYOO PORT: kept in step with LevelHandler - each of these classes caps its own viewport,
++		// so leaving them at the desktop default made menu and cinematics render at 540x405 on a
++		// 640x480 panel while levels rendered at 320x240.
++		static constexpr int32_t DefaultWidth = JAZZ2_LOGICAL_WIDTH;
++#else
+ 		static constexpr int32_t DefaultWidth = 720;
++#endif
+ 		/** @brief Default height of viewport */
++#if defined(JAZZ2_LOGICAL_WIDTH) && defined(JAZZ2_LOGICAL_HEIGHT)
++		static constexpr int32_t DefaultHeight = JAZZ2_LOGICAL_HEIGHT;
++#else
+ 		static constexpr int32_t DefaultHeight = 405;
++#endif
+ 
+ 		/** @} */
+ 
+diff --git a/Sources/Main.cpp b/Sources/Main.cpp
+index e7f1b25..0e97422 100644
+--- a/Sources/Main.cpp
++++ b/Sources/Main.cpp
+@@ -192,6 +192,9 @@ private:
+ 	void SetStateHandler(std::shared_ptr<IStateHandler>&& handler);
+ 	void ReleasePreviousHandler();
+ 	void WaitForVerify();
++	/// Checks a prepared content tree against what this build expects and sets the verified/playable
++	/// flags accordingly; returns false if the tree is not a prepared one and RefreshCache() has work to do
++	bool VerifyPrebakedContent();
+ #if defined(NCINE_HAS_WRITABLE_CACHE)
+ 	void RefreshCache();
+ #endif
+@@ -373,6 +376,19 @@ void GameEventHandler::OnPreInitialize(AppConfiguration& config)
+ 		// Fixed-panel consoles keep the native output resolution (the device pins it); the level viewport
+ 		// aspect-fits the logical view into it, so no explicit override is wanted there
+ 		config.resolution.Set(LevelHandler::DefaultWidth, LevelHandler::DefaultHeight);
++
++		// MIYOO PORT: the default 720x405 is a desktop window size; the Miyoo panel is a fixed 640x480,
++		// and the software rasterizer's cost is close to linear in pixel count, so this is the single
++		// biggest performance knob the port has. Overridable so a resolution sweep does not need a rebuild
++		// - a fixed-panel target will eventually pin it the way the consoles above do.
++		if (const char* resOverride = ::getenv("JAZZ2_RESOLUTION")) {
++			std::int32_t w = 0, h = 0;
++			if (::sscanf(resOverride, "%dx%d", &w, &h) == 2 && w > 0 && h > 0) {
++				config.resolution.Set(w, h);
++			} else {
++				LOGW("Ignoring malformed JAZZ2_RESOLUTION \"{}\", expected <width>x<height>", resOverride);
++			}
++		}
+ #endif
+ 
+ #if !defined(DEATH_TARGET_EMSCRIPTEN)
+@@ -678,7 +694,24 @@ void GameEventHandler::OnBackInvoked()
+ 
+ void GameEventHandler::OnKeyPressed(const KeyboardEvent& event)
+ {
+-#if defined(NCINE_HAS_WINDOWS)
++#if defined(JAZZ2_LOGICAL_WIDTH) && defined(JAZZ2_LOGICAL_HEIGHT)
++	// MIYOO PORT: the console's MENU button (which the firmware sends as Home) quits outright.
++	// Everything else is a normal game binding, so without this the only way out of a level is
++	// pausing, walking back through the menus and finding "Quit" - and if any of that misbehaves,
++	// powering the device off. A handheld's system button is expected to be an unconditional exit,
++	// and preferences are written here because Quit() tears the app down without saving them.
++	if (event.sym == Keys::Home) {
++		PreferencesCache::Save();
++		theApplication().Quit();
++		return;
++	}
++#endif
++
++// MIYOO PORT: the fullscreen shortcut is skipped entirely. The panel is a fixed 640x480 with
++// nothing to toggle, and the console maps its A button to Left Alt and START to Return - so as
++// soon as the modifier state has Left Alt set, every START press is read as Alt+Enter, consumed
++// here, and never reaches the game. That is exactly what left START dead while SELECT worked.
++#if defined(NCINE_HAS_WINDOWS) && !(defined(JAZZ2_LOGICAL_WIDTH) && defined(JAZZ2_LOGICAL_HEIGHT))
+ 	// Allow F11 and Alt+Enter to switch fullscreen
+ 	// TODO: Don't override F11 in web browser with newer version of `contrib.glfw3`
+ 	if (event.sym == Keys::F11 || (event.sym == Keys::Return && (event.mod & KeyMod::Mask) == KeyMod::LAlt)) {
+@@ -1822,10 +1855,60 @@ void GameEventHandler::WaitForVerify()
+ 	if ((_flags & Flags::IsVerified) != Flags::IsVerified) {
+ 		LOGI("Waiting for content verification...");
+ 
+-		while ((_flags & Flags::IsVerified) != Flags::IsVerified) {
++		// `_flags` is written by the "Parallel Initialization" thread (see the Thread started in
++		// OnInit) and spun on here from the main thread, with no synchronisation on either side, so
++		// nothing stops the compiler from hoisting the load out of the loop. Going through a volatile
++		// pointer forces a fresh load each iteration and the acquire fence pairs with the writer.
++		//
++		// This is what used to hang the port at this very message when a level was started from the
++		// command line: the load was hoisted and the spin never ended. Two different failures shared
++		// that log line for a while - the other one, a SIGSEGV, turned out to be a fault in temporary
++		// benchmark instrumentation and disappeared with it.
++		volatile const Flags* flagsPtr = &_flags;
++		while ((*flagsPtr & Flags::IsVerified) != Flags::IsVerified) {
+ 			Thread::Sleep(33);
+ 		}
++		std::atomic_thread_fence(std::memory_order_acquire);
++	}
++}
++
++bool GameEventHandler::VerifyPrebakedContent()
++{
++	auto& resolver = ContentResolver::Get();
++	if (!resolver.IsContentPrebaked()) {
++		return false;
++	}
++
++	// A prepared tree already holds everything the conversion would produce, so there is nothing to
++	// convert - and no original game files to ask for, they are not deployed with such a tree. That also
++	// means none of the checks in RefreshCache() can run, so the tree carries a record of what it was
++	// built against and this compares the two numbers those checks would have compared.
++	std::uint32_t treeCacheVersion = 0, treeEventCount = 0;
++	String versionPath = fs::CombinePath(resolver.GetContentPath(), Compatibility::AssetConverter::PrebakedVersionFile);
++	{
++		auto s = fs::Open(versionPath, FileAccess::Read);
++		if (s->IsValid()) {
++			char descriptor[128] {};
++			std::int64_t bytesRead = s->Read(descriptor, sizeof(descriptor) - 1);
++			if (bytesRead > 0) {
++				std::sscanf(descriptor, "cache=%u\nevents=%u", &treeCacheVersion, &treeEventCount);
++			}
++		}
++	}
++
++	if (treeCacheVersion != Compatibility::JJ2Anims::CacheVersion || treeEventCount != (std::uint32_t)EventType::Count) {
++		// Verified but not playable, which is the state a missing Anims.j2a leaves behind as well: the main
++		// menu drops the play items and says what is wrong, instead of the game running on data it cannot
++		// read correctly
++		LOGE("Prepared content in \"{}\" was built for cache version {}/{} but this build needs {}/{}. Convert the game files again with the matching version of AssetPacker.",
++			resolver.GetContentPath(), treeCacheVersion, treeEventCount,
++			(std::uint32_t)Compatibility::JJ2Anims::CacheVersion, (std::uint32_t)EventType::Count);
++		_flags |= Flags::IsVerified;
++	} else {
++		_flags |= Flags::IsVerified | Flags::IsPlayable;
+ 	}
++
++	return true;
+ }
+ 
+ #if defined(NCINE_HAS_WRITABLE_CACHE)
+@@ -1839,14 +1922,12 @@ void GameEventHandler::RefreshCache()
+ 		return;
+ 	}
+ 
+-	auto& resolver = ContentResolver::Get();
+-	if (resolver.IsContentPrebaked()) {
+-		// The content tree already holds everything the conversion would produce, so there is nothing to
+-		// convert - and no original game files to ask for, they are not deployed with such a tree
+-		_flags |= Flags::IsVerified | Flags::IsPlayable;
++	if (VerifyPrebakedContent()) {
+ 		return;
+ 	}
+ 
++	auto& resolver = ContentResolver::Get();
++
+ 	constexpr std::uint64_t currentVersion = parseVersion(NCINE_VERSION_s);
+ 
+ 	auto cachePath = fs::CombinePath(resolver.GetCachePath(), "Source.idx"_s);
+diff --git a/Sources/Shared/Utf8.cpp b/Sources/Shared/Utf8.cpp
+index 16fc63b..44a4066 100644
+--- a/Sources/Shared/Utf8.cpp
++++ b/Sources/Shared/Utf8.cpp
+@@ -5,7 +5,11 @@
+ namespace Death { namespace Utf8 {
+ //###==##====#=====--==~--~=~- --- -- -  -  -   -
+ 
+-	const Containers::StaticArray<256, std::uint8_t> BytesOfLead = {{
++	// MIYOO PORT: GCC 8.3 (the Miyoo Mini toolchain) cannot deduce the `const T(&)[size]`
++	// constructor from a braced-init-list, neither as `= {{...}}` nor via InPlaceInit. A named
++	// array is an lvalue of exactly that type, so it binds directly and needs no deduction.
++	// Newer compilers accept either form, so this stays correct everywhere.
++	static const std::uint8_t BytesOfLeadData[256] = {
+ 		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0x00 - 0x0F
+ 		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0x10 - 0x1F
+ 		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0x20 - 0x2F
+@@ -22,7 +26,9 @@ namespace Death { namespace Utf8 {
+ 		2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, // 0xD0 - 0xDF
+ 		3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, // 0xE0 - 0xEF
+ 		4, 4, 4, 4, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0xF0 - 0xFF
+-	}};
++	};
++
++	const Containers::StaticArray<256, std::uint8_t> BytesOfLead{Containers::InPlaceInit, BytesOfLeadData};
+ 
+ 	Containers::Pair<char32_t, std::size_t> NextChar(const Containers::ArrayView<const char> text, std::size_t cursor)
+ 	{
+diff --git a/Sources/Utilities/AssetPacker/CMakeLists.txt b/Sources/Utilities/AssetPacker/CMakeLists.txt
+index 35189ea..284b3ae 100644
+--- a/Sources/Utilities/AssetPacker/CMakeLists.txt
++++ b/Sources/Utilities/AssetPacker/CMakeLists.txt
+@@ -62,3 +62,10 @@ endif()
+ if(TARGET Threads::Threads)
+ 	target_link_libraries(AssetPacker PRIVATE Threads::Threads)
+ endif()
++
++if(MINGW)
++	# The Windows entry point below is wmain(), which mingw only wires up in Unicode mode. This has to
++	# sit on the target rather than in CMAKE_EXE_LINKER_FLAGS: the toolchain's flags also reach CMake's
++	# compiler probes, and those define a plain main() that cannot link against the Unicode startup.
++	target_link_options(AssetPacker PRIVATE "-municode")
++endif()
+diff --git a/Sources/Utilities/AssetPacker/Main.cpp b/Sources/Utilities/AssetPacker/Main.cpp
+index 68cf803..e92536f 100644
+--- a/Sources/Utilities/AssetPacker/Main.cpp
++++ b/Sources/Utilities/AssetPacker/Main.cpp
+@@ -501,6 +501,24 @@ namespace
+ 
+ 		pakWriter.Finalize();
+ 
++		// A prebaked tree bypasses the cache verification the game runs at startup - there are no original
++		// files on the device to re-convert from, so there is nothing for it to check. That leaves a tree
++		// converted by an older packer silently loadable by a newer game, which shows up as missing or wrong
++		// assets rather than as an error, so record what the tree was built against and let the game refuse it.
++		if (packageName == Compatibility::AssetConverter::PrebakedPackage) {
++			String versionPath = fs::CombinePath(outputPath, Compatibility::AssetConverter::PrebakedVersionFile);
++			auto s = fs::Open(versionPath, FileAccess::Write);
++			if (s->IsValid()) {
++				char descriptor[128];
++				int length = std::snprintf(descriptor, sizeof(descriptor), "cache=%u\nevents=%u\nengine=" NCINE_VERSION "\n",
++					(unsigned int)Compatibility::JJ2Anims::CacheVersion, (unsigned int)EventType::Count);
++				s->Write(descriptor, (std::int64_t)length);
++			} else {
++				LOGE("Cannot open \"{}\" for writing", versionPath);
++				return 1;
++			}
++		}
++
+ 		SmallVector<String, 0> skippedLevels;
+ 		Compatibility::AssetConverter::ConversionOptions conversionOptions;
+ 		conversionOptions.OriginalsOnly = options.OriginalsOnly;
+diff --git a/Sources/nCine/Backends/SdlGfxDevice.h b/Sources/nCine/Backends/SdlGfxDevice.h
+index e1d0cfc..92d9b5c 100644
+--- a/Sources/nCine/Backends/SdlGfxDevice.h
++++ b/Sources/nCine/Backends/SdlGfxDevice.h
+@@ -65,6 +65,15 @@ namespace nCine::Backends
+ 		 * @param windowId	SDL2 window identifier to compare against the main window
+ 		 */
+ 		static inline bool isMainWindow(std::uint32_t windowId) {
++			// MIYOO PORT: the device's "mmiyoo" video backend sets only the mouse focus, never the
++			// keyboard focus, so SDL stamps every key event it posts with windowID 0. Looking that up
++			// yields no window, the event is discarded as "not ours", and the console's buttons do
++			// nothing at all. Such a platform has exactly one window, so treat "no window" as the main
++			// one. Backends that do track focus are unaffected: they never send 0 while focused, and an
++			// unfocused window gets no key events from the OS in the first place.
++			if (windowId == 0) {
++				return true;
++			}
+ 			SDL_Window* windowHandle = SDL_GetWindowFromID(windowId);
+ 			return (windowHandle == _windowHandle);
+ 		}
+diff --git a/Sources/nCine/Graphics/RHI/Software/SwRaster.cpp b/Sources/nCine/Graphics/RHI/Software/SwRaster.cpp
+index c4c969f..3421987 100644
+--- a/Sources/nCine/Graphics/RHI/Software/SwRaster.cpp
++++ b/Sources/nCine/Graphics/RHI/Software/SwRaster.cpp
+@@ -1102,6 +1102,153 @@ namespace nCine::RHI::Software
+ 		}
+ #endif
+ 
++#if defined(DEATH_ENABLE_NEON)
++		// NOTE ON EXACTNESS: unlike the other variants in this file, this one is NOT bit-identical to the
++		// Cpu::ScalarT sibling, and that is deliberate.
++		//
++		// The scalar form divides by 255 and multiplies by 255 again at the end. ARMv7 NEON has no vector
++		// divide (that arrived with ARMv8), so the choice was between four scalar VFP divides per vector -
++		// which gives most of the vectorisation back - and folding the two constants out algebraically:
++		//
++		//     c   = (px/255)*lit + core
++		//     c2  = c + (amb - c)*darkT   = c*(1 - darkT) + amb*darkT
++		//     out = c2*255 + 0.5          = px*[lit*(1-darkT)] + [core*(1-darkT) + amb*darkT]*255 + 0.5
++		//
++		// so with A = lit*(1-darkT) and B = (core*(1-darkT) + amb*darkT)*255 + 0.5 the whole thing becomes a
++		// clamped multiply-add on the raw byte and the division never happens. Same function of the same
++		// inputs, but a different order of floating-point operations, so a result can land one ulp from the
++		// scalar one and quantize to a neighbouring byte. In a lighting term that is invisible.
++		//
++		// Written for the Miyoo port because this op is ~36% of the frame's CPU time there (76800 px every
++		// frame, measured) and was falling back to scalar for want of a NEON variant.
++		//
++		// Inactive pixels need no masking: with darkT = 0 and g = 0 the formula collapses to A = 1, B = 0.5,
++		// i.e. out = trunc(px + 0.5) = px. The early-out below is therefore only a speed optimization.
++		DEATH_CPU_MAYBE_UNUSED DEATH_ENABLE_NEON typename std::decay<decltype(combineLightingScanline)>::type combineLightingScanlineImplementation(Cpu::NeonT) {
++			return [](std::uint8_t* DEATH_RESTRICT px, std::int32_t width, const float* DEATH_RESTRICT lmRow, std::int32_t lmW, std::int32_t scale, float ambR, float ambG, float ambB) DEATH_ENABLE_NEON {
++				const float32x4_t zerof = vdupq_n_f32(0.0f);
++				const float32x4_t onef = vdupq_n_f32(1.0f);
++				const float32x4_t halff = vdupq_n_f32(0.5f);
++				const float32x4_t c255f = vdupq_n_f32(255.0f);
++				const float32x4_t coreT = vdupq_n_f32(0.7f);
++				const float32x4_t vAmbR255 = vdupq_n_f32(ambR * 255.0f);
++				const float32x4_t vAmbG255 = vdupq_n_f32(ambG * 255.0f);
++				const float32x4_t vAmbB255 = vdupq_n_f32(ambB * 255.0f);
++
++				// x / scale collapses to a shift when the scale is a power of two (this port uses 4)
++				std::int32_t shift = -1;
++				if ((scale & (scale - 1)) == 0) {
++					shift = 0;
++					while ((1 << shift) < scale) shift++;
++				}
++				const std::int32_t lmLast = lmW - 1;
++
++				std::int32_t x = 0;
++				for (; x + 8 <= width; x += 8, px += 32) {
++					// Gather the eight lightmap texels this run samples. Scalar on purpose: the indices repeat
++					// in runs of `scale` but are not necessarily aligned to the vector, and a shuffle-based
++					// broadcast would cost more than eight loads.
++					float rArr[8], gArr[8];
++					for (std::int32_t k = 0; k < 8; k++) {
++						std::int32_t i = (shift >= 0 ? (x + k) >> shift : (x + k) / scale);
++						if (i > lmLast) {
++							i = lmLast;
++						}
++						rArr[k] = lmRow[i * 2];
++						gArr[k] = lmRow[i * 2 + 1];
++					}
++
++					const uint8x8x4_t pix = vld4_u8(px);
++					const uint16x8_t r16 = vmovl_u8(pix.val[0]);
++					const uint16x8_t g16 = vmovl_u8(pix.val[1]);
++					const uint16x8_t b16 = vmovl_u8(pix.val[2]);
++					uint16x4_t qr[2], qg[2], qb[2];
++					bool touched[2] = { false, false };
++
++					for (std::int32_t half = 0; half < 2; half++) {
++						float32x4_t r = vld1q_f32(&rArr[half * 4]);
++						float32x4_t g = vld1q_f32(&gArr[half * 4]);
++						r = vminq_f32(vmaxq_f32(r, zerof), onef);
++						g = vminq_f32(vmaxq_f32(g, zerof), onef);
++						const float32x4_t darkT = vminq_f32(vmaxq_f32(vsubq_f32(onef, r), zerof), onef);
++
++						// Per-4-pixel early out (the block form of the scalar per-pixel fully-lit skip)
++						const uint32x4_t active = vorrq_u32(vcgtq_f32(darkT, zerof), vcgtq_f32(g, zerof));
++						const uint32x2_t act2 = vorr_u32(vget_low_u32(active), vget_high_u32(active));
++						if ((vget_lane_u32(act2, 0) | vget_lane_u32(act2, 1)) == 0) {
++							continue;
++						}
++						touched[half] = true;
++
++						const float32x4_t lit = vaddq_f32(onef, g);
++						const float32x4_t core = vmaxq_f32(vsubq_f32(g, coreT), zerof);
++						const float32x4_t keep = vsubq_f32(onef, darkT);
++						const float32x4_t vA = vmulq_f32(lit, keep);
++						const float32x4_t bCommon = vaddq_f32(vmulq_f32(vmulq_f32(core, keep), c255f), halff);
++						const float32x4_t bR = vaddq_f32(bCommon, vmulq_f32(vAmbR255, darkT));
++						const float32x4_t bG = vaddq_f32(bCommon, vmulq_f32(vAmbG255, darkT));
++						const float32x4_t bB = vaddq_f32(bCommon, vmulq_f32(vAmbB255, darkT));
++
++						const uint32x4_t ru = (half == 0 ? vmovl_u16(vget_low_u16(r16)) : vmovl_u16(vget_high_u16(r16)));
++						const uint32x4_t gu = (half == 0 ? vmovl_u16(vget_low_u16(g16)) : vmovl_u16(vget_high_u16(g16)));
++						const uint32x4_t bu = (half == 0 ? vmovl_u16(vget_low_u16(b16)) : vmovl_u16(vget_high_u16(b16)));
++
++						float32x4_t fr = vaddq_f32(vmulq_f32(vcvtq_f32_u32(ru), vA), bR);
++						float32x4_t fg = vaddq_f32(vmulq_f32(vcvtq_f32_u32(gu), vA), bG);
++						float32x4_t fb = vaddq_f32(vmulq_f32(vcvtq_f32_u32(bu), vA), bB);
++						fr = vminq_f32(vmaxq_f32(fr, zerof), c255f);
++						fg = vminq_f32(vmaxq_f32(fg, zerof), c255f);
++						fb = vminq_f32(vmaxq_f32(fb, zerof), c255f);
++
++						// vcvtq_u32_f32 truncates toward zero, which is what the scalar cast does after its clamp
++						qr[half] = vmovn_u32(vcvtq_u32_f32(fr));
++						qg[half] = vmovn_u32(vcvtq_u32_f32(fg));
++						qb[half] = vmovn_u32(vcvtq_u32_f32(fb));
++					}
++
++					if (!touched[0] && !touched[1]) {
++						continue;
++					}
++					// Halves that were skipped keep their loaded bytes
++					if (!touched[0]) {
++						qr[0] = vget_low_u16(r16); qg[0] = vget_low_u16(g16); qb[0] = vget_low_u16(b16);
++					}
++					if (!touched[1]) {
++						qr[1] = vget_high_u16(r16); qg[1] = vget_high_u16(g16); qb[1] = vget_high_u16(b16);
++					}
++
++					uint8x8x4_t outPix;
++					outPix.val[0] = vmovn_u16(vcombine_u16(qr[0], qr[1]));
++					outPix.val[1] = vmovn_u16(vcombine_u16(qg[0], qg[1]));
++					outPix.val[2] = vmovn_u16(vcombine_u16(qb[0], qb[1]));
++					outPix.val[3] = pix.val[3];	// alpha untouched, exactly as the other variants leave it
++					vst4_u8(px, outPix);
++				}
++				// Scalar tail - the reference form, so the last few pixels stay bit-identical
++				for (; x < width; x++, px += 4) {
++					const std::int32_t lmX = std::min(x / scale, lmW - 1);
++					const float r = std::clamp(lmRow[lmX * 2], 0.0f, 1.0f);
++					const float g = std::clamp(lmRow[lmX * 2 + 1], 0.0f, 1.0f);
++					const float darkT = std::clamp(1.0f - r, 0.0f, 1.0f);
++					if (darkT <= 0.0f && g <= 0.0f) {
++						continue;
++					}
++					const float lit = 1.0f + g;
++					const float core = (g > 0.7f ? g - 0.7f : 0.0f);
++					float cr = (px[0] / 255.0f) * lit + core;
++					float cg = (px[1] / 255.0f) * lit + core;
++					float cb = (px[2] / 255.0f) * lit + core;
++					cr += (ambR - cr) * darkT;
++					cg += (ambG - cg) * darkT;
++					cb += (ambB - cb) * darkT;
++					px[0] = (std::uint8_t)std::clamp(cr * 255.0f + 0.5f, 0.0f, 255.0f);
++					px[1] = (std::uint8_t)std::clamp(cg * 255.0f + 0.5f, 0.0f, 255.0f);
++					px[2] = (std::uint8_t)std::clamp(cb * 255.0f + 0.5f, 0.0f, 255.0f);
++				}
++			};
++		}
++#endif
++
+ 	}
+ 
+ 	DEATH_CPU_DISPATCHER_BASE(combineLightingScanlineImplementation)
+diff --git a/cmake/ncine_imported_targets.cmake b/cmake/ncine_imported_targets.cmake
+index a221087..2261a14 100644
+--- a/cmake/ncine_imported_targets.cmake
++++ b/cmake/ncine_imported_targets.cmake
+@@ -330,7 +330,20 @@ if(ANDROID)
+ 		set(LUA_FOUND 1)
+ 	endif()
+ elseif(WIN32)
+-	if(EXISTS "${MSVC_LIBDIR}/zlib.lib" AND EXISTS "${MSVC_BINDIR}/zlib.dll")
++	if(MINGW)
++		# The prebuilt Windows zlib below is an MSVC import library for zlib.dll, and the AssetPacker is
++		# handed to players as a single self-contained .exe. Link mingw's own static libz instead, so the
++		# tool does not fail to start with a missing-DLL error on a machine that has no zlib.dll.
++		# libz.a by name: plain "z" would match libz.dll.a, which is the import library, not the static one.
++		find_library(ZLIB_LIBRARY NAMES libz.a z)
++		if(ZLIB_LIBRARY)
++			add_library(ZLIB::ZLIB STATIC IMPORTED)
++			set_target_properties(ZLIB::ZLIB PROPERTIES IMPORTED_LOCATION "${ZLIB_LIBRARY}")
++			set(ZLIB_FOUND 1)
++			message(STATUS "Found ZLIB: ${ZLIB_LIBRARY}")
++		endif()
++	endif()
++	if(NOT TARGET ZLIB::ZLIB AND EXISTS "${MSVC_LIBDIR}/zlib.lib" AND EXISTS "${MSVC_BINDIR}/zlib.dll")
+ 		set(ZLIB_LIBRARY "${MSVC_LIBDIR}/zlib.lib")
+ 		set(ZLIB_INCLUDE_DIR "${EXTERNAL_INCLUDES_DIR}/zlib/")
+ 		add_library(ZLIB::ZLIB SHARED IMPORTED)

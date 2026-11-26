@@ -1,0 +1,30 @@
+# Real Miyoo Mini toolchain + device sysroot, taken from the captain-claw-miyoo port.
+#
+# Why not the Debian armhf multiarch env (Dockerfile.armhf): that links against glibc 2.36,
+# while the device has 2.28 - such a binary will not start on the Miyoo. It was fine for
+# answering the performance question under qemu; a shippable binary must use this sysroot.
+#
+# Build context must be the captain-claw-miyoo checkout (it holds the toolchain tarball and
+# the device libraries).
+FROM debian:bullseye-slim
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get -y update && apt-get -y install \
+        build-essential cmake ninja-build git xz-utils wget pkg-config file \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY toolchain/miyoomini-toolchain.tar.xz /opt/miyoomini-toolchain.tar.xz
+RUN cd /opt && tar xf miyoomini-toolchain.tar.xz && rm miyoomini-toolchain.tar.xz
+
+# The patched libSDL2 the port actually ships (fixes the mmiyoo render backend's 10-texture
+# cap and no-op QueueCopyEx), staged into the sysroot so we link against what will be deployed.
+COPY device-libs-upload/libSDL2-2.0.so.0.18.2 /opt/miyoomini-toolchain/usr/arm-linux-gnueabihf/sysroot/usr/lib/libSDL2-2.0.so.0
+
+ENV PATH="/opt/miyoomini-toolchain/usr/bin:${PATH}"
+WORKDIR /work
+
+# SDL2 headers: the sysroot ships only SDL 1.2. Take them from the SDL2 fork the port builds,
+# so headers and the deployed library are the same version (2.0.18 + the mmiyoo extensions).
+COPY sdl2-miyoo-src/sdl2/include/ /opt/miyoomini-toolchain/usr/arm-linux-gnueabihf/sysroot/usr/include/SDL2/
+# find_library() looks for the unversioned name
+RUN ln -sf libSDL2-2.0.so.0 /opt/miyoomini-toolchain/usr/arm-linux-gnueabihf/sysroot/usr/lib/libSDL2.so

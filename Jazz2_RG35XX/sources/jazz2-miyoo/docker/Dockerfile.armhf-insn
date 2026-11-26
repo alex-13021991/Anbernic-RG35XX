@@ -1,0 +1,13 @@
+# armhf cross-build env + a qemu-arm that can load TCG plugins, so the ARM build can be run
+# under an instruction counter. Debian's qemu-user-static has no plugin support, hence the
+# qemu built from source in Dockerfile.qemu-insn.
+FROM jazz2-armhf
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libglib2.0-0 libpixman-1-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=qemu-built /opt/qemu-8.2.0/build/qemu-arm /usr/local/bin/qemu-arm-plugins
+COPY libinsncount.so /opt/libinsncount.so
+
+WORKDIR /work

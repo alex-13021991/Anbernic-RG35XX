@@ -1,0 +1,175 @@
+cmake_minimum_required(VERSION 3.15)
+
+# Policies
+if(POLICY CMP0127)
+	cmake_policy(SET CMP0127 NEW)
+endif()
+if(POLICY CMP0141)
+	cmake_policy(SET CMP0141 NEW)
+endif()
+if(POLICY CMP0144)
+	cmake_policy(SET CMP0144 NEW)
+endif()
+
+if(NOT CMAKE_CONFIGURATION_TYPES)
+	get_property(_haveMultiConfigGenerator GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+	if(_haveMultiConfigGenerator)
+		set(CMAKE_CONFIGURATION_TYPES "Debug;Release")
+	endif()
+endif()
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+	set(_defaultBuildtype "Debug")
+	message(STATUS "Setting build configuration to \"${_defaultBuildtype}\" as none was specified")
+	set(CMAKE_BUILD_TYPE "${_defaultBuildtype}" CACHE STRING "Build configuration" FORCE)
+	set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release")
+endif()
+
+# Project metadata
+set(NCINE_ROOT ${CMAKE_SOURCE_DIR})
+set(NCINE_SOURCE_DIR "${NCINE_ROOT}/Sources")
+set(NCINE_APP "jazz2")
+set(NCINE_APP_NAME "Jazz² Resurrection")
+set(NCINE_APP_DESCRIPTION "Open-source reimplementation of Jazz Jackrabbit 2")
+set(NCINE_APP_DESCRIPTION_FULL "Jazz² Resurrection is reimplementation of the game Jazz Jackrabbit 2 released in 1998. Supports various versions of the game (Shareware Demo, Holiday Hare '98, The Secret Files and Christmas Chronicles). Also, it partially supports some features of JJ2+ extension and MLLE.\n\nFurther information can be found here: https://deat.tk/jazz2/")
+set(NCINE_APP_VENDOR "Dan R.")
+set(NCINE_REVERSE_DNS "jazz2.resurrection")
+set(NCINE_VERSION "3.7.0")
+
+project(Jazz2
+	VERSION "${NCINE_VERSION}"
+	DESCRIPTION "${NCINE_APP_NAME}"
+	HOMEPAGE_URL "https://deat.tk/jazz2/"
+	LANGUAGES CXX C)
+
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake)
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+
+if(NOT CMAKE_GENERATOR_PLATFORM OR "${CMAKE_GENERATOR_PLATFORM}" STREQUAL "${CMAKE_SYSTEM_PROCESSOR}")
+	if(EMSCRIPTEN)
+		message(STATUS "Compiling for architecture: WASM (on ${CMAKE_SYSTEM_PROCESSOR} machine)")
+	elseif(NINTENDO_SWITCH)
+		message(STATUS "Compiling for architecture: ${CMAKE_SYSTEM_PROCESSOR} (Nintendo Switch)")
+	elseif(APPLE AND CMAKE_OSX_ARCHITECTURES)
+		message(STATUS "Compiling for architecture: ${CMAKE_OSX_ARCHITECTURES} (on ${CMAKE_SYSTEM_PROCESSOR} machine)")
+	else()
+		message(STATUS "Compiling for architecture: ${CMAKE_SYSTEM_PROCESSOR}")
+	endif()
+else()
+	message(STATUS "Compiling for architecture: ${CMAKE_GENERATOR_PLATFORM} (on ${CMAKE_SYSTEM_PROCESSOR} machine)")
+endif()
+
+if(APPLE AND CMAKE_OSX_ARCHITECTURES)
+	if(CMAKE_OSX_ARCHITECTURES MATCHES "arm64")
+		set(NCINE_ARM_PROCESSOR TRUE)
+	elseif(CMAKE_OSX_ARCHITECTURES MATCHES "x86_64")
+		# Default architecture
+	else()
+		message(FATAL_ERROR "Architecture \"${CMAKE_OSX_ARCHITECTURES}\" is not supported. Only one architecture (arm64 or x86_64) could be specified at build time.")
+	endif()
+else()
+	string(FIND ${CMAKE_SYSTEM_PROCESSOR} "arm" ARM_SUBSTRING_FOUND)
+	string(FIND ${CMAKE_SYSTEM_PROCESSOR} "aarch64" AARCH64_SUBSTRING_FOUND)
+	if (ARM_SUBSTRING_FOUND GREATER -1 OR AARCH64_SUBSTRING_FOUND GREATER -1)
+		set(NCINE_ARM_PROCESSOR TRUE)
+	endif()
+endif()
+	
+include(ncine_options)
+include(ncine_get_version)
+include(ncine_imported_targets)
+include(ncine_imgui)
+include(ncine_tracy)
+
+if(NOT IS_DIRECTORY ${NCINE_CONTENT_DIR})
+	message(WARNING "Content directory not found at: ${NCINE_CONTENT_DIR}")
+else()
+	message(STATUS "Content directory: ${NCINE_CONTENT_DIR}")
+endif()
+	
+if(NCINE_BUILD_ANDROID)
+	include(ncine_generated_sources)
+	include(ncine_build_android)
+	return()
+endif()
+
+# The offline shader preprocessing tool runs on the build machine, so it's skipped when cross-compiling
+if(NOT CMAKE_CROSSCOMPILING)
+	add_subdirectory("${NCINE_SOURCE_DIR}/Utilities/ShaderCompiler")
+	set_target_properties(ShaderCompiler PROPERTIES FOLDER "Utilities")
+endif()
+
+if(NCINE_BUILD_LIBRETRO)
+	add_library(${NCINE_APP} SHARED)
+	set_target_properties(${NCINE_APP} PROPERTIES PREFIX "" OUTPUT_NAME "${NCINE_APP}_libretro")
+else()
+	add_executable(${NCINE_APP})
+endif()
+
+if(WINDOWS_PHONE OR WINDOWS_STORE)
+	message(STATUS "Compiling for Windows RT")
+elseif(NINTENDO_WII OR NINTENDO_GAMECUBE)
+	# The libogc consoles use the Ogc window/input backend (no SDL/GLFW), see Sources/nCine/Backends/Ogc
+	message(STATUS "Compiling for Nintendo Wii/GameCube (libogc backend)")
+elseif(PLATFORM_DREAMCAST)
+	# The Dreamcast uses the Dc window/input backend (KallistiOS), see Sources/nCine/Backends/Dc
+	message(STATUS "Compiling for Sega Dreamcast (KallistiOS backend)")
+elseif(PLATFORM_PS2)
+	# The PS2 uses the Ps2 window/input backend (PS2SDK), see Sources/nCine/Backends/Ps2
+	message(STATUS "Compiling for PlayStation 2")
+elseif(PLATFORM_PSP)
+	# The PSP uses the Psp window/input backend (PSPSDK), see Sources/nCine/Backends/Psp
+	message(STATUS "Compiling for PlayStation Portable")
+elseif(PLATFORM_PS3)
+	# The PS3 uses the Ps3 window/input backend (PSL1GHT), see Sources/nCine/Backends/Ps3
+	message(STATUS "Compiling for PlayStation 3")
+elseif(NCINE_BUILD_LIBRETRO)
+	message(STATUS "Compiling as a libretro core (no window backend)")
+else()
+	# Falling back to either GLFW or SDL2 if the other one is not available
+	if(NOT GLFW_FOUND AND NOT SDL2_FOUND AND NOT SDL3_FOUND AND NOT Qt5_FOUND)
+		message(FATAL_ERROR "No backend between SDL2, SDL3, GLFW, and QT5 has been found")
+	elseif(GLFW_FOUND AND NCINE_PREFERRED_BACKEND STREQUAL "GLFW")
+		message(STATUS "Using GLFW as the preferred backend")
+	elseif(SDL2_FOUND AND NCINE_PREFERRED_BACKEND STREQUAL "SDL2")
+		message(STATUS "Using SDL2 as the preferred backend")
+	elseif(SDL3_FOUND AND NCINE_PREFERRED_BACKEND STREQUAL "SDL3")
+		message(STATUS "Using SDL3 as the preferred backend")
+	elseif(Qt5_FOUND AND NCINE_PREFERRED_BACKEND STREQUAL "QT5")
+		message(STATUS "Using QT5 as the preferred backend")
+	elseif(SDL2_FOUND AND NOT GLFW_FOUND AND NCINE_PREFERRED_BACKEND STREQUAL "GLFW")
+		set(NCINE_PREFERRED_BACKEND "SDL2")
+		message(WARNING "Using SDL2 as backend because GLFW cannot be found")
+	elseif(GLFW_FOUND AND NOT SDL2_FOUND AND NCINE_PREFERRED_BACKEND STREQUAL "SDL2")
+		set(NCINE_PREFERRED_BACKEND "GLFW")
+		message(WARNING "Using GLFW as backend because SDL2 cannot be found")
+	endif()
+endif()
+
+include(ncine_compiler_options)
+include(ncine_headers)
+include(ncine_sources)
+include(ncine_extra_sources)
+include(ncine_generated_sources)
+
+# Organize main project files into folders
+ncine_assign_source_group(PATH_PREFIX ${NCINE_SOURCE_DIR} FILES ${HEADERS} ${SOURCES})
+foreach(SOURCE_FILE ${GENERATED_SOURCES})
+	source_group("Generated Files" FILES ${SOURCE_FILE})
+endforeach()
+
+target_sources(${NCINE_APP} PRIVATE ${SOURCES} ${HEADERS} ${GENERATED_SOURCES})
+
+# AssetPacker: converts original game data ahead of time (see Sources/Utilities/AssetPacker/Main.cpp). Host-only - it is
+# a build tool, so it is skipped for every cross-compiled target, and it links only the base layer and the
+# converters rather than the engine.
+option(NCINE_BUILD_ASSET_PACKER "Build the offline AssetPacker tool" ON)
+if(NCINE_BUILD_ASSET_PACKER AND NOT CMAKE_CROSSCOMPILING)
+	add_subdirectory("${NCINE_SOURCE_DIR}/Utilities/AssetPacker")
+	set_target_properties(AssetPacker PROPERTIES FOLDER "Utilities")
+endif()
+
+# Windows RT uses custom packaging, enable it only for other platforms
+if(NOT WINDOWS_PHONE AND NOT WINDOWS_STORE AND NOT ANDROID AND NOT NCINE_BUILD_ANDROID AND NOT NINTENDO_SWITCH AND NOT VITA AND NOT PLATFORM_PSP AND NOT PLATFORM_PS3 AND NOT NCINE_BUILD_LIBRETRO)
+	include(ncine_installation)
+endif()
+include(ncine_strip_binaries)

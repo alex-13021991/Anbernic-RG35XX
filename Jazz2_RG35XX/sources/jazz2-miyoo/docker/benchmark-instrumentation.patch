@@ -1,0 +1,157 @@
+diff --git a/Sources/nCine/Application.cpp b/Sources/nCine/Application.cpp
+index 17ff736..0e270af 100644
+--- a/Sources/nCine/Application.cpp
++++ b/Sources/nCine/Application.cpp
+@@ -1075,6 +1075,36 @@ namespace nCine
+ #endif
+ 		}
+ 
++#if defined(NCINE_PROFILING) && defined(JAZZ2_LOGICAL_WIDTH) && defined(JAZZ2_LOGICAL_HEIGHT)
++		// BENCHMARK PATCH: report where a frame's CPU time goes.
++		//
++		// The engine already measures these phases, but only the ImGui debug overlay ever reads them,
++		// and there is no ImGui on this target. On the Miyoo the frame rate is pinned to 60/N by the
++		// page flip, so the only way to aim an optimization is to know which phase owns the ~19.5 ms
++		// of actual work. Revert with `git checkout Sources/nCine/Application.cpp` before shipping.
++		{
++			static TimeStamp lastPhaseReport = TimeStamp::now();
++			static float accUpdate = 0.0f, accPostUpdate = 0.0f, accVisit = 0.0f, accDraw = 0.0f;
++			static std::int32_t phaseFrames = 0;
++			accUpdate += _timings[(std::int32_t)Timings::Update];
++			accPostUpdate += _timings[(std::int32_t)Timings::PostUpdate];
++			accVisit += _timings[(std::int32_t)Timings::Visit];
++			accDraw += _timings[(std::int32_t)Timings::Draw];
++			phaseFrames++;
++			if (lastPhaseReport.secondsSince() >= 5.0f) {
++				LOGI("[PHASE] {} frames: update {} us, postupdate {} us, visit {} us, draw {} us",
++					phaseFrames,
++					(std::int32_t)(accUpdate * 1000000.0f / phaseFrames),
++					(std::int32_t)(accPostUpdate * 1000000.0f / phaseFrames),
++					(std::int32_t)(accVisit * 1000000.0f / phaseFrames),
++					(std::int32_t)(accDraw * 1000000.0f / phaseFrames));
++				accUpdate = accPostUpdate = accVisit = accDraw = 0.0f;
++				phaseFrames = 0;
++				lastPhaseReport = TimeStamp::now();
++			}
++		}
++#endif
++
+ #if defined(WITH_IMGUI)
+ 		if (_debugOverlay != nullptr) {
+ 			_debugOverlay->UpdateFrameTimings();
+diff --git a/Sources/nCine/Backends/SdlGfxDevice.cpp b/Sources/nCine/Backends/SdlGfxDevice.cpp
+index 9701534..c880be0 100644
+--- a/Sources/nCine/Backends/SdlGfxDevice.cpp
++++ b/Sources/nCine/Backends/SdlGfxDevice.cpp
+@@ -4,6 +4,7 @@
+ #include "../Graphics/ITextureLoader.h"
+ 
+ #include "../Graphics/RHI/Rhi.h"
++#include "../Base/TimeStamp.h"
+ 
+ #if defined(WITH_RHI_D3D11) && defined(WITH_SDL2)
+ // SDL2 only: the native HWND the DXGI swap chain is created for is obtained through SDL_syswm.h.
+@@ -772,6 +773,20 @@ namespace nCine::Backends
+ 		if (_softwareRenderer == nullptr) {
+ 			return;
+ 		}
++
++		// BENCHMARK PATCH: split the frame into "work" and "present".
++		//
++		// On the Miyoo the page flip is FBIOPAN_DISPLAY, which the framebuffer driver holds until
++		// vblank, so the frame rate can only ever be 60/N and the logged FPS says nothing about how
++		// much CPU time a frame actually costs. Timing the present call separates the vblank wait
++		// from the real work, which is the number that decides whether 60 FPS is reachable at all.
++		// Revert with `git checkout Sources/nCine/Backends/SdlGfxDevice.cpp` before shipping.
++		static TimeStamp lastReport = TimeStamp::now();
++		static TimeStamp frameEnd = TimeStamp::now();
++		static float presentAccum = 0.0f, workAccum = 0.0f;
++		static std::int32_t framesAccum = 0;
++		const TimeStamp presentStart = TimeStamp::now();
++		workAccum += (presentStart - frameEnd).seconds();
+ 		// Render any draws the tile renderer deferred this frame into the screen buffer before we read it
+ 		RHI::Device::FlushSoftwareRenderer();
+ 		// All of this frame's Combine draws have run by now, so any lighting entries still queued are leftovers
+@@ -802,6 +817,20 @@ namespace nCine::Backends
+ 		SDL_RenderCopyEx(_softwareRenderer, _softwareTexture, nullptr, nullptr, 0.0, nullptr, SDL_FLIP_VERTICAL);
+ #	endif
+ 		SDL_RenderPresent(_softwareRenderer);
++
++		// BENCHMARK PATCH (see above): report the split every five seconds.
++		frameEnd = TimeStamp::now();
++		presentAccum += (frameEnd - presentStart).seconds();
++		framesAccum++;
++		if ((frameEnd - lastReport).seconds() >= 5.0f) {
++			LOGI("[SPLIT] {} frames: work {} us, present {} us per frame",
++				framesAccum,
++				(std::int32_t)(workAccum * 1000000.0f / framesAccum),
++				(std::int32_t)(presentAccum * 1000000.0f / framesAccum));
++			workAccum = presentAccum = 0.0f;
++			framesAccum = 0;
++			lastReport = frameEnd;
++		}
+ 	}
+ #endif
+ 
+diff --git a/Sources/nCine/Base/FrameTimer.cpp b/Sources/nCine/Base/FrameTimer.cpp
+index 213ab39..1b10eec 100644
+--- a/Sources/nCine/Base/FrameTimer.cpp
++++ b/Sources/nCine/Base/FrameTimer.cpp
+@@ -57,9 +57,12 @@ namespace nCine
+ 		// Log number of frames and FPS every `_loggingInterval` seconds
+ 		if (_loggingInterval > 0.0f && _avgNumFrames != 0 && secsSinceLastLogUpdate > _loggingInterval) {
+ 			_avgFps = static_cast<float>(_logNumFrames) / _loggingInterval;
+-#if defined(DEATH_TRACE) && defined(DEATH_DEBUG)
+-			//const float msPerFrame = (_loggingInterval * 1000.0f) / static_cast<float>(_logNumFrames);
+-			//LOGD("{} frames in {:.0} seconds = {:.1} FPS ({:.2}ms per frame)", _logNumFrames, _loggingInterval, _avgFps, msPerFrame);
++#if defined(DEATH_TRACE)
++			// BENCHMARK PATCH - upstream leaves this commented out and behind DEATH_DEBUG, so a Release
++			// build says nothing about its own frame rate, which is the one number the Miyoo port is
++			// gated on. Revert with `git checkout Sources/nCine/Base/FrameTimer.cpp` before shipping.
++			const float msPerFrame = (_loggingInterval * 1000.0f) / static_cast<float>(_logNumFrames);
++			LOGI("[BENCH] {} frames / {} s = {} mFPS, {} us per frame", _logNumFrames, (std::int32_t)_loggingInterval, (std::int32_t)(_avgFps * 1000.0f), (std::int32_t)(msPerFrame * 1000.0f));
+ #endif
+ 			_logNumFrames = 0L;
+ 			_lastLogUpdate = _frameStart;
+diff --git a/Sources/nCine/Graphics/Viewport.cpp b/Sources/nCine/Graphics/Viewport.cpp
+index be6796f..e3e4e74 100644
+--- a/Sources/nCine/Graphics/Viewport.cpp
++++ b/Sources/nCine/Graphics/Viewport.cpp
+@@ -1,4 +1,5 @@
+ #include "Viewport.h"
++#include "../Base/TimeStamp.h"
+ #include "RenderQueue.h"
+ #include "RenderResources.h"
+ #include "../Application.h"
+@@ -302,6 +303,31 @@ namespace nCine
+ 			ZoneScopedC(0x81A861);
+ 			std::uint32_t visitOrderIndex = 0;
+ 			_rootNode->OnVisit(_renderQueue, visitOrderIndex);
++
++#if defined(JAZZ2_LOGICAL_WIDTH) && defined(JAZZ2_LOGICAL_HEIGHT)
++			// BENCHMARK PATCH: how many nodes the traversal actually walks.
++			//
++			// On the Miyoo this phase swings from 1.6 ms in a quiet scene to 10 ms near the level's
++			// fire, and the point of this counter is to tell the two possible causes apart: many more
++			// nodes (an effect spawning them), or the same nodes costing more each. Guessing which
++			// actor is responsible without this would be exactly the mistake made over the START
++			// button. Revert with `git checkout Sources/nCine/Graphics/Viewport.cpp`.
++			{
++				static TimeStamp lastNodeReport = TimeStamp::now();
++				static std::uint32_t nodesAccum = 0, nodesPeak = 0, nodeFrames = 0;
++				nodesAccum += visitOrderIndex;
++				if (visitOrderIndex > nodesPeak) {
++					nodesPeak = visitOrderIndex;
++				}
++				nodeFrames++;
++				if (lastNodeReport.secondsSince() >= 5.0f) {
++					LOGI("[NODES] {} frames: {} nodes average, {} peak", nodeFrames,
++						nodesAccum / (nodeFrames > 0 ? nodeFrames : 1), nodesPeak);
++					nodesAccum = nodesPeak = nodeFrames = 0;
++					lastNodeReport = TimeStamp::now();
++				}
++			}
++#endif
+ 		}
+ 
+ 		_stateBits.set(StateBitPositions::VisitedBit);

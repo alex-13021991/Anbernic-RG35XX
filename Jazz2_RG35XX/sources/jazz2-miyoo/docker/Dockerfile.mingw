@@ -1,0 +1,23 @@
+# Windows cross-build environment for AssetPacker - the tool players run on their PC to turn their
+# own copy of Jazz Jackrabbit 2 into the content tree the port loads.
+#
+# It has to be a native Windows binary: the game data cannot be distributed, so every player has to
+# convert their own, and asking them to install Docker is not a realistic ask.
+#
+# The tool itself needs only zlib and threads, but jazz2-native's top-level CMakeLists refuses to
+# configure without a window backend (it FATAL_ERRORs on "No backend between SDL2, SDL3, GLFW and
+# QT5"). SDL2's official mingw development package satisfies that; nothing links against it, since
+# only the AssetPacker target is ever built.
+FROM debian:bookworm
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential cmake ninja-build git ca-certificates wget xz-utils \
+        mingw-w64 libz-mingw-w64-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# SDL2 mingw development libraries, only to satisfy the backend check above
+RUN cd /opt && wget -q https://github.com/libsdl-org/SDL/releases/download/release-2.28.5/SDL2-devel-2.28.5-mingw.tar.gz \
+    && tar xf SDL2-devel-2.28.5-mingw.tar.gz && rm SDL2-devel-2.28.5-mingw.tar.gz \
+    && ln -s /opt/SDL2-2.28.5/x86_64-w64-mingw32 /opt/sdl2-mingw
+
+WORKDIR /work

@@ -1,0 +1,24 @@
+#!/bin/sh
+# OnionOS port shortcut - this is what puts "Jazz Jackrabbit 2" in the PORTS menu.
+# It hands off to OnionOS's standalone port launcher, which checks that the game data is
+# present, sets up the library path and runs the launch script.
+
+# main configuration :
+GameName="Jazz Jackrabbit 2"
+GameDir="Jazz Jackrabbit 2"
+GameExecutable="launch_jazz2.sh"
+# The launcher checks this with `find -iname`, which matches the BASENAME only - a path here
+# (e.g. "Content/Prebaked.pak") can never match and the shortcut gets renamed to .notfound.
+# -maxdepth 2 from the game dir still reaches Content/Prebaked.pak.
+GameDataFile="Prebaked.pak"
+# Audio is live now (OpenAL via SDL2/MI_AO); OnionOS holds MI_AO exclusively, so its audioserver
+# has to go before the game can open the device.
+KillAudioserver=1
+# The launch script sets the governor itself, so the launcher does not have to.
+PerformanceMode=1
+
+# specific to this port :
+Arguments=""
+
+# running command line :
+/mnt/SDCARD/Emu/PORTS/launch_standalone.sh "$GameName" "$GameDir" "$GameExecutable" "$Arguments" "$GameDataFile" "$KillAudioserver" "$PerformanceMode"
