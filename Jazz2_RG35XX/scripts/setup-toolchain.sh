@@ -5,6 +5,10 @@ if [[ -x "$RG_TOOLCHAIN/bin/$TRIPLE-g++" ]]; then
     echo "Using existing toolchain: $RG_TOOLCHAIN"; exit 0
 fi
 archive=${JAZZ2_TOOLCHAIN_ARCHIVE:-"$WORK/downloads/env_toolchain.7z"}
+bundled="$PORT/../Toolchains/Miyoo-GCC-7.3.0"
+if [[ ! -f "$archive" && -z ${JAZZ2_TOOLCHAIN_ARCHIVE:-} && -f "$bundled/manifest.json" ]]; then
+    python3 "$bundled/assemble.py" "$archive"
+fi
 if [[ ! -f "$archive" ]]; then
     mkdir -p "$(dirname "$archive")"
     curl -fL --retry 3 https://github.com/steward-fu/website/releases/download/miyoo/env_toolchain.7z -o "$archive.part"

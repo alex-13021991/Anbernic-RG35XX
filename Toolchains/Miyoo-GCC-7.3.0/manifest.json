@@ -1,0 +1,25 @@
+{
+  "name": "env_toolchain.7z",
+  "bytes": 128828510,
+  "sha256": "70d4ea2d477f931eedbc7e049cddd672098a92c7b9e5672bd90b65143db73c70",
+  "version": "Miyoo GCC 7.3.0 / Buildroot 2018.02.9",
+  "target": "arm-miyoo-linux-uclibcgnueabi",
+  "source": "https://github.com/steward-fu/website/releases/download/miyoo/env_toolchain.7z",
+  "parts": [
+    {
+      "name": "env_toolchain.7z.001",
+      "bytes": 50331648,
+      "sha256": "76340bbda389186452e948ee25ecf1b1a5f99eebc63cc5e50a30e3af5e5e35fc"
+    },
+    {
+      "name": "env_toolchain.7z.002",
+      "bytes": 50331648,
+      "sha256": "bea1af48d14279a61fe7a85367d01d98e259fdf63b42aa90f53d19cd87f4491b"
+    },
+    {
+      "name": "env_toolchain.7z.003",
+      "bytes": 28165214,
+      "sha256": "afef179d853664044af7627ac9972bfc3261ce7e10bba81397092a4a18c3152c"
+    }
+  ]
+}

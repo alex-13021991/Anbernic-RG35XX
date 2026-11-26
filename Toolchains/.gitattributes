@@ -1,0 +1,6 @@
+*.001 binary
+*.002 binary
+*.003 binary
+*.py text eol=lf
+*.md text eol=lf
+SHA256SUMS text eol=lf
