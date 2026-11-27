@@ -1,0 +1,15 @@
+/home/alex/RG35XX/Work/Jazz2-1.1.0-progon03/port/tests/music.c: In function 'main':
+/home/alex/RG35XX/Work/Jazz2-1.1.0-progon03/port/tests/music.c:18:5: warning: 'openmpt_module_create_from_memory' is deprecated [-Wdeprecated-declarations]
+     openmpt_module* mod = openmpt_module_create_from_memory(bytes,size,NULL,NULL,NULL);
+     ^~~~~~~~~~~~~~
+In file included from /home/alex/RG35XX/Work/Jazz2-1.1.0-progon03/port/tests/music.c:2:0:
+/home/alex/RG35XX/Work/Jazz2-options/build-work/sysroot/usr/include/libopenmpt/libopenmpt.h:713:55: note: declared here
+ LIBOPENMPT_API LIBOPENMPT_DEPRECATED openmpt_module * openmpt_module_create_from_memory( const void * filedata, size_t filesize, openmpt_log_func logfunc, void * loguser, const openmpt_module_initial_ctl * ctls );
+                                                       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+memset: all values, alignments, sizes and guards OK
+framebuffer 16 padded=False garlic=False: pixels, input and bounds OK
+framebuffer 32 padded=False garlic=False: pixels, input and bounds OK
+framebuffer 16 padded=True garlic=False: pixels, input and bounds OK
+framebuffer 32 padded=True garlic=False: pixels, input and bounds OK
+framebuffer 32 padded=False garlic=True: pixels, input and bounds OK
+framebuffer 32 padded=True garlic=True: pixels, input and bounds OK

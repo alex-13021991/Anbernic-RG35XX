@@ -11,7 +11,16 @@ export HOME="$PWD/Saves" XDG_CONFIG_HOME="$PWD/Saves" XDG_DATA_HOME="$PWD/Saves"
 export SDL_VIDEODRIVER=dummy JAZZ2_RESOLUTION=640x480
 export LD_LIBRARY_PATH="$PWD/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export LANG=ru_RU.UTF-8 ALSOFT_CONF="$PWD/alsoft.conf"
-./jazz2 /config "$PWD/Saves/Jazz2.config" /max-fps:30 "$@"
+stop_motor() {
+    if [ -w /sys/class/power_supply/battery/moto ]; then
+        printf '0\n' > /sys/class/power_supply/battery/moto
+    fi
+}
+trap stop_motor EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+stop_motor
+./jazz2 /config "$PWD/Saves/Jazz2.config" "$@"
 rc=$?
 echo "Код выхода Jazz2: $rc"
 exit "$rc"

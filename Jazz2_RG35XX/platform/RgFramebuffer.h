@@ -80,6 +80,7 @@ public:
     void present(const void* pixels,int width,int height,int stride) {
         if (mapping == MAP_FAILED || !pixels || width <= 0 || height <= 0 || stride / 2 < width) return;
         if (width != cachedWidth) {
+            fprintf(stderr,"RG35XX: presenting %dx%d -> 640x480\n",width,height);
             for (unsigned x=0; x<640; ++x) xmap[x] = x * unsigned(width) / 640;
             cachedWidth = width;
         }

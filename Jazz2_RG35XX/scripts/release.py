@@ -14,11 +14,12 @@ parser=argparse.ArgumentParser()
 parser.add_argument('work',type=Path)
 parser.add_argument('output',type=Path)
 parser.add_argument('--converter',type=Path,help='Windows AssetPacker; defaults to included Tools version')
+parser.add_argument('--runtime-libs',type=Path,help='Optional previously validated runtime libraries; remaining dependencies use sysroot')
 args=parser.parse_args()
 port=Path(__file__).resolve().parents[1]
-stem='Jazz2_RG35XX_v1.0.0'
+stem='Jazz2_RG35XX_v1.1.0'
 stage=args.output/stem
-tools_stage=args.output/'Jazz2_RG35XX_Tools_v1.0.0'
+tools_stage=args.output/'Jazz2_RG35XX_Tools_v1.1.0'
 if stage.exists() or tools_stage.exists(): raise SystemExit('Output stage already exists')
 args.output.mkdir(parents=True,exist_ok=True)
 shutil.copytree(port/'RG35XXPackage',stage)
@@ -33,7 +34,8 @@ while queue:
     for name in re.findall(r'\(NEEDED\).*?\[(.*?)\]',info):
         if name in seen or name in {'libc.so.0','ld-uClibc.so.0'}: continue
         seen.add(name)
-        source=next((args.work/'sysroot'/folder/name for folder in ('usr/lib','lib') if (args.work/'sysroot'/folder/name).is_file()),None)
+        candidates=([args.runtime_libs/name] if args.runtime_libs else [])+[args.work/'sysroot'/folder/name for folder in ('usr/lib','lib')]
+        source=next((candidate for candidate in candidates if candidate.is_file()),None)
         if source is None: raise RuntimeError('Missing '+name)
         target=app/'lib'/name
         shutil.copyfile(source.resolve(),target)
@@ -48,6 +50,9 @@ shutil.copy2(port/'docs/CONVERTING.md',tools_stage/'README.md')
 shutil.copytree(port/'LICENSES',tools_stage/'LICENSES')
 shutil.copy2(port/'docs/DEPENDENCIES.md',stage/'LICENSES/DEPENDENCIES.md')
 shutil.copy2(port/'docs/INSTALL-RU.txt',stage/'README_RU.txt')
+shutil.copy2(port/'docs/CHANGELOG-1.1.0-RU.md',stage/'CHANGELOG-1.1.0-RU.md')
+shutil.copy2(port/'docs/VALIDATION-1.1.0.txt',stage/'VALIDATION-1.1.0.txt')
+shutil.copy2(port/'docs/PROGON-03-RU.md',stage/'PROGON-03-RU.md')
 shutil.copy2(port/'vendor/SHA256SUMS',stage/'LICENSES/SOURCE-ARCHIVE-SHA256SUMS')
 for filename in ['AssetPacker.exe','AssetPacker-linux']:
     if not (tools_stage/'Tools'/filename).is_file(): raise RuntimeError('Missing converter '+filename)

@@ -1,0 +1,76 @@
+--- a/Sources/Jazz2/Input/RumbleProcessor.cpp
++++ b/Sources/Jazz2/Input/RumbleProcessor.cpp
+@@ -43,9 +43,10 @@
+ 	void RumbleProcessor::ExecuteEffect(std::int32_t joyId, const std::shared_ptr<RumbleDescription>& desc)
+ 	{
+ 		#if defined(JAZZ2_RG35XX)
+-        if (!Rg35xx::RumbleEnabled || joyId != 0 || desc == nullptr) return;
++        if (!Rg35xx::RumbleEnabled || PreferencesCache::GamepadRumble == 0 || joyId != 0 || desc == nullptr) return;
+         for (auto& effect : _activeRumble) if (effect.Desc == desc) return;
+         _activeRumble.emplace_back(0, desc);
++        Rg35xx::GetMotor().NoteEffect();
+         return;
+ #endif
+         if (PreferencesCache::GamepadRumble == 0) {
+@@ -71,7 +72,7 @@
+ 	void RumbleProcessor::OnEndFrame(float timeMult)
+     {
+ #if defined(JAZZ2_RG35XX)
+-        if (!Rg35xx::RumbleEnabled) {
++        if (!Rg35xx::RumbleEnabled || PreferencesCache::GamepadRumble == 0) {
+             CancelAllEffects();
+             return;
+         }
+--- a/Sources/Jazz2/PreferencesCache.cpp
++++ b/Sources/Jazz2/PreferencesCache.cpp
+@@ -1236,6 +1236,9 @@
+             if (oldLayout) for (int i = 0; i < 4; ++i)
+                 mappings[(int)actions[i]].Targets[0] = ControlScheme::CreateTarget(newKeys[i]);
+         }
++        // Native intensity has three enabled levels. Keep the engine's event
++        // gating enabled at Strong; scale output once in the RG35XX adapter.
++        GamepadRumble = Rg35xx::RumbleEnabled ? 2 : 0;
+         Rg35xx::RenderWidth = Rg35xx::Widths[Rg35xx::ResolutionIndex];
+         Rg35xx::RenderHeight = Rg35xx::Heights[Rg35xx::ResolutionIndex];
+         LOGI("RG35XX: internal {}x{}, framebuffer 640x480, limit {} FPS", Rg35xx::RenderWidth, Rg35xx::RenderHeight, MaxFps);
+--- a/Sources/Jazz2/UI/Menu/ControlsOptionsSection.cpp
++++ b/Sources/Jazz2/UI/Menu/ControlsOptionsSection.cpp
+@@ -63,6 +63,7 @@
+             },
+             [this](std::int32_t) {
+                 Rg35xx::RumbleEnabled = !Rg35xx::RumbleEnabled;
++                PreferencesCache::GamepadRumble = Rg35xx::RumbleEnabled ? 2 : 0;
+                 if (!Rg35xx::RumbleEnabled) Rg35xx::GetMotor().Stop();
+                 _isDirty = true;
+                 PreferencesCache::Save();
+@@ -107,7 +108,7 @@
+ 				_isDirty = true;
+ 			});
+ 
+-#if defined(NCINE_HAS_GAMEPAD_RUMBLE)
++#if defined(NCINE_HAS_GAMEPAD_RUMBLE) && !defined(JAZZ2_RG35XX)
+ 		list->Add<ChoiceItem>(_("Gamepad Rumble"),
+ 			[]() -> StringView {
+ 				return (PreferencesCache::GamepadRumble == 2
+--- a/Sources/Main.cpp
++++ b/Sources/Main.cpp
+@@ -721,7 +721,18 @@
+ 	// powering the device off. A handheld's system button is expected to be an unconditional exit,
+ 	// and preferences are written here because Quit() tears the app down without saving them.
+ 	if (event.sym == Keys::Home) {
+-		PreferencesCache::Save();
++#if defined(JAZZ2_RG35XX) && !defined(SHAREWARE_DEMO_ONLY)
++        // Use the same resumable state serializer as the engine's Save & Exit.
++        if (auto* level = runtime_cast<LevelHandler>(_currentHandler.get())) {
++            if (level->IsLocalSession() && !SaveCurrentStateIfAny()) {
++                LOGE("RG35XX: MENU save failed; staying in game");
++                return;
++            }
++            LOGI("RG35XX: MENU saved game state");
++        }
++        Rg35xx::GetMotor().Stop();
++#endif
++        PreferencesCache::Save();
+ 		theApplication().Quit();
+ 		return;
+ 	}

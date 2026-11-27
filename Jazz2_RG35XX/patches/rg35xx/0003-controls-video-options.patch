@@ -1,0 +1,625 @@
+--- a/Sources/Jazz2/Input/ControlScheme.cpp
++++ b/Sources/Jazz2/Input/ControlScheme.cpp
+@@ -46,16 +46,16 @@
+ 		// Bound to the classic SNES platformer layout, which the Miyoo's Nintendo-style face buttons
+ 		// (X top, Y left, A right, B bottom) make the natural choice:
+ 		//
+-		//   B = Jump    A = Run    Y = Fire    X = Change weapon    START = Menu
++		//   A = Jump    X = Run    B = Fire    Y = Change weapon    START = Menu
+ 		//
+ 		// The gamepad targets are kept alongside, harmless when no gamepad reports anything, so a real
+ 		// controller still works if one is ever attached.
+-		first[(std::int32_t)PlayerAction::Fire].Targets.push_back(CreateTarget(Keys::LCtrl));
++		first[(std::int32_t)PlayerAction::Fire].Targets.push_back(CreateTarget(Keys::Space));
+ 		first[(std::int32_t)PlayerAction::Fire].Targets.push_back(CreateTarget(Keys::Backspace));
+-		first[(std::int32_t)PlayerAction::Jump].Targets.push_back(CreateTarget(Keys::Space));
+-		first[(std::int32_t)PlayerAction::Run].Targets.push_back(CreateTarget(Keys::LAlt));
++		first[(std::int32_t)PlayerAction::Jump].Targets.push_back(CreateTarget(Keys::LAlt));
++		first[(std::int32_t)PlayerAction::Run].Targets.push_back(CreateTarget(Keys::LShift));
+ 		first[(std::int32_t)PlayerAction::Run].Targets.push_back(CreateTarget(Keys::Tab));
+-		first[(std::int32_t)PlayerAction::ChangeWeapon].Targets.push_back(CreateTarget(Keys::LShift));
++		first[(std::int32_t)PlayerAction::ChangeWeapon].Targets.push_back(CreateTarget(Keys::LCtrl));
+ 		first[(std::int32_t)PlayerAction::Menu].Targets.push_back(CreateTarget(Keys::Return));
+ 		// SELECT as well as START: the console has no Escape, and one of the two not reaching the
+ 		// engine would otherwise leave a level with no way out except the MENU-button hard quit.
+@@ -335,12 +335,20 @@
+ 			pressedActions |= (1 << (std::uint32_t)PlayerAction::Fire);
+ 		}
+ #else
+-		// MIYOO PORT: menu navigation follows the console's own UI convention - A confirms, B goes back -
++		#if defined(JAZZ2_RG35XX)
++        // Gameplay Fire is B, but B must only go back in menus. Face-button
++        // bindings never override the fixed A/confirm, B/back convention.
++        pressedActions &= ~((1u << (std::uint32_t)PlayerAction::Fire) |
++                            (1u << (std::uint32_t)PlayerAction::Menu));
++        if (pressedKeys[(std::uint32_t)Keys::Return] || pressedKeys[(std::uint32_t)Keys::RCtrl])
++            pressedActions |= (1u << (std::uint32_t)PlayerAction::Menu);
++#endif
++        // MIYOO PORT: menu navigation follows the console's own UI convention - A confirms, B goes back -
+ 		// which is the opposite of what the gameplay bindings produce here. This function is only used by
+ 		// the menus and the cinematics (MenuContainerBase, Cinematics), never by a level, so gameplay
+-		// keeps A = Run and B = Jump untouched.
++		// uses A = Jump, B = Fire, X = Run, Y = Change weapon.
+ 		//
+-		// The upstream "Jump also confirms" rule above is dropped for the same reason: Jump is B, and B
++		// The upstream "Jump also confirms" rule above is dropped for the same reason: the B button
+ 		// has to mean back here, not confirm.
+ 		if (pressedKeys[(std::uint32_t)Keys::LAlt]) {			// A
+ 			pressedActions |= (1 << (std::uint32_t)PlayerAction::Fire);
+@@ -361,7 +369,7 @@
+ 			// Forcing it to mean Fire as well makes it ambiguous, and Fire wins: BeginSection tests
+ 			// ActionHit(Fire) before ActionHit(Menu), so START confirmed the highlighted item instead
+ 			// of opening the menu - which looked like START doing nothing while SELECT worked.
+-			// Confirming is on the Y button (Fire) here, so nothing is lost by dropping the shortcut.
++			// Confirming is on the A button here, so nothing is lost by dropping the shortcut.
+ #endif
+ 			// Use ChangeWeapon action as delete key
+ 			if (pressedKeys[(std::uint32_t)Keys::Delete]) {
+--- a/Sources/Jazz2/LevelHandler.cpp
++++ b/Sources/Jazz2/LevelHandler.cpp
+@@ -1,4 +1,4 @@
+-﻿#include "LevelHandler.h"
++#include "LevelHandler.h"
+ #include "ContentResolver.h"
+ #include "PreferencesCache.h"
+ #include "Rendering/PlayerViewport.h"
+@@ -724,7 +724,7 @@
+ 			return;
+ 		}
+ 
+-		constexpr float defaultRatio = (float)DefaultWidth / DefaultHeight;
++		const float defaultRatio = (float)DefaultWidth / DefaultHeight;
+ 		float currentRatio = (float)width / height;
+ 
+ 		std::int32_t w, h;
+--- a/Sources/Jazz2/LevelHandler.h
++++ b/Sources/Jazz2/LevelHandler.h
+@@ -1,4 +1,7 @@
+-﻿#pragma once
++#if defined(JAZZ2_RG35XX)
++#include <RgSettings.h>
++#endif
++#pragma once
+ 
+ #include "ILevelHandler.h"
+ #include "IResumable.h"
+@@ -94,9 +97,17 @@
+ 		// original game showed (320x200).
+ #if defined(JAZZ2_LOGICAL_WIDTH) && defined(JAZZ2_LOGICAL_HEIGHT)
+ 		/** @brief Default width of viewport */
+-		static constexpr std::int32_t DefaultWidth = JAZZ2_LOGICAL_WIDTH;
++		#if defined(JAZZ2_RG35XX)
++        static inline const std::int32_t& DefaultWidth = Rg35xx::RenderWidth;
++#else
++        static constexpr std::int32_t DefaultWidth = JAZZ2_LOGICAL_WIDTH;
++#endif
+ 		/** @brief Default height of viewport */
+-		static constexpr std::int32_t DefaultHeight = JAZZ2_LOGICAL_HEIGHT;
++		#if defined(JAZZ2_RG35XX)
++        static inline const std::int32_t& DefaultHeight = Rg35xx::RenderHeight;
++#else
++        static constexpr std::int32_t DefaultHeight = JAZZ2_LOGICAL_HEIGHT;
++#endif
+ #else
+ 		/** @brief Default width of viewport */
+ 		static constexpr std::int32_t DefaultWidth = 720;
+--- a/Sources/Jazz2/PreferencesCache.cpp
++++ b/Sources/Jazz2/PreferencesCache.cpp
+@@ -1,4 +1,7 @@
+-﻿#include "PreferencesCache.h"
++#include "PreferencesCache.h"
++#if defined(JAZZ2_RG35XX)
++#include <RgSettings.h>
++#endif
+ #include "ContentResolver.h"
+ #include "LevelHandler.h"
+ #include "Input/ControlScheme.h"
+@@ -51,7 +54,11 @@
+ 	UnlockableEpisodes PreferencesCache::UnlockedEpisodes = UnlockableEpisodes::None;
+ 	RescaleMode PreferencesCache::ActiveRescaleMode = RescaleMode::None;
+ 	bool PreferencesCache::EnableFullscreen = false;
+-	std::int32_t PreferencesCache::MaxFps = PreferencesCache::UseVsync;
++	#if defined(JAZZ2_RG35XX)
++    std::int32_t PreferencesCache::MaxFps = 30;
++#else
++    std::int32_t PreferencesCache::MaxFps = PreferencesCache::UseVsync;
++#endif
+ 	bool PreferencesCache::ShowPerformanceMetrics = false;
+ 	bool PreferencesCache::KeepAspectRatioInCinematics = false;
+ 	bool PreferencesCache::ShowPlayerTrails = true;
+@@ -1197,7 +1204,34 @@
+ 		!defined(DEATH_TARGET_WII) && !defined(DEATH_TARGET_GAMECUBE) && !defined(DEATH_TARGET_PS2) && \
+ 		!defined(DEATH_TARGET_PSP) && !defined(DEATH_TARGET_VITA) && !defined(DEATH_TARGET_DREAMCAST) && \
+ 		!defined(DEATH_TARGET_PS3)
+-		// Override some settings by command-line arguments
++		#if defined(JAZZ2_RG35XX)
++        // Separate versioned settings keep the upstream config and saves compatible.
++        auto rgOptions = fs::Open(fs::CombinePath(GetDirectory(), "RG35XX.options"_s), FileAccess::Read);
++        if (rgOptions->IsValid() && rgOptions->GetSize() == 12 &&
++            rgOptions->ReadValueAsLE<std::uint32_t>() == 0x314F4752) {
++            auto index = rgOptions->ReadValueAsLE<std::int32_t>();
++            auto fps = rgOptions->ReadValueAsLE<std::int32_t>();
++            if (index >= 0 && index < 5) Rg35xx::ResolutionIndex = index;
++            if (fps >= 30 && fps <= 60 && fps % 5 == 0) MaxFps = fps;
++        } else if (!resetConfig) {
++            // Upgrade only the exact old four primary face assignments.
++            auto mappings = ControlScheme::GetMappings(0);
++            const PlayerAction actions[] = {PlayerAction::Jump, PlayerAction::Fire, PlayerAction::Run, PlayerAction::ChangeWeapon};
++            const Keys oldKeys[] = {Keys::Space, Keys::LCtrl, Keys::LAlt, Keys::LShift};
++            const Keys newKeys[] = {Keys::LAlt, Keys::Space, Keys::LShift, Keys::LCtrl};
++            bool oldLayout = true;
++            for (int i = 0; i < 4; ++i) {
++                auto& targets = mappings[(int)actions[i]].Targets;
++                oldLayout &= !targets.empty() && targets[0].Data == ControlScheme::CreateTarget(oldKeys[i]).Data;
++            }
++            if (oldLayout) for (int i = 0; i < 4; ++i)
++                mappings[(int)actions[i]].Targets[0] = ControlScheme::CreateTarget(newKeys[i]);
++        }
++        Rg35xx::RenderWidth = Rg35xx::Widths[Rg35xx::ResolutionIndex];
++        Rg35xx::RenderHeight = Rg35xx::Heights[Rg35xx::ResolutionIndex];
++        LOGI("RG35XX: internal {}x{}, framebuffer 640x480, limit {} FPS", Rg35xx::RenderWidth, Rg35xx::RenderHeight, MaxFps);
++#endif
++        // Override some settings by command-line arguments
+ 		for (std::int32_t i = 0; i < config.argc(); i++) {
+ 			auto arg = config.argv(i);
+ 			if (arg == "/bypass-cache"_s) {
+@@ -1383,7 +1417,15 @@
+ 		co.WriteValue<std::uint8_t>((std::uint8_t)PlayerColors);
+ 
+ 		co.Dispose();
+-		so->Dispose();
++        so->Dispose();
++#if defined(JAZZ2_RG35XX)
++        auto rgOptions = fs::Open(fs::CombinePath(GetDirectory(), "RG35XX.options"_s), FileAccess::Write);
++        if (rgOptions->IsValid()) {
++            rgOptions->WriteValueAsLE<std::uint32_t>(0x314F4752);
++            rgOptions->WriteValueAsLE<std::int32_t>(Rg35xx::ResolutionIndex);
++            rgOptions->WriteValueAsLE<std::int32_t>(MaxFps);
++        }
++#endif
+ 
+ #if defined(DEATH_TARGET_EMSCRIPTEN)
+ 		fs::SyncToPersistent();
+--- a/Sources/Jazz2/UI/Cinematics.cpp
++++ b/Sources/Jazz2/UI/Cinematics.cpp
+@@ -1,4 +1,4 @@
+-﻿#include "Cinematics.h"
++#include "Cinematics.h"
+ #include "../PreferencesCache.h"
+ #include "../ContentFileTypes.h"
+ #include "../VideoFormat.h"
+@@ -171,7 +171,7 @@
+ 
+ 	void Cinematics::OnInitializeViewport(std::int32_t width, std::int32_t height)
+ 	{
+-		constexpr float defaultRatio = (float)DefaultWidth / DefaultHeight;
++		const float defaultRatio = (float)DefaultWidth / DefaultHeight;
+ 		float currentRatio = (float)width / height;
+ 
+ 		std::int32_t w, h;
+--- a/Sources/Jazz2/UI/Cinematics.h
++++ b/Sources/Jazz2/UI/Cinematics.h
+@@ -1,4 +1,7 @@
+-﻿#pragma once
++#if defined(JAZZ2_RG35XX)
++#include <RgSettings.h>
++#endif
++#pragma once
+ 
+ #include "../IStateHandler.h"
+ #include "../IRootController.h"
+@@ -36,13 +39,21 @@
+ 		// MIYOO PORT: kept in step with LevelHandler - each of these classes caps its own viewport,
+ 		// so leaving them at the desktop default made menu and cinematics render at 540x405 on a
+ 		// 640x480 panel while levels rendered at 320x240.
+-		static constexpr std::int32_t DefaultWidth = JAZZ2_LOGICAL_WIDTH;
++		#if defined(JAZZ2_RG35XX)
++        static inline const std::int32_t& DefaultWidth = Rg35xx::RenderWidth;
++#else
++        static constexpr std::int32_t DefaultWidth = JAZZ2_LOGICAL_WIDTH;
++#endif
+ #else
+ 		static constexpr std::int32_t DefaultWidth = 720;
+ #endif
+ 		/** @brief Default height of viewport */
+ #if defined(JAZZ2_LOGICAL_WIDTH) && defined(JAZZ2_LOGICAL_HEIGHT)
+-		static constexpr std::int32_t DefaultHeight = JAZZ2_LOGICAL_HEIGHT;
++		#if defined(JAZZ2_RG35XX)
++        static inline const std::int32_t& DefaultHeight = Rg35xx::RenderHeight;
++#else
++        static constexpr std::int32_t DefaultHeight = JAZZ2_LOGICAL_HEIGHT;
++#endif
+ #else
+ 		static constexpr std::int32_t DefaultHeight = 405;
+ #endif
+--- a/Sources/Jazz2/UI/HUD.cpp
++++ b/Sources/Jazz2/UI/HUD.cpp
+@@ -1,4 +1,4 @@
+-﻿#include "HUD.h"
++#include "HUD.h"
+ #include "InGameConsole.h"
+ #include "Menu/Tweening.h"
+ #include "../ContentResolver.h"
+@@ -188,12 +188,12 @@
+ #endif
+ 		if (_touchButtonsTimer > 0.0f) {
+ 			const auto& dpadLayout = PreferencesCache::TouchButtons[(std::size_t)TouchButtonSlot::Dpad];
+-			float leftMargin = dpadLayout.EdgeOffset.X + DpadSize * DefaultRef * dpadLayout.Scale + 8.0f;
++			float leftMargin = dpadLayout.EdgeOffset.X + DpadSize * DefaultRef() * dpadLayout.Scale + 8.0f;
+ 			float rightMargin = 0.0f;
+ 			for (TouchButtonSlot slot : { TouchButtonSlot::Fire, TouchButtonSlot::Jump, TouchButtonSlot::Run }) {
+ 				const auto& sl = PreferencesCache::TouchButtons[(std::size_t)slot];
+ 				if (sl.Anchor == TouchButtonAnchor::BottomRight || sl.Anchor == TouchButtonAnchor::TopRight) {
+-					rightMargin = std::max(rightMargin, sl.EdgeOffset.X + ButtonSize * DefaultRef * sl.Scale + 8.0f);
++					rightMargin = std::max(rightMargin, sl.EdgeOffset.X + ButtonSize * DefaultRef() * sl.Scale + 8.0f);
+ 				}
+ 			}
+ 			adjustedView.X = leftMargin;
+@@ -1695,8 +1695,8 @@
+ 			float ex = layout.EdgeOffset.X;
+ 			float ey = layout.EdgeOffset.Y;
+ 			Alignment align = toAlign(layout.Anchor);
+-			float s = std::round(DpadSize * DefaultRef * scale);
+-			float t = std::round(DpadThreshold * DefaultRef * scale);
++			float s = std::round(DpadSize * DefaultRef() * scale);
++			float t = std::round(DpadThreshold * DefaultRef() * scale);
+ 
+ 			_touchButtons[0] = MakeTouchButton(PlayerAction::None, TouchDpad, align, ex, ey, s, s);
+ 			_touchButtons[1] = MakeTouchButton(PlayerAction::Up, AnimState::Default, align, ex, ey + s * 2.0f / 3.0f, s, s / 3.0f + t);
+@@ -1713,7 +1713,7 @@
+ 		const Slot actionSlots[] = { Slot::Fire, Slot::Jump, Slot::Run, Slot::ChangeWeapon };
+ 		for (std::int32_t i = 0; i < 4; i++) {
+ 			const auto& layout = PC::TouchButtons[(std::size_t)actionSlots[i]];
+-			float sz = std::round(actionDefaultSizes[i] * DefaultRef * layout.Scale);
++			float sz = std::round(actionDefaultSizes[i] * DefaultRef() * layout.Scale);
+ 			_touchButtons[5 + i] = MakeTouchButton(
+ 				static_cast<PlayerAction>((std::int32_t)PlayerAction::Fire + i),
+ 				actionStates[i], toAlign(layout.Anchor),
+@@ -1724,7 +1724,7 @@
+ #if defined(DEATH_TARGET_ANDROID)
+ 		if (static_cast<AndroidApplication&>(theApplication()).IsScreenRound()) {
+ 			const auto& layout = PC::TouchButtons[(std::size_t)Slot::Menu];
+-			float sz = std::round(SmallButtonSize * DefaultRef * layout.Scale);
++			float sz = std::round(SmallButtonSize * DefaultRef() * layout.Scale);
+ 			_touchButtons[9] = MakeTouchButton(PlayerAction::Menu, TouchPause, Alignment::Top | Fixed,
+ 				layout.EdgeOffset.X, layout.EdgeOffset.Y, sz, sz);
+ 			_touchButtons[10] = {};
+@@ -1733,13 +1733,13 @@
+ 		{
+ 			{
+ 				const auto& layout = PC::TouchButtons[(std::size_t)Slot::Menu];
+-				float sz = std::round(SmallButtonSize * DefaultRef * layout.Scale);
++				float sz = std::round(SmallButtonSize * DefaultRef() * layout.Scale);
+ 				_touchButtons[9] = MakeTouchButton(PlayerAction::Menu, TouchPause, toAlign(layout.Anchor),
+ 					layout.EdgeOffset.X, layout.EdgeOffset.Y, sz, sz);
+ 			}
+ 			{
+ 				const auto& layout = PC::TouchButtons[(std::size_t)Slot::Console];
+-				float sz = std::round(SmallButtonSize * DefaultRef * layout.Scale);
++				float sz = std::round(SmallButtonSize * DefaultRef() * layout.Scale);
+ 				_touchButtons[10] = MakeTouchButton(PlayerAction::Console, AnimState::Default, toAlign(layout.Anchor),
+ 					layout.EdgeOffset.X, layout.EdgeOffset.Y, sz, sz);
+ 			}
+--- a/Sources/Jazz2/UI/HUD.h
++++ b/Sources/Jazz2/UI/HUD.h
+@@ -1,4 +1,4 @@
+-﻿#pragma once
++#pragma once
+ 
+ #include "Canvas.h"
+ #include "Font.h"
+@@ -206,7 +206,7 @@
+ 		static constexpr std::int32_t TouchButtonsCount = 11;
+ 		static constexpr float WeaponWheelAnimDuration = 20.0f;
+ 		static constexpr std::int32_t WeaponWheelMaxVertices = 768;
+-		static constexpr float DefaultRef = LevelHandler::DefaultWidth * 0.5f; // = 360.0f
++		static float DefaultRef() { return LevelHandler::DefaultWidth * 0.5f; }
+ 
+ 		float _rgbAmbientLight;
+ 		float _rgbHealthLast;
+--- a/Sources/Jazz2/UI/LoadingHandler.cpp
++++ b/Sources/Jazz2/UI/LoadingHandler.cpp
+@@ -1,4 +1,4 @@
+-﻿#include "LoadingHandler.h"
++#include "LoadingHandler.h"
+ 
+ #include "../../nCine/Application.h"
+ 
+@@ -46,7 +46,7 @@
+ 
+ 	void LoadingHandler::OnInitializeViewport(std::int32_t width, std::int32_t height)
+ 	{
+-		constexpr float defaultRatio = (float)DefaultWidth / DefaultHeight;
++		const float defaultRatio = (float)DefaultWidth / DefaultHeight;
+ 		float currentRatio = (float)width / height;
+ 
+ 		std::int32_t w, h;
+--- a/Sources/Jazz2/UI/LoadingHandler.h
++++ b/Sources/Jazz2/UI/LoadingHandler.h
+@@ -1,4 +1,7 @@
+-﻿#pragma once
++#if defined(JAZZ2_RG35XX)
++#include <RgSettings.h>
++#endif
++#pragma once
+ 
+ #include "../IStateHandler.h"
+ #include "../IRootController.h"
+@@ -24,13 +27,21 @@
+ 		// MIYOO PORT: kept in step with LevelHandler - each of these classes caps its own viewport,
+ 		// so leaving them at the desktop default made menu and cinematics render at 540x405 on a
+ 		// 640x480 panel while levels rendered at 320x240.
+-		static constexpr std::int32_t DefaultWidth = JAZZ2_LOGICAL_WIDTH;
++		#if defined(JAZZ2_RG35XX)
++        static inline const std::int32_t& DefaultWidth = Rg35xx::RenderWidth;
++#else
++        static constexpr std::int32_t DefaultWidth = JAZZ2_LOGICAL_WIDTH;
++#endif
+ #else
+ 		static constexpr std::int32_t DefaultWidth = 720;
+ #endif
+ 		/** @brief Default height of viewport */
+ #if defined(JAZZ2_LOGICAL_WIDTH) && defined(JAZZ2_LOGICAL_HEIGHT)
+-		static constexpr std::int32_t DefaultHeight = JAZZ2_LOGICAL_HEIGHT;
++		#if defined(JAZZ2_RG35XX)
++        static inline const std::int32_t& DefaultHeight = Rg35xx::RenderHeight;
++#else
++        static constexpr std::int32_t DefaultHeight = JAZZ2_LOGICAL_HEIGHT;
++#endif
+ #else
+ 		static constexpr std::int32_t DefaultHeight = 405;
+ #endif
+--- a/Sources/Jazz2/UI/Menu/GraphicsOptionsSection.cpp
++++ b/Sources/Jazz2/UI/Menu/GraphicsOptionsSection.cpp
+@@ -1,4 +1,7 @@
+ #include "GraphicsOptionsSection.h"
++#if defined(JAZZ2_RG35XX)
++#include <RgSettings.h>
++#endif
+ #include "RescaleModeSection.h"
+ #include "../Font.h"
+ #include "../../LevelHandler.h"
+@@ -46,7 +49,32 @@
+ 		list->Add<ListItem>(_("Rescale Mode"), [root]() { root->SwitchToSection<RescaleModeSection>(); });
+ #endif
+ 
+-		// Display-only row (no OnChange): shows the current drawable resolution without arrows
++		#if defined(JAZZ2_RG35XX)
++        const bool ru = PreferencesCache::Language[0] == 'r' && PreferencesCache::Language[1] == 'u';
++        list->Add<ChoiceItem>(ru ? "РАЗРЕШЕНИЕ (ПЕРЕЗАПУСК)"_s : "Resolution (restart)"_s,
++            [this]() -> StringView {
++                int i = Rg35xx::ResolutionIndex;
++                _resolutionValue = format("{}x{}", Rg35xx::Widths[i], Rg35xx::Heights[i]);
++                return _resolutionValue;
++            },
++            [this](std::int32_t direction) {
++                Rg35xx::ResolutionIndex = std::clamp(Rg35xx::ResolutionIndex + direction, 0, 4);
++                _isDirty = true;
++                PreferencesCache::Save();
++            });
++        list->Add<ChoiceItem>(ru ? "ОГРАНИЧЕНИЕ FPS"_s : "FPS limit"_s,
++            [this]() -> StringView {
++                _fpsValue = format("{}", PreferencesCache::MaxFps);
++                return _fpsValue;
++            },
++            [this](std::int32_t direction) {
++                PreferencesCache::MaxFps = std::clamp(PreferencesCache::MaxFps + direction * 5, 30, 60);
++                theApplication().SetFrameLimit(PreferencesCache::MaxFps);
++                _isDirty = true;
++                PreferencesCache::Save();
++            });
++#else
++        // Display-only row (no OnChange): shows the current drawable resolution without arrows
+ 		// TRANSLATORS: Menu item in Options > Graphics section
+ 		list->Add<ChoiceItem>(_("Resolution"),
+ 			[this]() -> StringView {
+@@ -56,6 +84,7 @@
+ 			},
+ 			nullptr);
+ 
++#endif // RG35XX runtime choices
+ #if defined(NCINE_HAS_WINDOWS)
+ #	if defined(DEATH_TARGET_WINDOWS_RT)
+ 		// Xbox is always fullscreen
+--- a/Sources/Jazz2/UI/Menu/GraphicsOptionsSection.h
++++ b/Sources/Jazz2/UI/Menu/GraphicsOptionsSection.h
+@@ -22,6 +22,7 @@
+ 		bool _isDirty = false;
+ 		// Backing storage for the formatted (non-catalog) values, so those choice rows can hand out a stable view
+ 		String _resolutionValue;
++        String _fpsValue;
+ 		String _lightingResolutionValue;
+ 	};
+ }
+--- a/Sources/Jazz2/UI/Menu/InGameMenu.h
++++ b/Sources/Jazz2/UI/Menu/InGameMenu.h
+@@ -1,3 +1,6 @@
++#if defined(JAZZ2_RG35XX)
++#include <RgSettings.h>
++#endif
+ #pragma once
+ 
+ #include "MenuContainerBase.h"
+@@ -35,13 +38,21 @@
+ 		// MIYOO PORT: kept in step with LevelHandler - each of these classes caps its own viewport,
+ 		// so leaving them at the desktop default made menu and cinematics render at 540x405 on a
+ 		// 640x480 panel while levels rendered at 320x240.
+-		static constexpr std::int32_t DefaultWidth = JAZZ2_LOGICAL_WIDTH;
++		#if defined(JAZZ2_RG35XX)
++        static inline const std::int32_t& DefaultWidth = Rg35xx::RenderWidth;
++#else
++        static constexpr std::int32_t DefaultWidth = JAZZ2_LOGICAL_WIDTH;
++#endif
+ #else
+ 		static constexpr std::int32_t DefaultWidth = 720;
+ #endif
+ 		/** @brief Default height of viewport */
+ #if defined(JAZZ2_LOGICAL_WIDTH) && defined(JAZZ2_LOGICAL_HEIGHT)
+-		static constexpr std::int32_t DefaultHeight = JAZZ2_LOGICAL_HEIGHT;
++		#if defined(JAZZ2_RG35XX)
++        static inline const std::int32_t& DefaultHeight = Rg35xx::RenderHeight;
++#else
++        static constexpr std::int32_t DefaultHeight = JAZZ2_LOGICAL_HEIGHT;
++#endif
+ #else
+ 		static constexpr std::int32_t DefaultHeight = 405;
+ #endif
+--- a/Sources/Jazz2/UI/Menu/MainMenu.cpp
++++ b/Sources/Jazz2/UI/Menu/MainMenu.cpp
+@@ -1,4 +1,4 @@
+-﻿#include "MainMenu.h"
++#include "MainMenu.h"
+ #include "MenuResources.h"
+ #include "../../ContentResolver.h"
+ #include "../../PreferencesCache.h"
+@@ -161,7 +161,7 @@
+ 
+ 	void MainMenu::OnInitializeViewport(std::int32_t width, std::int32_t height)
+ 	{
+-		constexpr float defaultRatio = (float)DefaultWidth / DefaultHeight;
++		const float defaultRatio = (float)DefaultWidth / DefaultHeight;
+ 		float currentRatio = (float)width / height;
+ 
+ 		std::int32_t w, h;
+--- a/Sources/Jazz2/UI/Menu/MainMenu.h
++++ b/Sources/Jazz2/UI/Menu/MainMenu.h
+@@ -1,3 +1,6 @@
++#if defined(JAZZ2_RG35XX)
++#include <RgSettings.h>
++#endif
+ #pragma once
+ 
+ #include "MenuContainerBase.h"
+@@ -48,13 +51,21 @@
+ 		// MIYOO PORT: kept in step with LevelHandler - each of these classes caps its own viewport,
+ 		// so leaving them at the desktop default made menu and cinematics render at 540x405 on a
+ 		// 640x480 panel while levels rendered at 320x240.
+-		static constexpr int32_t DefaultWidth = JAZZ2_LOGICAL_WIDTH;
++		#if defined(JAZZ2_RG35XX)
++        static inline const int32_t& DefaultWidth = Rg35xx::RenderWidth;
++#else
++        static constexpr int32_t DefaultWidth = JAZZ2_LOGICAL_WIDTH;
++#endif
+ #else
+ 		static constexpr int32_t DefaultWidth = 720;
+ #endif
+ 		/** @brief Default height of viewport */
+ #if defined(JAZZ2_LOGICAL_WIDTH) && defined(JAZZ2_LOGICAL_HEIGHT)
+-		static constexpr int32_t DefaultHeight = JAZZ2_LOGICAL_HEIGHT;
++		#if defined(JAZZ2_RG35XX)
++        static inline const int32_t& DefaultHeight = Rg35xx::RenderHeight;
++#else
++        static constexpr int32_t DefaultHeight = JAZZ2_LOGICAL_HEIGHT;
++#endif
+ #else
+ 		static constexpr int32_t DefaultHeight = 405;
+ #endif
+--- a/Sources/Jazz2/UI/Menu/RemapControlsSection.cpp
++++ b/Sources/Jazz2/UI/Menu/RemapControlsSection.cpp
+@@ -463,6 +463,15 @@
+ 			} else {
+ 				Keys key = (Keys)(data & ControlScheme::ButtonMask);
+ 				value = theApplication().GetInputManager().getKeyName(key);
++#if defined(JAZZ2_RG35XX)
++                switch (key) {
++                    case Keys::LAlt: value = "A"_s; break;
++                    case Keys::Space: value = "B"_s; break;
++                    case Keys::LShift: value = "X"_s; break;
++                    case Keys::LCtrl: value = "Y"_s; break;
++                    default: break;
++                }
++#endif
+ 			}
+ 
+ 			if (!value.empty()) {
+@@ -562,7 +571,37 @@
+ 
+ 	bool RemapControlsSection::HasCollision(PlayerAction action, MappingTarget target, PlayerAction& collidingAction, std::int32_t& collidingAssignment)
+ 	{
+-		for (std::int32_t i = 0; i < (std::int32_t)PlayerAction::Count; i++) {
++#if defined(JAZZ2_RG35XX)
++        collidingAction = PlayerAction::Count;
++        collidingAssignment = -1;
++        auto swappable = [](PlayerAction a) {
++            return a == PlayerAction::Fire || a == PlayerAction::Jump ||
++                   a == PlayerAction::Run || a == PlayerAction::ChangeWeapon;
++        };
++        if (swappable(action) && _selectedColumn == 0) {
++            auto mappings = ControlScheme::GetMappings(_playerIndex);
++            auto& selected = mappings[(int)action].Targets;
++            if (!selected.empty()) {
++                for (int i = 0; i < (int)PlayerAction::Count; ++i) {
++                    if ((PlayerAction)i == action || !swappable((PlayerAction)i)) continue;
++                    auto& other = mappings[i].Targets;
++                    if (!other.empty() && other[0].Data == target.Data) {
++                        // Only swap if neither side would create another duplicate.
++                        for (int j = 0; j < (int)PlayerAction::Count; ++j) {
++                            const auto& targets = mappings[j].Targets;
++                            for (int k = 0; k < (int)targets.size(); ++k) {
++                                if (k == 0 && (j == i || j == (int)action)) continue;
++                                if (targets[k].Data == target.Data || targets[k].Data == selected[0].Data) return true;
++                            }
++                        }
++                        other[0] = selected[0];
++                        return false;
++                    }
++                }
++            }
++        }
++#endif
++        for (std::int32_t i = 0; i < (std::int32_t)PlayerAction::Count; i++) {
+ 			PlayerAction ia = (PlayerAction)i;
+ 
+ 			if ((action == PlayerAction::Down && ia == PlayerAction::Buttstomp) ||
+--- a/Sources/Main.cpp
++++ b/Sources/Main.cpp
+@@ -733,12 +733,12 @@
+ 	}
+ #endif
+ 
+-	_currentHandler->OnKeyPressed(event);
++	if (_currentHandler != nullptr) _currentHandler->OnKeyPressed(event);
+ }
+ 
+ void GameEventHandler::OnKeyReleased(const KeyboardEvent& event)
+ {
+-	_currentHandler->OnKeyReleased(event);
++	if (_currentHandler != nullptr) _currentHandler->OnKeyReleased(event);
+ }
+ 
+ void GameEventHandler::OnTextInput(const TextInputEvent& event)
+--- a/Sources/nCine/Application.h
++++ b/Sources/nCine/Application.h
+@@ -1,4 +1,4 @@
+-﻿#pragma once
++#pragma once
+ 
+ #include "../Main.h"
+ #include "Graphics/IGfxDevice.h"
+@@ -135,6 +135,7 @@
+ 
+ 		/** @brief Returns the configuration used to initialize the application */
+ 		inline const AppConfiguration& GetAppConfiguration() const { return _appCfg; }
++        inline void SetFrameLimit(std::uint32_t fps) { _appCfg.frameLimit = fps; }
+ 		/** @brief Returns the run-time rendering settings */
+ 		inline RenderingSettings& GetRenderingSettings() { return _renderingSettings; }
+ #if defined(WITH_IMGUI) || defined(DOXYGEN_GENERATING_OUTPUT)
+--- a/Sources/nCine/Backends/SdlGfxDevice.cpp
++++ b/Sources/nCine/Backends/SdlGfxDevice.cpp
+@@ -3,6 +3,7 @@
+ #include "SdlGfxDevice.h"
+ #if defined(JAZZ2_RG35XX)
+ #include "RgFramebuffer.h"
++#include <RgSettings.h>
+ static Rg35xx::Framebuffer rgDisplay;
+ #endif
+ #include "../Graphics/ITextureLoader.h"
+@@ -724,7 +725,7 @@
+ 		}
+ 		_drawableWidth = 640;
+ 		_drawableHeight = 480;
+-		RHI::Device::ResizeScreenFramebuffer(JAZZ2_LOGICAL_WIDTH, JAZZ2_LOGICAL_HEIGHT);
++		RHI::Device::ResizeScreenFramebuffer(Rg35xx::RenderWidth, Rg35xx::RenderHeight);
+ 		return;
+ #endif
+ #	if defined(WITH_SDL3)

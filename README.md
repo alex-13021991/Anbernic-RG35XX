@@ -16,5 +16,5 @@
 | [Переключатели USB](USB-Toggles/) | Три пункта APPS для ADB, USB-ввода и MTP. | [2026.11.18](https://github.com/alex-13021991/Anbernic-RG35XX/releases/tag/usb-toggles-2026.11.18) |
 | [Dingux Commander Dark RU](Dingux-Commander-RU/) | Двухпанельный файловый менеджер с русским интерфейсом. | [21.11.2026](https://github.com/alex-13021991/Anbernic-RG35XX/releases/tag/dingux-commander-dark-ru-2026.11.21) |
 | [OpenJazz](OpenJazz_RG35XX/README_RG35XX.md) | Jazz Jackrabbit CD и Holiday Hare '95 с данными GOG. Игровое меню по SELECT, L1 свободна для назначения. | [Скачать v1.1](https://github.com/alex-13021991/Anbernic-RG35XX/releases/tag/openjazz-rg35xx-v1.1) |
-| [Jazz² Resurrection](Jazz2_RG35XX/) | Jazz Jackrabbit 2 / The Secret Files с данными GOG. Русская локализация, сохранения и конвертер ресурсов; полный комплект исходников для самостоятельной сборки. | [Скачать 1.0.0](https://github.com/alex-13021991/Anbernic-RG35XX/releases/tag/jazz2-rg35xx-v1.0.0) |
+| [Jazz² Resurrection](Jazz2_RG35XX/) | Jazz Jackrabbit 2 / The Secret Files с данными GOG. Выбор разрешения и FPS, штатная вибрация, сохранение по MENU, русская локализация и полный комплект исходников. | [Скачать 1.1.0](https://github.com/alex-13021991/Anbernic-RG35XX/releases/tag/jazz2-rg35xx-v1.1.0) |
 

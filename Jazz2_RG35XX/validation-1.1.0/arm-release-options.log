@@ -1,0 +1,67 @@
+Death::IO::FileStream::Open() ‡ Failed to open file "Saves/Jazz2.config" with error 2 (No such file or directory)
+Jazz2::ContentResolver::DetectPrebakedContent() ‡ Content in "Content/" was prepared ahead of time
+Jazz2::ContentResolver::RemountPaks() ‡ File "/home/alex/RG35XX/Work/Jazz2-options/package-private/Roms/PORTS/Jazz Jackrabbit 2/Content/Prebaked.pak" mounted successfully
+Death::IO::FileStream::Open() ‡ File "/home/alex/RG35XX/Work/Jazz2-options/package-private/Roms/PORTS/Jazz Jackrabbit 2/Content/Prebaked.pak" opened
+Death::IO::FileStream::Dispose() ‡ File "/home/alex/RG35XX/Work/Jazz2-options/package-private/Roms/PORTS/Jazz Jackrabbit 2/Content/Prebaked.pak" closed
+Death::IO::FileStream::Open() ‡ Failed to open file "/home/alex/RG35XX/Work/Jazz2-1.1.0-progon03/build-work/ui-test/Saves/.local/share/Jazz² Resurrection/Cache/Translations/ru-ru.mo" with error 2 (No such file or directory)
+Death::IO::FileStream::Open() ‡ Failed to open file "Content/Translations/ru-ru.mo" with error 2 (No such file or directory)
+Death::IO::FileStream::Open() ‡ Failed to open file "/home/alex/RG35XX/Work/Jazz2-1.1.0-progon03/build-work/ui-test/Saves/.local/share/Jazz² Resurrection/Cache/Translations/ru.mo" with error 2 (No such file or directory)
+nCine::I18n::LoadFromFile() ‡ Translation "Content/Translations/ru.mo" loaded
+Death::IO::FileStream::Open() ‡ File "Content/Translations/ru.mo" opened
+Death::IO::FileStream::Dispose() ‡ File "Content/Translations/ru.mo" closed
+Death::IO::FileStream::Open() ‡ Failed to open file "Saves/RG35XX.options" with error 2 (No such file or directory)
+Jazz2::PreferencesCache::Initialize() ‡ RG35XX: internal 320x240, framebuffer 640x480, limit 45 FPS
+nCine::MainApplication::Init() ‡ Jazz² Resurrection v3.7.0 (SDL2) initializing...
+fb0: 32-bit RGB 640x480 stride=2560 offset=0,0 channels=16/8/0 alpha=8
+nCine::JoyMapping::Init() ‡ Added 306 internal gamepad mappings for current platform
+nCine::ALAudioDevice::Init() ‡ --- OpenAL device info ---
+nCine::ALAudioDevice::Init() ‡ Device Name: OpenAL Soft
+nCine::ALAudioDevice::Init() ‡ OpenAL Version: 1.1 ALSOFT 1.18.1
+nCine::ALAudioDevice::Init() ‡ ALC_EXT_EFX Version: 0.0 (2 auxiliary sends)
+nCine::ALAudioDevice::Init() ‡ Resampler: Linear (1)
+nCine::ALAudioDevice::Init() ‡ Sources: 255 (M) / 1 (S)
+nCine::ALAudioDevice::Init() ‡ Output Frequency: 44100 Hz
+nCine::ALAudioDevice::Init() ‡ Refresh Rate: 43 Hz
+nCine::ALAudioDevice::Init() ‡ Asynchronous: true
+nCine::ALAudioDevice::Init() ‡ HRTF: disabled
+nCine::RHI::RhiCapabilitiesBase::LogCapabilities() ‡ --- Rendering device info ---
+nCine::RHI::RhiCapabilitiesBase::LogCapabilities() ‡ Renderer: Software Rasterizer
+nCine::RHI::RhiCapabilitiesBase::LogCapabilities() ‡ API version: 3.3
+nCine::RHI::RhiCapabilitiesBase::LogCapabilities() ‡ Rendering tier: direct (render targets, no shaders), 16-bit framebuffer
+nCine::RHI::RhiCapabilitiesBase::LogCapabilities() ‡ --- Rendering device capabilities ---
+nCine::RHI::RhiCapabilitiesBase::LogCapabilities() ‡ Max texture size: 16384
+nCine::RHI::RhiCapabilitiesBase::LogCapabilities() ‡ Max texture image units: 8
+nCine::RHI::RhiCapabilitiesBase::LogCapabilities() ‡ Max color attachments: 8
+nCine::RHI::RhiCapabilitiesBase::LogCapabilities() ‡ Max vertex attribute stride: 2048
+nCine::RHI::RhiCapabilitiesBase::LogCapabilities() ‡ Max uniform block size: 65536
+nCine::RHI::RhiCapabilitiesBase::LogCapabilities() ‡ Max uniform buffer bindings: 8 (vertex 8, fragment 8), offset alignment: 16
+nCine::RHI::RhiCapabilitiesBase::LogCapabilities() ‡ ---
+nCine::Application::InitCommon() ‡ Current thread stack size: 16500/8388608 bytes
+nCine::Application::InitCommon() ‡ Creating rendering resources...
+nCine::Application::InitCommon() ‡ Core components initialized
+nCine::Application::PreInitCommon() ‡ IAppEventHandler::OnPreInitialize() invoked
+nCine::MainApplication::Init() ‡ Initializing graphics device and input manager...
+Death::IO::FileStream::Open() ‡ Failed to open file "/home/alex/RG35XX/Work/Jazz2-1.1.0-progon03/build-work/ui-test/Saves/.local/share/Jazz² Resurrection/Cache/Translations/ru.mo" with error 2 (No such file or directory)
+nCine::I18n::LoadFromFile() ‡ Translation "Content/Translations/ru.mo" loaded
+RG35XX: presenting 320x240 -> 640x480
+Jazz2::LevelHandler::AttachComponents() ‡ Level "Dungeon Dilemma" (from "prince/01_castle1.j2l") loaded
+GameEventHandler::OnPostUpdate() ‡ RG35XX: gameplay FPS limit 45
+RG35XX: present_fps=21.71 maxrss_kib=55072
+GameEventHandler::OnPostUpdate() ‡ RG35XX: menu FPS limit 30
+RG35XX: present_fps=33.20 maxrss_kib=56608
+RG35XX: rumble effects=4 target=0 applied=0 writes=10 errors=0
+RG35XX: present_fps=27.29 maxrss_kib=58756
+RG35XX: present_fps=27.69 maxrss_kib=58884
+RG35XX: rumble effects=4 target=0 applied=0 writes=10 errors=0
+RG35XX: present_fps=27.09 maxrss_kib=58884
+GameEventHandler::OnPostUpdate() ‡ RG35XX: gameplay FPS limit 60
+GameEventHandler::OnPostUpdate() ‡ RG35XX: menu FPS limit 30
+RG35XX: present_fps=33.27 maxrss_kib=58884
+RG35XX: rumble effects=4 target=0 applied=0 writes=10 errors=0
+RG35XX: present_fps=28.22 maxrss_kib=58884
+GameEventHandler::OnPostUpdate() ‡ RG35XX: gameplay FPS limit 60
+GameEventHandler::OnKeyPressed() ‡ RG35XX: MENU saved game state
+nCine::Application::ShutdownCommon() ‡ IAppEventHandler::OnShutdown() invoked
+nCine::RenderResources::Dispose() ‡ Rendering resources disposed
+nCine::Application::ShutdownCommon() ‡ Application is shutting down
+nCine::ServiceLocator::UnregisterAll() ‡ Unregistering all services

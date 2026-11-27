@@ -1,0 +1,299 @@
+--- a/Sources/Jazz2/Input/RumbleProcessor.cpp
++++ b/Sources/Jazz2/Input/RumbleProcessor.cpp
+@@ -1,4 +1,7 @@
+ #include "RumbleProcessor.h"
++#if defined(JAZZ2_RG35XX)
++#include <RgRumble.h>
++#endif
+ #include "ControlScheme.h"
+ #include "../PreferencesCache.h"
+ #include "../../nCine/Application.h"
+@@ -20,7 +23,12 @@
+ 	}
+ 
+ 	void RumbleProcessor::CancelAllEffects()
+-	{
++    {
++#if defined(JAZZ2_RG35XX)
++        _activeRumble.clear();
++        Rg35xx::GetMotor().Stop();
++        return;
++#endif
+ 		if (_activeRumble.empty()) {
+ 			return;
+ 		}
+@@ -34,11 +42,17 @@
+ 
+ 	void RumbleProcessor::ExecuteEffect(std::int32_t joyId, const std::shared_ptr<RumbleDescription>& desc)
+ 	{
+-		if (PreferencesCache::GamepadRumble == 0) {
+-			return;
+-		}
++		#if defined(JAZZ2_RG35XX)
++        if (!Rg35xx::RumbleEnabled || joyId != 0 || desc == nullptr) return;
++        for (auto& effect : _activeRumble) if (effect.Desc == desc) return;
++        _activeRumble.emplace_back(0, desc);
++        return;
++#endif
++        if (PreferencesCache::GamepadRumble == 0) {
++            return;
++        }
+ 
+-		auto& inputManager = theApplication().GetInputManager();
++        auto& inputManager = theApplication().GetInputManager();
+ 
+ 		if (!inputManager.isJoyPresent(joyId)) {
+ 			return;
+@@ -55,7 +69,30 @@
+ 	}
+ 
+ 	void RumbleProcessor::OnEndFrame(float timeMult)
+-	{
++    {
++#if defined(JAZZ2_RG35XX)
++        if (!Rg35xx::RumbleEnabled) {
++            CancelAllEffects();
++            return;
++        }
++        float gain = 0.0f;
++        for (std::size_t i = 0; i < _activeRumble.size();) {
++            auto& effect = _activeRumble[i];
++            std::size_t index = 0;
++            while (index < effect.Desc->_timeline.size() && effect.Desc->_timeline[index].EndTime <= effect.Progress) ++index;
++            if (index == effect.Desc->_timeline.size()) {
++                _activeRumble.eraseUnordered(i);
++                continue;
++            }
++            const auto& frame = effect.Desc->_timeline[index];
++            gain = std::max(gain, std::max(std::max(frame.LowFrequency, frame.HighFrequency),
++                                         std::max(frame.LeftTrigger, frame.RightTrigger)));
++            effect.Progress += timeMult;
++            ++i;
++        }
++        Rg35xx::GetMotor().SetStrength(gain);
++        return;
++#endif
+ 		if (PreferencesCache::GamepadRumble == 0) {
+ 			_activeRumble.clear();
+ 			return;
+--- a/Sources/Jazz2/LevelHandler.cpp
++++ b/Sources/Jazz2/LevelHandler.cpp
+@@ -649,7 +649,7 @@
+ 			ResolveCollisions(timeMult);
+ 
+ 			if (!resolver.IsHeadless()) {
+-#if defined(NCINE_HAS_GAMEPAD_RUMBLE)
++#if defined(NCINE_HAS_GAMEPAD_RUMBLE) || defined(JAZZ2_RG35XX)
+ 				_rumble.OnEndFrame(timeMult);
+ #endif
+ 
+@@ -1504,13 +1504,17 @@
+ 
+ 	void LevelHandler::PlayerExecuteRumble(Actors::Player* player, StringView rumbleEffect)
+ 	{
+-#if defined(NCINE_HAS_GAMEPAD_RUMBLE)
++#if defined(NCINE_HAS_GAMEPAD_RUMBLE) || defined(JAZZ2_RG35XX)
+ 		auto it = _rumbleEffects.find(String::nullTerminatedView(rumbleEffect));
+ 		if (it == _rumbleEffects.end()) {
+ 			return;
+ 		}
+ 
+-		std::int32_t joyIdx = ControlScheme::GetGamepadForPlayer(player->GetPlayerIndex());
++		#if defined(JAZZ2_RG35XX)
++        std::int32_t joyIdx = player->GetPlayerIndex() == 0 ? 0 : -1;
++#else
++        std::int32_t joyIdx = ControlScheme::GetGamepadForPlayer(player->GetPlayerIndex());
++#endif
+ 		if (joyIdx >= 0) {
+ 			_rumble.ExecuteEffect(joyIdx, it->second);
+ 		}
+@@ -2270,7 +2274,7 @@
+ 
+ 	void LevelHandler::InitializeRumbleEffects()
+ 	{
+-#if defined(NCINE_HAS_GAMEPAD_RUMBLE)
++#if defined(NCINE_HAS_GAMEPAD_RUMBLE) || defined(JAZZ2_RG35XX)
+ 		if (auto* breakTile = RegisterRumbleEffect("BreakTile"_s)) {
+ 			breakTile->AddToTimeline(10, 1.0f, 0.0f);
+ 		}
+@@ -2324,7 +2328,7 @@
+ 
+ 	RumbleDescription* LevelHandler::RegisterRumbleEffect(StringView name)
+ 	{
+-#if defined(NCINE_HAS_GAMEPAD_RUMBLE)
++#if defined(NCINE_HAS_GAMEPAD_RUMBLE) || defined(JAZZ2_RG35XX)
+ 		auto it = _rumbleEffects.emplace(name, std::make_shared<RumbleDescription>());
+ 		return (it.second ? it.first->second.get() : nullptr);
+ #else
+@@ -2339,7 +2343,7 @@
+ 		if (IsPausable()) {
+ 			// Prevent updating of all level objects
+ 			_rootNode->setUpdateEnabled(false);
+-#if defined(NCINE_HAS_GAMEPAD_RUMBLE)
++#if defined(NCINE_HAS_GAMEPAD_RUMBLE) || defined(JAZZ2_RG35XX)
+ 			_rumble.CancelAllEffects();
+ #endif
+ 		}
+--- a/Sources/Jazz2/LevelHandler.h
++++ b/Sources/Jazz2/LevelHandler.h
+@@ -138,6 +138,7 @@
+ 		bool IsLocalSession() const override;
+ 		bool IsServer() const override;
+ 		bool IsPausable() const override;
++        bool IsPauseMenuOpen() const { return _pauseMenu != nullptr; }
+ 		bool IsReforged() const override;
+ 		bool CanActivateSugarRush() const override;
+ 		bool CanEventDisappear(EventType eventType) const override;
+--- a/Sources/Jazz2/PreferencesCache.cpp
++++ b/Sources/Jazz2/PreferencesCache.cpp
+@@ -55,7 +55,7 @@
+ 	RescaleMode PreferencesCache::ActiveRescaleMode = RescaleMode::None;
+ 	bool PreferencesCache::EnableFullscreen = false;
+ 	#if defined(JAZZ2_RG35XX)
+-    std::int32_t PreferencesCache::MaxFps = 30;
++    std::int32_t PreferencesCache::MaxFps = 45;
+ #else
+     std::int32_t PreferencesCache::MaxFps = PreferencesCache::UseVsync;
+ #endif
+@@ -1207,12 +1207,21 @@
+ 		#if defined(JAZZ2_RG35XX)
+         // Separate versioned settings keep the upstream config and saves compatible.
+         auto rgOptions = fs::Open(fs::CombinePath(GetDirectory(), "RG35XX.options"_s), FileAccess::Read);
+-        if (rgOptions->IsValid() && rgOptions->GetSize() == 12 &&
+-            rgOptions->ReadValueAsLE<std::uint32_t>() == 0x314F4752) {
++        bool hasRgOptions = false;
++        if (rgOptions->IsValid() && (rgOptions->GetSize() == 12 || rgOptions->GetSize() == 20)) {
++            const auto magic = rgOptions->ReadValueAsLE<std::uint32_t>();
++            hasRgOptions = (magic == 0x314F4752 && rgOptions->GetSize() == 12) ||
++                           (magic == 0x324F4752 && rgOptions->GetSize() == 20);
++        }
++        if (hasRgOptions) {
+             auto index = rgOptions->ReadValueAsLE<std::int32_t>();
+             auto fps = rgOptions->ReadValueAsLE<std::int32_t>();
+             if (index >= 0 && index < 5) Rg35xx::ResolutionIndex = index;
+             if (fps >= 30 && fps <= 60 && fps % 5 == 0) MaxFps = fps;
++            if (rgOptions->GetSize() == 20) {
++                Rg35xx::RumbleEnabled = rgOptions->ReadValueAsLE<std::int32_t>() != 0;
++                Rg35xx::RumbleIntensity = std::clamp(rgOptions->ReadValueAsLE<std::int32_t>(), 0, 2);
++            }
+         } else if (!resetConfig) {
+             // Upgrade only the exact old four primary face assignments.
+             auto mappings = ControlScheme::GetMappings(0);
+@@ -1421,9 +1430,11 @@
+ #if defined(JAZZ2_RG35XX)
+         auto rgOptions = fs::Open(fs::CombinePath(GetDirectory(), "RG35XX.options"_s), FileAccess::Write);
+         if (rgOptions->IsValid()) {
+-            rgOptions->WriteValueAsLE<std::uint32_t>(0x314F4752);
++            rgOptions->WriteValueAsLE<std::uint32_t>(0x324F4752);
+             rgOptions->WriteValueAsLE<std::int32_t>(Rg35xx::ResolutionIndex);
+             rgOptions->WriteValueAsLE<std::int32_t>(MaxFps);
++            rgOptions->WriteValueAsLE<std::int32_t>(Rg35xx::RumbleEnabled ? 1 : 0);
++            rgOptions->WriteValueAsLE<std::int32_t>(Rg35xx::RumbleIntensity);
+         }
+ #endif
+ 
+--- a/Sources/Jazz2/UI/Menu/ControlsOptionsSection.cpp
++++ b/Sources/Jazz2/UI/Menu/ControlsOptionsSection.cpp
+@@ -1,4 +1,7 @@
+ #include "ControlsOptionsSection.h"
++#if defined(JAZZ2_RG35XX)
++#include <RgRumble.h>
++#endif
+ #include "RemapControlsSection.h"
+ #include "TouchControlsOptionsSection.h"
+ #include "InputDiagnosticsSection.h"
+@@ -52,6 +55,30 @@
+ 				[root]() { root->SwitchToSection<RemapControlsSection>(0); }, RemapHeight);
+ 		}
+ 
++#if defined(JAZZ2_RG35XX)
++        const bool ru = PreferencesCache::Language[0] == 'r' && PreferencesCache::Language[1] == 'u';
++        list->Add<ChoiceItem>(ru ? "ВИБРАЦИЯ RG35XX"_s : "RG35XX vibration"_s,
++            [ru]() -> StringView {
++                return Rg35xx::RumbleEnabled ? (ru ? "ВКЛ"_s : "On"_s) : (ru ? "ВЫКЛ"_s : "Off"_s);
++            },
++            [this](std::int32_t) {
++                Rg35xx::RumbleEnabled = !Rg35xx::RumbleEnabled;
++                if (!Rg35xx::RumbleEnabled) Rg35xx::GetMotor().Stop();
++                _isDirty = true;
++                PreferencesCache::Save();
++            });
++        list->Add<ChoiceItem>(ru ? "ИНТЕНСИВНОСТЬ ВИБРАЦИИ"_s : "Vibration intensity"_s,
++            [ru]() -> StringView {
++                static const StringView namesRu[] = {"НИЗКАЯ"_s, "СРЕДНЯЯ"_s, "ВЫСОКАЯ"_s};
++                static const StringView namesEn[] = {"Low"_s, "Medium"_s, "High"_s};
++                return ru ? namesRu[Rg35xx::RumbleIntensity] : namesEn[Rg35xx::RumbleIntensity];
++            },
++            [this](std::int32_t direction) {
++                Rg35xx::RumbleIntensity = std::clamp(Rg35xx::RumbleIntensity + direction, 0, 2);
++                _isDirty = true;
++                PreferencesCache::Save();
++            });
++#endif
+ #if defined(NCINE_HAS_TOUCH_CONTROLS)
+ 		// TRANSLATORS: Menu item in Options > Controls section
+ 		list->Add<ListItem>(_("Touch Controls"),
+--- a/Sources/Jazz2/UI/Menu/GraphicsOptionsSection.cpp
++++ b/Sources/Jazz2/UI/Menu/GraphicsOptionsSection.cpp
+@@ -69,7 +69,9 @@
+             },
+             [this](std::int32_t direction) {
+                 PreferencesCache::MaxFps = std::clamp(PreferencesCache::MaxFps + direction * 5, 30, 60);
++                #if !defined(JAZZ2_RG35XX)
+                 theApplication().SetFrameLimit(PreferencesCache::MaxFps);
++#endif
+                 _isDirty = true;
+                 PreferencesCache::Save();
+             });
+--- a/Sources/Main.cpp
++++ b/Sources/Main.cpp
+@@ -1,4 +1,7 @@
+ #include "Main.h"
++#if defined(JAZZ2_RG35XX)
++#include <RgRumble.h>
++#endif
+ 
+ #if defined(DEATH_TARGET_ANDROID)
+ #	include "nCine/Backends/Android/AndroidApplication.h"
+@@ -370,7 +373,11 @@
+ 			config.withVSync = true;
+ 		} else {
+ 			config.withVSync = false;
+-			config.frameLimit = PreferencesCache::MaxFps;
++			#if defined(JAZZ2_RG35XX)
++            config.frameLimit = 30; // Loading, cinematics and menus start at 30.
++#else
++            config.frameLimit = PreferencesCache::MaxFps;
++#endif
+ 		}
+ #if !defined(DEATH_TARGET_SWITCH) && !defined(DEATH_TARGET_PSP) && !defined(DEATH_TARGET_VITA) && !defined(DEATH_TARGET_WII) && !defined(DEATH_TARGET_GAMECUBE) && !defined(DEATH_TARGET_DREAMCAST)
+ 		// Fixed-panel consoles keep the native output resolution (the device pins it); the level viewport
+@@ -598,7 +605,17 @@
+ 
+ void GameEventHandler::OnPostUpdate()
+ {
+-	_currentHandler->OnEndFrame();
++    _currentHandler->OnEndFrame();
++#if defined(JAZZ2_RG35XX)
++    auto* level = runtime_cast<LevelHandler>(_currentHandler.get());
++    bool gameplay = level != nullptr && !level->IsPauseMenuOpen();
++    std::uint32_t limit = gameplay ? PreferencesCache::MaxFps : 30;
++    if (theApplication().GetAppConfiguration().frameLimit != limit) {
++        theApplication().SetFrameLimit(limit);
++        LOGI("RG35XX: {} FPS limit {}", gameplay ? "gameplay" : "menu", limit);
++    }
++    if (!gameplay || !Rg35xx::RumbleEnabled) Rg35xx::GetMotor().Stop();
++#endif
+ 
+ 	if (_backInvokedTimeLeft > 0) {
+ 		_backInvokedTimeLeft--;
+@@ -630,6 +647,9 @@
+ 
+ void GameEventHandler::OnShutdown()
+ {
++#if defined(JAZZ2_RG35XX)
++    Rg35xx::GetMotor().Stop();
++#endif
+ 	ZoneScopedC(0x888888);
+ 
+ #if defined(DEATH_TARGET_ANDROID)

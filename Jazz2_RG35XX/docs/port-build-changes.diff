@@ -1,0 +1,135 @@
+--- a/cmake/garlic.cmake
++++ b/cmake/garlic.cmake
+@@ -11,7 +11,7 @@
+ set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
+ set(JAZZ2_RG35XX ON)
+ set(cpu "-marm -mcpu=cortex-a9 -mfpu=neon -mfloat-abi=softfp")
+-set(CMAKE_C_FLAGS_INIT "${cpu} -DJAZZ2_RG35XX -DJAZZ2_LOGICAL_WIDTH=304 -DJAZZ2_LOGICAL_HEIGHT=228 -I${CMAKE_SYSROOT}/usr/include/SDL2")
++set(CMAKE_C_FLAGS_INIT "${cpu} -DJAZZ2_RG35XX -I${CMAKE_CURRENT_LIST_DIR}/../platform -DJAZZ2_LOGICAL_WIDTH=304 -DJAZZ2_LOGICAL_HEIGHT=228 -I${CMAKE_SYSROOT}/usr/include/SDL2")
+ set(CMAKE_CXX_FLAGS_INIT "${CMAKE_C_FLAGS_INIT}")
+ set(CMAKE_EXE_LINKER_FLAGS_INIT "-Wl,--dynamic-linker,/lib/ld-uClibc.so.0,-rpath-link,${CMAKE_SYSROOT}/lib,-rpath-link,${CMAKE_SYSROOT}/usr/lib")
+ set(CMAKE_SKIP_RPATH ON)
+--- a/platform/RgFramebuffer.h
++++ b/platform/RgFramebuffer.h
+@@ -80,6 +80,7 @@
+     void present(const void* pixels,int width,int height,int stride) {
+         if (mapping == MAP_FAILED || !pixels || width <= 0 || height <= 0 || stride / 2 < width) return;
+         if (width != cachedWidth) {
++            fprintf(stderr,"RG35XX: presenting %dx%d -> 640x480\n",width,height);
+             for (unsigned x=0; x<640; ++x) xmap[x] = x * unsigned(width) / 640;
+             cachedWidth = width;
+         }
+--- /dev/null
++++ b/platform/RgSettings.h
+@@ -0,0 +1,12 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++#pragma once
++#include <cstdint>
++namespace Rg35xx {
++inline constexpr std::int32_t Widths[] = {304, 320, 384, 480, 640};
++inline constexpr std::int32_t Heights[] = {228, 240, 288, 360, 480};
++inline std::int32_t ResolutionIndex = 1;
++inline bool RumbleEnabled = true;
++inline std::int32_t RumbleIntensity = 1; // low / medium / high
++// Active dimensions stay stable until restart; menus edit ResolutionIndex only.
++inline std::int32_t RenderWidth = 320, RenderHeight = 240;
++}
+--- /dev/null
++++ b/platform/RgRumble.h
+@@ -0,0 +1,76 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++#pragma once
++#include "RgSettings.h"
++#include <algorithm>
++#include <cerrno>
++#include <cstdint>
++#include <cstdio>
++#include <cstdlib>
++#include <ctime>
++#include <fcntl.h>
++#include <unistd.h>
++
++namespace Rg35xx {
++// Native motor bridge for the engine's rumble timelines. Failures are recoverable.
++class Motor {
++    int last = -1, target = 0;
++    std::uint64_t lastWrite = 0, retryAt = 0, lastReport = 0;
++    std::uint64_t effects = 0, writes = 0, errors = 0;
++    bool recovering = false;
++    static std::uint64_t nowMs() {
++        timespec t{}; ::clock_gettime(CLOCK_MONOTONIC, &t);
++        return std::uint64_t(t.tv_sec)*1000 + std::uint64_t(t.tv_nsec)/1000000;
++    }
++    const char* path() const {
++        const char* overridePath = std::getenv("JAZZ2_RUMBLE_PATH");
++        return overridePath && *overridePath ? overridePath : "/sys/class/power_supply/battery/moto";
++    }
++    void report(std::uint64_t now) {
++        if (now-lastReport < 10000) return;
++        std::fprintf(stderr,"RG35XX: rumble effects=%llu target=%d applied=%d writes=%llu errors=%llu\n",
++                     (unsigned long long)effects,target,last,(unsigned long long)writes,(unsigned long long)errors);
++        lastReport=now;
++    }
++    void fail(std::uint64_t now,int error) {
++        ++errors;
++        if (!recovering) std::fprintf(stderr,"RG35XX: motor I/O error (%s, errno=%d); retrying\n",path(),error);
++        recovering=true;
++        last=-1; // A failed command must never poison the strength cache.
++        retryAt=now+250;
++    }
++    void writeStrength(int value) {
++        target=value;
++        const auto now=nowMs();
++        report(now);
++        if (now<retryAt) return;
++        // Refresh an active command periodically; a cached value alone is not
++        // proof the kernel motor is still running. Idle zero needs no heartbeat.
++        if (value==last && (value==0 || now-lastWrite<100)) return;
++        int fd=::open(path(),O_WRONLY|O_CLOEXEC);
++        if (fd<0) { fail(now,errno); return; }
++        char buffer[8];
++        int count=std::snprintf(buffer,sizeof(buffer),"%d\n",value);
++        ssize_t result;
++        do { result=::write(fd,buffer,count); } while(result<0 && errno==EINTR);
++        int error=result<0 ? errno : EIO;
++        ::close(fd);
++        if(result!=count) { fail(now,error); return; }
++        if(recovering) std::fprintf(stderr,"RG35XX: motor I/O recovered\n");
++        recovering=false;retryAt=0;last=value;lastWrite=now;++writes;
++    }
++public:
++    Motor() { lastReport=nowMs();writeStrength(0); }
++    ~Motor() { Stop(); }
++    Motor(const Motor&)=delete;
++    Motor& operator=(const Motor&)=delete;
++    void NoteEffect() { ++effects; }
++    void SetStrength(float gain) {
++        const float scales[]={0.35f,0.65f,1.0f};
++        const int index=std::clamp(RumbleIntensity,0,2);
++        const int value=RumbleEnabled ? int(std::clamp(gain,0.0f,1.0f)*scales[index]*100.0f+0.5f) : 0;
++        writeStrength(value);
++    }
++    void Stop() { writeStrength(0); }
++};
++inline Motor& GetMotor() { static Motor motor;return motor; }
++}
+--- a/RG35XXPackage/Roms/PORTS/Jazz Jackrabbit 2/launch.sh
++++ b/RG35XXPackage/Roms/PORTS/Jazz Jackrabbit 2/launch.sh
+@@ -11,7 +11,16 @@
+ export SDL_VIDEODRIVER=dummy JAZZ2_RESOLUTION=640x480
+ export LD_LIBRARY_PATH="$PWD/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+ export LANG=ru_RU.UTF-8 ALSOFT_CONF="$PWD/alsoft.conf"
+-./jazz2 /config "$PWD/Saves/Jazz2.config" /max-fps:30 "$@"
++stop_motor() {
++    if [ -w /sys/class/power_supply/battery/moto ]; then
++        printf '0\n' > /sys/class/power_supply/battery/moto
++    fi
++}
++trap stop_motor EXIT
++trap 'exit 130' INT
++trap 'exit 143' TERM
++stop_motor
++./jazz2 /config "$PWD/Saves/Jazz2.config" "$@"
+ rc=$?
+ echo "Код выхода Jazz2: $rc"
+ exit "$rc"

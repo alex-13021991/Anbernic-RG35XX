@@ -1,0 +1,5 @@
+RG35XX: motor I/O error (/home/alex/RG35XX/Work/Jazz2-1.1.0-progon03/build-work/tests/fake-rumble-recovery, errno=2); retrying
+RG35XX: motor I/O recovered
+RG35XX: motor I/O error (/home/alex/RG35XX/Work/Jazz2-1.1.0-progon03/build-work/tests/fake-rumble-recovery, errno=28); retrying
+RG35XX: motor I/O recovered
+Native motor: active heartbeat, recovery from open/write errors, unchanged-strength retry, stop OK
