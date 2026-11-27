@@ -4,7 +4,7 @@
 #include <unistd.h>
 
 typedef enum { FILES,EDIT,TOOLS,ALIGN,CROP,PREFS,PREVIEW } Page;
-enum { ALIGN_TOOL,CROP_TOOL,PREVIEW_TOOL,STEP_TOOL,PREFS_TOOL,SAVE_TOOL,RESTORE_TOOL,TOOLS_COUNT };
+enum { ALIGN_TOOL,CROP_TOOL,PREVIEW_TOOL,STEP_TOOL,PREFS_TOOL,SAVE_TOOL,RESTORE_TOOL,ROM_TOOL,TOOLS_COUNT };
 typedef struct {
     Browser b;
     Theme theme;
@@ -74,7 +74,7 @@ static void show_files(App *a) {
 }
 static void show_tools(App *a) {
     const char *names[]={"Автоматическое выравнивание по краю","Обрезка","Предпросмотр GarlicOS",
-        "Шаг перемещения","Отступ и панели темы","Сохранить PNG","Восстановить оригинал"};
+        "Шаг перемещения","Отступ и панели темы","Сохранить PNG","Восстановить оригинал","Переименовать под ROM"};
     char step[32]; snprintf(step,sizeof step,"%d px",a->step);
     header("Инструменты",dirty(a) ? "Есть изменения" : "");
     label(24,53,600,small,MUTED,a->b.entries[a->b.row].name);
@@ -214,6 +214,26 @@ static void save(App *a) {
     a->saved=current(a); a->page=EDIT;
     popup(a,"PNG сохранён","Файл на карте проверен. Можно продолжать редактирование.");
 }
+static void rename_rom(App *a) {
+    const Pixel *pixels=NULL;
+    if (dirty(a)) {
+        render(&a->img,current(a),canvas);
+        int i=0;
+        while (i<CW*CH && !canvas[i].a) i++;
+        if (i==CW*CH) { popup(a,"Пустой холст","Верните видимые пиксели в границы холста."); return; }
+        pixels=canvas;
+    }
+    char target[PATH_MAX];
+    int ok=export_rom(a->path,a->b.root[a->b.card],pixels,a->version,0,target,sizeof target);
+    if (ok==2) {
+        if (!confirm(a,"Файл уже есть в Img_Gen","Заменить существующее превью под именем ROM?","Заменить копию")) return;
+        ok=export_rom(a->path,a->b.root[a->b.card],pixels,a->version,1,target,sizeof target);
+    }
+    if (!ok) { popup(a,"Ошибка копирования",problem); return; }
+    char heading[80];
+    snprintf(heading,sizeof heading,"Копия сохранена: TF%d / Img_Gen",a->b.card+1);
+    popup(a,heading,strrchr(target,'/')+1);
+}
 static void tools_key(App *a,Key k) {
     if (k==B || k==MENU) { a->page=EDIT; return; }
     if (k==UP || k==DOWN) a->tool=(a->tool+(k==UP ? TOOLS_COUNT-1 : 1))%TOOLS_COUNT;
@@ -226,6 +246,7 @@ static void tools_key(App *a,Key k) {
     case PREFS_TOOL: a->proposed=a->prefs; a->option=0; a->page=PREFS; break;
     case SAVE_TOOL: save(a); break;
     case RESTORE_TOOL: restore(a,a->path); break;
+    case ROM_TOOL: rename_rom(a); break;
     }
 }
 static void draft_key(App *a,Key k) {

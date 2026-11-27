@@ -145,6 +145,36 @@ def run(args,tmp):
     keys("aaaaa"+tools+"ssssa"+"xsd"+"a"+"wwwwa"+"wq"+"a"+tools+"sssssada"+"a")
     verify_pixels(files[0],16,60,50,33,25)
     assert (app/"preview.cfg").read_text().splitlines()==["margin=16","top=44","bottom=-1"]
+    # The appended tool is accessible on both cards without moving existing tools.
+    rename_tool="a"+"s"*7+"a"
+    for card_index, filename in enumerate(("Jazz Jackrabbit 2_002.PNG", "Batman Returns (U) [!]-261121-130355.png")):
+        p=files[card_index]
+        renamed=p.with_name(filename); p.rename(renamed); files[card_index]=renamed
+        renamed.write_bytes(fixture(palette=card_index==0))
+        original=renamed.read_bytes()
+        opening=("s" if card_index else "")+"aaaaa"
+        expected=("Jazz Jackrabbit 2.PNG", "Batman Returns (U) [!].png")[card_index]
+        dest=cards[card_index]/"Img_Gen"/expected
+        assert not dest.parent.exists()
+        if args.tools_frame and card_index==0:
+            keys(opening+"a"+"s"*7+"*")
+            shutil.copyfile(frame,args.tools_frame)
+        # No edits: preserve exact PNG bytes and extension, create Img_Gen silently.
+        keys(opening+rename_tool+"a")
+        assert dest.read_bytes()==original and renamed.read_bytes()==original
+        assert not (cards[1-card_index]/"Img_Gen"/expected).exists()
+        # Changed canvas, then cancel replacement: both files stay byte-identical.
+        keys(opening+"d"+rename_tool+"b")
+        assert dest.read_bytes()==original and renamed.read_bytes()==original
+        # Confirm replacing only the generated copy with the current edited canvas.
+        keys(opening+"d"+rename_tool+"da"+"a")
+        verify_pixels(dest,296,223,50,33,25)
+        assert renamed.read_bytes()==original
+        # A destination directory is reported as an error and never replaced.
+        dest.unlink(); dest.mkdir()
+        keys(opening+rename_tool+"a")
+        assert dest.is_dir() and renamed.read_bytes()==original
+    print("PASS packaged ROM export: TF1/TF2, silent mkdir, exact bytes, edited pixels, cancel/confirm collision, destination error, unchanged sources")
     print("PASS packaged release on TF1 and TF2: edit, align, crop, undo/redo, preview, persisted margin, RGBA pixels, exact restore")
 
 if __name__=="__main__":
@@ -153,6 +183,7 @@ if __name__=="__main__":
     parser.add_argument("--sdk",type=lambda p:Path(p).resolve(),default=Path.home()/"rg35xx-sdk/miyoo-gcc-7.3.0")
     parser.add_argument("--qemu",type=Path,default=shutil.which("qemu-arm-static") or shutil.which("qemu-arm"))
     parser.add_argument("--frame",type=Path)
+    parser.add_argument("--tools-frame",type=Path)
     args=parser.parse_args()
     if not args.qemu: parser.error("pass --qemu /path/to/qemu-arm-static")
     with tempfile.TemporaryDirectory(prefix="preview-editor-") as temp: run(args,Path(temp))

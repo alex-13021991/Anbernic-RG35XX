@@ -34,6 +34,10 @@ extern char problem[256];
 int fail(const char *s);
 int load_document(const char *path,Image *out,Digest version);
 int save_document(const char *path,const Pixel *canvas,Digest version);
+int rom_filename(const char *path,char *out,size_t size);
+/* 2 means an existing destination needs overwrite confirmation. */
+int export_rom(const char *source,const char *root,const Pixel *canvas,
+               const Digest version,int overwrite,char *destination,size_t size);
 int restore_document(const char *path);
 int has_original(const char *path);
 Prefs load_prefs(void);

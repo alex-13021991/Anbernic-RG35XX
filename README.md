@@ -6,7 +6,7 @@
 
 | Программа | Назначение | Релиз |
 | --- | --- | --- |
-| [Preview Editor](Preview-Editor/) | Редактирование PNG-обложек с обеих SD-карт, выравнивание по теме и восстановление оригинала. | [1.0.0](https://github.com/alex-13021991/Anbernic-RG35XX/releases/tag/preview-editor-v1.0.0) |
+| [Preview Editor](Preview-Editor/) | Редактирование PNG-обложек с TF1/TF2, выравнивание по теме, восстановление оригинала и копия под именем ROM в Img_Gen. | [1.1.0](https://github.com/alex-13021991/Anbernic-RG35XX/releases/tag/preview-editor-v1.1.0) |
 | [Garlic Menu Settings](Garlic-Menu-Settings/) | Настройка выравнивания, обрезки и прокрутки названий игр с живым предпросмотром. | [1.0.2](https://github.com/alex-13021991/Anbernic-RG35XX/releases/tag/garlic-menu-settings-v1.0.2) |
 | [System Info RU](System-Info-RU/) | Системная информация и статистика коллекции на обеих картах. | [1.1.1](https://github.com/alex-13021991/Anbernic-RG35XX/releases/tag/system-info-ru-v1.1.1) |
 | [USB Manager](USB-Manager/) | Настраивает MTP, ADB и USB-ввод. | [0.1.5](https://github.com/alex-13021991/Anbernic-RG35XX/releases/tag/usb-manager-v0.1.5) |

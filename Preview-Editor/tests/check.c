@@ -104,6 +104,136 @@ static void storage(void) {
     assert(prefs.margin==27 && prefs.top==0 && prefs.bottom==-1);
     puts("PASS RGBA round trip, repeat save, short write, original bytes, stale writer, lock, bad backup, preferences");
 }
+static void rom_exports(void) {
+    const char *cases[][2]={
+        {"1943 - The Battle of Midway (U) [!]-261120-011053.png","1943 - The Battle of Midway (U) [!].png"},
+        {"1943 - The Battle of Midway (U) [!]-261120-011058.png","1943 - The Battle of Midway (U) [!].png"},
+        {"AAAHH!!! Real Monsters (UE) [T-Rus uBAH009 (01.02.2019)]-261119-211753.png","AAAHH!!! Real Monsters (UE) [T-Rus uBAH009 (01.02.2019)].png"},
+        {"Aladdin (Unl)-261120-011014.png","Aladdin (Unl).png"},
+        {"Aladdin Rus-261120-062739.png","Aladdin Rus.png"},
+        {"Aladdin Rus-261120-062837.png","Aladdin Rus.png"},
+        {"Aladdin Rus-261120-062920.png","Aladdin Rus.png"},
+        {"Arkanoid RU (J) [T+Rus Guyver (18.02.2007)]-261120-011046.png","Arkanoid RU (J) [T+Rus Guyver (18.02.2007)].png"},
+        {"Asterix (E)-261120-011020.png","Asterix (E).png"},
+        {"Batman - Return of the Joker (U) [!]-261120-011027.png","Batman - Return of the Joker (U) [!].png"},
+        {"Batman Returns (U) [!]-261121-130345.png","Batman Returns (U) [!].png"},
+        {"Batman Returns (U) [!]-261121-130355.png","Batman Returns (U) [!].png"},
+        {"Castlevania (E)-261120-232025.png","Castlevania (E).png"},
+        {"Contra - Hard Corps RU Hack (U) [!]-261120-210047.png","Contra - Hard Corps RU Hack (U) [!].png"},
+        {"Contra - Hard Corps RU Hack (U) [!]-261120-225933.png","Contra - Hard Corps RU Hack (U) [!].png"},
+        {"Contra - Hard Corps RU Hack (U) [!]-261120-225955.png","Contra - Hard Corps RU Hack (U) [!].png"},
+        {"Galaga (1990)(Namco Ltd.)(J)-261118-114834.png","Galaga (1990)(Namco Ltd.)(J).png"},
+        {"Garlic Menu Settings_000.png","Garlic Menu Settings.png"},
+        {"Garlic Menu Settings_001.png","Garlic Menu Settings.png"},
+        {"Garlic Menu Settings_002.png","Garlic Menu Settings.png"},
+        {"Garlic Menu Settings_003.png","Garlic Menu Settings.png"},
+        {"Garlic Menu Settings_004.png","Garlic Menu Settings.png"},
+        {"Garlic Menu Settings_005.png","Garlic Menu Settings.png"},
+        {"Garlic Menu Settings_006.png","Garlic Menu Settings.png"},
+        {"Garlic Menu Settings_007.png","Garlic Menu Settings.png"},
+        {"Garlic Menu Settings_008.png","Garlic Menu Settings.png"},
+        {"Garlic Menu Settings_009.png","Garlic Menu Settings.png"},
+        {"Garlic Menu Settings_010.png","Garlic Menu Settings.png"},
+        {"Garlic Menu Settings_011.png","Garlic Menu Settings.png"},
+        {"Garlic Menu Settings_012.png","Garlic Menu Settings.png"},
+        {"Garlic Menu Settings_013.png","Garlic Menu Settings.png"},
+        {"Garlic Menu Settings_014.png","Garlic Menu Settings.png"},
+        {"Garlic Menu Settings_015.png","Garlic Menu Settings.png"},
+        {"GarlicOS_000.png","GarlicOS.png"},
+        {"GarlicOS_001.png","GarlicOS.png"},
+        {"GarlicOS_002.png","GarlicOS.png"},
+        {"GarlicOS_003.png","GarlicOS.png"},
+        {"GarlicOS_004.png","GarlicOS.png"},
+        {"GarlicOS_005.png","GarlicOS.png"},
+        {"GarlicOS_006.png","GarlicOS.png"},
+        {"GarlicOS_007.png","GarlicOS.png"},
+        {"GarlicOS_008.png","GarlicOS.png"},
+        {"GarlicOS_009.png","GarlicOS.png"},
+        {"GarlicOS_010.png","GarlicOS.png"},
+        {"GarlicOS_011.png","GarlicOS.png"},
+        {"Jazz Holiday 95_000.png","Jazz Holiday 95.png"},
+        {"Jazz Holiday 95_001.png","Jazz Holiday 95.png"},
+        {"Jazz Holiday 95_002.png","Jazz Holiday 95.png"},
+        {"Jazz Holiday 95_003.png","Jazz Holiday 95.png"},
+        {"Jazz Holiday 95_004.png","Jazz Holiday 95.png"},
+        {"Jazz Jackrabbit 2_000.png","Jazz Jackrabbit 2.png"},
+        {"Jazz Jackrabbit 2_001.png","Jazz Jackrabbit 2.png"},
+        {"Jazz Jackrabbit 2_002.png","Jazz Jackrabbit 2.png"},
+        {"Jazz Jackrabbit 2_003.png","Jazz Jackrabbit 2.png"},
+        {"Jazz Jackrabbit 2_004.png","Jazz Jackrabbit 2.png"},
+        {"Jazz Jackrabbit 2_005.png","Jazz Jackrabbit 2.png"},
+        {"Jazz Jackrabbit_000.png","Jazz Jackrabbit.png"},
+        {"Jazz Jackrabbit_001.png","Jazz Jackrabbit.png"},
+        {"Jazz Jackrabbit_002.png","Jazz Jackrabbit.png"},
+        {"Jazz Jackrabbit_003.png","Jazz Jackrabbit.png"},
+        {"Jazz Jackrabbit_004.png","Jazz Jackrabbit.png"},
+        {"Jazz Jackrabbit_005.png","Jazz Jackrabbit.png"},
+        {"Jazz Jackrabbit CD_000.png","Jazz Jackrabbit CD.png"},
+        {"Jazz Jackrabbit CD_001.png","Jazz Jackrabbit CD.png"},
+        {"Jazz Jackrabbit CD_002.png","Jazz Jackrabbit CD.png"},
+        {"Jazz Jackrabbit CD_003.png","Jazz Jackrabbit CD.png"},
+        {"Jazz Jackrabbit CD_004.png","Jazz Jackrabbit CD.png"},
+        {"Jazz Jackrabbit CD_005.png","Jazz Jackrabbit CD.png"},
+        {"Jazz Jackrabbit CD_006.png","Jazz Jackrabbit CD.png"},
+        {"Jazz Jackrabbit CD_007.png","Jazz Jackrabbit CD.png"},
+        {"Jazz Jackrabbit CD_008.png","Jazz Jackrabbit CD.png"},
+        {"Jazz Jackrabbit CD_009.png","Jazz Jackrabbit CD.png"},
+        {"Jazz Jackrabbit CD_010.png","Jazz Jackrabbit CD.png"},
+        {"Jazz Jackrabbit CD_011.png","Jazz Jackrabbit CD.png"},
+        {"Jazz Jackrabbit CD_012.png","Jazz Jackrabbit CD.png"},
+        {"Jazz Jackrabbit CD_013.png","Jazz Jackrabbit CD.png"},
+        {"Jazz Jackrabbit CD_014.png","Jazz Jackrabbit CD.png"},
+        {"Jazz Jackrabbit CD_015.png","Jazz Jackrabbit CD.png"},
+        {"Kero Kero Keroppi no Daibouken 2 - Donuts Ike ha Oosawagi! (J) [T+Eng1.0_Toma]-261120-230409.png","Kero Kero Keroppi no Daibouken 2 - Donuts Ike ha Oosawagi! (J) [T+Eng1.0_Toma].png"},
+        {"retroarch_000.png","retroarch.png"},
+        {"Screenshot Manager_000.png","Screenshot Manager.png"},
+        {"Screenshot Viewer_000.png","Screenshot Viewer.png"},
+        {"Screenshot Viewer_001.png","Screenshot Viewer.png"},
+        {"Super Mario Bros-261120-010927.png","Super Mario Bros.png"},
+        {"Super Mario Bros-261120-010943.png","Super Mario Bros.png"},
+        {"USB Manager_000.png","USB Manager.png"},
+        {"Jazz Jackrabbit 2.PNG","Jazz Jackrabbit 2.PNG"},
+        {"Game_12.png","Game_12.png"},
+        {"Game_1234.png","Game_1234.png"},
+        {"Game_abc.png","Game_abc.png"},
+        {"Game-261121-13035.png","Game-261121-13035.png"},
+        {"Game_001-261121-130355.png","Game_001.png"},
+        {"_001.png","_001.png"}
+    };
+    char name[256],target[4096];
+    for (unsigned i=0;i<sizeof cases/sizeof *cases;i++) {
+        assert(rom_filename(cases[i][0],name,sizeof name));
+        assert(!strcmp(name,cases[i][1]));
+    }
+    assert(!rom_filename("Game_001.png",name,4));
+    assert(!mkdir("card1",0700) && !mkdir("card2",0700));
+    Pixel pixels[1]={{1,2,3,255}}; Image im={1,1,pixels},loaded={0};
+    const char *source="card1/Game_002.PNG";
+    put(source,&im);
+    Digest version,after; assert(load_document(source,&loaded,version)); free_image(&loaded);
+    assert(export_rom(source,"card1",NULL,version,0,target,sizeof target)==1);
+    assert(!strcmp(target,"card1/Img_Gen/Game.PNG"));
+    assert(load_document(target,&loaded,after) && !memcmp(version,after,sizeof after)); free_image(&loaded);
+    assert(export_rom(source,"card1",NULL,version,0,target,sizeof target)==2);
+    assert(export_rom(source,"card1",NULL,version,1,target,sizeof target)==1);
+    assert(!export_rom("card1/Img_Gen/Game.PNG","card1",NULL,version,1,target,sizeof target));
+    Placement place; assert(initial(&im,&place)); render(&im,place,canvas);
+    assert(export_rom(source,"card2",canvas,version,0,target,sizeof target)==1);
+    assert(load_document(target,&loaded,after) && loaded.w==CW && loaded.h==CH &&
+           !memcmp(canvas,loaded.p,sizeof canvas)); free_image(&loaded);
+    assert(load_document(source,&loaded,after) && !memcmp(version,after,sizeof after)); free_image(&loaded);
+    assert(!unlink("card2/Img_Gen/Game.PNG"));
+    assert(!symlink("../../card1/Game_002.PNG","card2/Img_Gen/Game.PNG"));
+    assert(!export_rom(source,"card2",NULL,version,1,target,sizeof target));
+    assert(!unlink("card2/Img_Gen/Game.PNG"));
+    pixels[0].r++; put(source,&im);
+    assert(!export_rom(source,"card2",NULL,version,0,target,sizeof target));
+    assert(access("card2/Img_Gen/Game.PNG",F_OK));
+    assert(!unlink("card1/Img_Gen/Game.PNG") && !unlink(source));
+    assert(!rmdir("card1/Img_Gen") && !rmdir("card2/Img_Gen"));
+    assert(!rmdir("card1") && !rmdir("card2"));
+    puts("PASS ROM names from complete supplied file list, extension case, exact copy, canvas export, collision, same source, stale source and symlink");
+}
 static void themes(void) {
     assert(!TTF_Init());
     assert(!mkdir("CFW",0700)); assert(!mkdir("CFW/skin",0700));
@@ -125,7 +255,7 @@ static void themes(void) {
 int main(void) {
     char tmp[]="/tmp/preview-check-XXXXXX";
     assert(mkdtemp(tmp) && !chdir(tmp));
-    geometry(); storage(); themes();
+    geometry(); storage(); rom_exports(); themes();
     const char *files[]={"CFW/skin/settings.json","CFW/skin/game-overlay.png",".preview-originals/art.png","art.png","preview.cfg"};
     for (unsigned i=0;i<sizeof files/sizeof *files;i++) assert(!unlink(files[i]));
     assert(!rmdir(".preview-originals") && !rmdir("CFW/skin") && !rmdir("CFW") && !chdir("/") && !rmdir(tmp));

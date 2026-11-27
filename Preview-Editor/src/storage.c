@@ -176,6 +176,63 @@ int restore_document(const char *path) {
     close(lock);
     return ok;
 }
+/* Strip only the screenshot counter or timestamp immediately before the extension. */
+static int digits(const char *s,size_t n) {
+    for (size_t i=0;i<n;i++) if (s[i]<'0' || s[i]>'9') return 0;
+    return 1;
+}
+int rom_filename(const char *path,char *out,size_t size) {
+    const char *name=strrchr(path,'/'); name=name ? name+1 : path;
+    const char *ext=strrchr(name,'.');
+    if (!ext || ext==name) return fail("У файла нет названия или расширения.");
+    size_t n=(size_t)(ext-name),cut=n;
+    if (n>14 && name[n-14]=='-' && name[n-7]=='-' &&
+        digits(name+n-13,6) && digits(name+n-6,6)) cut=n-14;
+    else if (n>4 && name[n-4]=='_' && digits(name+n-3,3)) cut=n-4;
+    if (cut+strlen(ext)+1>size) return fail("Слишком длинное имя файла.");
+    memcpy(out,name,cut); strcpy(out+cut,ext);
+    return 1;
+}
+int export_rom(const char *source,const char *root,const Pixel *canvas,
+               const Digest version,int overwrite,char *destination,size_t size) {
+    char name[NAME_MAX+1],dir[PATH_MAX],target[PATH_MAX];
+    if (!rom_filename(source,name,sizeof name) || !combine(dir,root,"Img_Gen") ||
+        !combine(target,dir,name)) return 0;
+    if (strlen(target)+1>size) return fail("Слишком длинный путь.");
+    strcpy(destination,target);
+    struct stat st,original;
+    if (mkdir(dir,0755) && errno!=EEXIST) return fail("Не удалось создать Img_Gen. Проверьте карту.");
+    if (lstat(dir,&st) || !S_ISDIR(st.st_mode)) return fail("Img_Gen должна быть обычной папкой.");
+    if (!sync_dir(root)) return 0;
+    Paths p;
+    if (!paths_for(target,&p)) return 0;
+    int lock=lock_folder(&p);
+    if (lock<0) return 0;
+    int ok=0;
+    Temp t={0}; Image check={0};
+    if (stat(source,&original)) { fail("Исходный PNG недоступен."); goto done; }
+    if (!lstat(target,&st)) {
+        if (!S_ISREG(st.st_mode)) { fail("Имя в Img_Gen занято папкой или ссылкой."); goto done; }
+        if (st.st_dev==original.st_dev && st.st_ino==original.st_ino) {
+            fail("Этот файл уже находится в Img_Gen под именем ROM."); goto done;
+        }
+        if (!overwrite) { ok=2; goto done; }
+    } else if (errno!=ENOENT) { fail("Не удалось проверить файл в Img_Gen."); goto done; }
+    if (!unchanged(source,version)) goto done;
+    if (!canvas) {
+        ok=copy_verified(source,target,dir,version);
+    } else {
+        Image out={CW,CH,(Pixel *)canvas};
+        ok=start_temp(&t,dir) && write_png(t.f,&out) && flush_temp(&t) &&
+            !fseek(t.f,0,SEEK_SET) && read_png(t.f,&check);
+        if (ok && (check.w!=CW || check.h!=CH || memcmp(check.p,canvas,CW*CH*sizeof(Pixel))))
+            ok=fail("Проверка записанного PNG не пройдена.");
+        if (ok) ok=unchanged(source,version) && publish(&t,target,dir);
+    }
+done:
+    free_image(&check); discard(&t); close(lock);
+    return ok;
+}
 Prefs load_prefs(void) {
     Prefs p={16,-1,-1},v;
     FILE *f=read_regular("preview.cfg");
