@@ -7,24 +7,196 @@
 +SYSROOT ?= $(CURDIR)/../sysroot
 +CXX = $(SDK)/bin/arm-linux-g++
 +CPU = -marm -mcpu=cortex-a9 -mfpu=neon -mfloat-abi=softfp
-+CPPFLAGS = -DNOOPENGL -DHAVE_SOUND -DRG35XX -DVERSION=\"0.1.3-rg35xx-0.1.1\"
++CPPFLAGS = -DNOOPENGL -DHAVE_SOUND -DRG35XX -DVERSION=\"0.1.3-rg35xx-0.1.2\"
 +CXXFLAGS = $(CPU) --sysroot=$(SYSROOT) -O2 -std=gnu++03 -Wall -I$(SYSROOT)/usr/include/SDL -include platform/rg35xx.h
 +LDLIBS = -lSDL_mixer -lSDL_image -lSDL_gfx -lSDL -lz -lm -lpthread
 +LDFLAGS = $(CPU) --sysroot=$(SYSROOT) -Wl,-rpath-link,$(SYSROOT)/usr/lib:$(SYSROOT)/lib
 +build/platform/rg35xx.o: CPPFLAGS += -DRG_IMPLEMENTATION
 +
-+SOURCES = $(wildcard src/*.cpp) platform/rg35xx.cpp
++SOURCES = $(wildcard src/*.cpp) platform/rg35xx.cpp platform/pak.cpp
 +OBJECTS = $(patsubst %.cpp,build/%.o,$(SOURCES))
 +supertux: $(OBJECTS)
 +	$(CXX) $(LDFLAGS) $^ $(LDLIBS) -o $@
-+build/%.o: %.cpp platform/rg35xx.h
++build/%.o: %.cpp platform/rg35xx.h platform/buttons.h platform/pak.h
 +	@mkdir -p $(dir $@)
 +	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
 --- /dev/null
++++ b/platform/buttons.h
+@@ -0,0 +1,26 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++#pragma once
++#include <SDL.h>
++inline SDLKey rg_button_key(unsigned code) {
++ switch(code) {
++ case 0x130:return SDLK_LCTRL;
++ case 0x131:return SDLK_SPACE;
++ case 0x133:return SDLK_LSHIFT;
++ case 0x134:return SDLK_LALT;
++ case 0x13a:case 0x13c:return SDLK_ESCAPE;
++ default:return SDLK_UNKNOWN;
++ }
++}
++inline const char* rg_button_name(int key) {
++ switch(key) {
++ case SDLK_LCTRL:return "A";
++ case SDLK_SPACE:return "B";
++ case SDLK_LSHIFT:return "X";
++ case SDLK_LALT:return "Y";
++ default:return 0;
++ }
++}
++inline bool rg_bindable(int key) {
++ return rg_button_name(key) || key==SDLK_UP || key==SDLK_DOWN ||
++   key==SDLK_LEFT || key==SDLK_RIGHT;
++}
+--- /dev/null
++++ b/platform/pak.cpp
+@@ -0,0 +1,122 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++#ifndef _GNU_SOURCE
++#define _GNU_SOURCE
++#endif
++#include "pak.h"
++#include <SDL_image.h>
++#include <sys/mman.h>
++#include <sys/stat.h>
++#include <fcntl.h>
++#include <unistd.h>
++#include <stdint.h>
++#include <climits>
++#include <cstdlib>
++#include <cstring>
++#include <map>
++#include <set>
++#include <zlib.h>
++namespace {
++struct Entry { uint64_t offset,size; uint32_t crc; bool verified; };
++std::map<std::string,Entry> entries;
++unsigned char* mapped=0;
++size_t mapped_size=0;
++std::string resource_root;
++uint16_t u16(const unsigned char* p) { return p[0]|(uint16_t(p[1])<<8); }
++uint32_t u32(const unsigned char* p) { return u16(p)|(uint32_t(u16(p+2))<<16); }
++uint64_t u64(const unsigned char* p) { return u32(p)|(uint64_t(u32(p+4))<<32); }
++void fail(const char* reason) { fprintf(stderr,"SuperTux PAK: %s\n",reason); exit(1); }
++std::string normalized(const std::string& path) {
++ std::string full=path;
++ if(full.empty() || full[0]!='/') { char cwd[4096]; if(!getcwd(cwd,sizeof(cwd))) fail("getcwd"); full=std::string(cwd)+"/"+full; }
++ std::vector<std::string> parts;
++ for(size_t i=0;i<full.size();) {
++  size_t end=full.find('/',i); if(end==std::string::npos)end=full.size();
++  std::string part=full.substr(i,end-i);
++  if(part=="..") { if(!parts.empty())parts.pop_back(); }
++  else if(!part.empty() && part!=".") parts.push_back(part);
++  i=end+1;
++ }
++ std::string result;
++ for(size_t i=0;i<parts.size();++i) result+="/"+parts[i];
++ return result;
++}
++std::string relative(const std::string& path) {
++ std::string full=normalized(path);
++ if(full.compare(0,resource_root.size()+1,resource_root+"/")!=0) return std::string();
++ return full.substr(resource_root.size()+1);
++}
++Entry* lookup(const char* path) {
++ if(!mapped)return 0;
++ std::string name=relative(path);
++ std::map<std::string,Entry>::iterator it=entries.find(name);
++ if(it==entries.end())return 0;
++ Entry& e=it->second;
++ if(!e.verified) {
++  if(crc32(0,mapped+e.offset,(uInt)e.size)!=e.crc) fail(("checksum: "+name).c_str());
++  e.verified=true;
++ }
++ return &e;
++}
++SDL_RWops* rw(const char* path) {
++ if(Entry* e=lookup(path)) return SDL_RWFromConstMem(mapped+e->offset,(int)e->size);
++ return SDL_RWFromFile(path,"rb");
++}
++}
++void pak_init(const std::string& root) {
++ resource_root=normalized(root);
++ std::string filename=resource_root+".pak";
++ int fd=open(filename.c_str(),O_RDONLY);
++ if(fd<0) { fprintf(stderr,"SuperTux: loose resources at %s\n",root.c_str()); return; }
++ struct stat st;
++ if(fstat(fd,&st)<0 || st.st_size<16 || uint64_t(st.st_size)>1024ULL*1024*1024) fail("invalid file size");
++ mapped_size=(size_t)st.st_size;
++ void* mem=mmap(0,mapped_size,PROT_READ,MAP_PRIVATE,fd,0); close(fd);
++ if(mem==MAP_FAILED) fail("mmap");
++ mapped=(unsigned char*)mem;
++ if(memcmp(mapped,"STPAK1\0\0",8))fail("invalid magic");
++ uint32_t count=u32(mapped+8),index_size=u32(mapped+12);
++ if(count>100000 || index_size>mapped_size-16)fail("invalid index");
++ size_t cursor=16,end=16+index_size;
++ for(uint32_t n=0;n<count;++n) {
++  if(cursor>end || end-cursor<24)fail("truncated entry");
++  unsigned length=u16(mapped+cursor);
++  if(u16(mapped+cursor+2)!=0)fail("unsupported flags");
++  Entry e; e.crc=u32(mapped+cursor+4);e.offset=u64(mapped+cursor+8);e.size=u64(mapped+cursor+16);e.verified=false;
++  cursor+=24;
++  if(!length || length>end-cursor || e.offset<end || e.offset>mapped_size || e.size>mapped_size-e.offset || e.size>INT_MAX)fail("invalid entry bounds");
++  std::string name((char*)mapped+cursor,length);cursor+=length;
++  if(name[0]=='/' || name.find('\\')!=std::string::npos || name.find("..")!=std::string::npos ||
++     name.find(char(0))!=std::string::npos || entries.count(name))fail("invalid resource name");
++  entries[name]=e;
++ }
++ if(cursor!=end)fail("invalid index length");
++ fprintf(stderr,"SuperTux: data.pak, %u resources, %u bytes, stored/uncompressed\n",count,(unsigned)mapped_size);
++}
++FILE* pak_fopen(const char* path,const char* mode) {
++ if(mode[0]=='r' && !strchr(mode,'+'))
++  if(Entry* e=lookup(path)) return fmemopen(mapped+e->offset,(size_t)e->size,"rb");
++ return fopen(path,mode);
++}
++bool pak_exists(const char* path) { return lookup(path)!=0; }
++std::vector<std::string> pak_children(const std::string& path,bool directories) {
++ std::set<std::string> result;
++ if(mapped) {
++  std::string prefix=relative(path+"/_"); if(!prefix.empty())prefix.erase(prefix.size()-1);
++  if(!prefix.empty())
++   for(std::map<std::string,Entry>::const_iterator i=entries.begin();i!=entries.end();++i) {
++    if(i->first.compare(0,prefix.size(),prefix))continue;
++    std::string tail=i->first.substr(prefix.size());
++    size_t slash=tail.find('/');
++    if(directories && slash!=std::string::npos)result.insert(tail.substr(0,slash));
++    if(!directories && slash==std::string::npos)result.insert(tail);
++   }
++ }
++ return std::vector<std::string>(result.begin(),result.end());
++}
++SDL_Surface* pak_image(const char* path) { return IMG_Load_RW(rw(path),1); }
++Mix_Chunk* pak_wave(const char* path) { return Mix_LoadWAV_RW(rw(path),1); }
++Mix_Music* pak_music(const char* path) {
++ SDL_RWops* input=rw(path);
++ if(!input)return 0;
++ return Mix_LoadMUSType_RW(input,MUS_NONE,1);
++}
+--- /dev/null
++++ b/platform/pak.h
+@@ -0,0 +1,14 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++#pragma once
++#include <SDL.h>
++#include <SDL_mixer.h>
++#include <cstdio>
++#include <string>
++#include <vector>
++void pak_init(const std::string& root);
++FILE* pak_fopen(const char*,const char*);
++bool pak_exists(const char*);
++std::vector<std::string> pak_children(const std::string&,bool);
++SDL_Surface* pak_image(const char*);
++Mix_Chunk* pak_wave(const char*);
++Mix_Music* pak_music(const char*);
+--- /dev/null
 +++ b/platform/rg35xx.cpp
-@@ -0,0 +1,163 @@
+@@ -0,0 +1,174 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "rg35xx.h"
++#include "buttons.h"
 +#include "../src/menu.h"
 +#include <linux/fb.h>
 +#include <linux/input.h>
@@ -37,6 +209,10 @@
 +#include <cstring>
 +#include <deque>
 +static int fb=-1, pad=-1;
++static bool menu_held=false, leaving=false;
++static Uint32 menu_pressed_at=0;
++static long long menu_event_started=0;
++bool rg_exit_requested() { return leaving; }
 +static fb_fix_screeninfo fi;
 +static fb_var_screeninfo va;
 +static unsigned char* mem=0;
@@ -76,18 +252,22 @@
 +        if(e.type==EV_ABS && e.code==ABS_HAT0X) { key(SDLK_LEFT,e.value<0); key(SDLK_RIGHT,e.value>0); }
 +        if(e.type==EV_ABS && e.code==ABS_HAT0Y) { key(SDLK_UP,e.value<0); key(SDLK_DOWN,e.value>0); }
 +        if(e.type==EV_KEY && e.code<=KEY_MAX && e.value!=2) {
-+            SDLKey k=SDLK_UNKNOWN;
-+            switch(e.code) {
-+            case 0x130: k=SDLK_LCTRL; break;
-+            case 0x131: k=Menu::current()?SDLK_ESCAPE:SDLK_SPACE; break;
-+            case 0x133: k=SDLK_UNKNOWN; break;
-+            case 0x134: k=SDLK_UNKNOWN; break;
-+            case 0x13a: k=SDLK_ESCAPE; break;
-+            case 0x13b: k=Menu::current()?SDLK_RETURN:SDLK_p; break;
-+            case 0x13d: if(e.value) volume(1); break;
-+            case 0x13e: if(e.value) volume(-1); break;
-+            case 0x13c: k=SDLK_ESCAPE; break;
++            if(e.code==0x13c) {
++                long long timestamp=(long long)e.time.tv_sec*1000000+e.time.tv_usec;
++                if(e.value && !menu_held) {
++                    menu_pressed_at=SDL_GetTicks();
++                    menu_event_started=timestamp;
++                } else if(!e.value && menu_held) {
++                    if(Uint32(SDL_GetTicks()-menu_pressed_at)>=1500 ||
++                       (timestamp>=menu_event_started && timestamp-menu_event_started>=1500000))
++                        leaving=true;
++                }
++                menu_held=e.value!=0;
 +            }
++            SDLKey k=rg_button_key(e.code);
++            if(e.code==0x13b) k=Menu::current()?SDLK_RETURN:SDLK_p;
++            if(e.code==0x13d && e.value) volume(1);
++            if(e.code==0x13e && e.value) volume(-1);
 +            if(e.value) {
 +                binding[e.code]=k;
 +                pressed[e.code]=true;
@@ -103,6 +283,7 @@
 +            }
 +        }
 +    }
++    if(menu_held && Uint32(SDL_GetTicks()-menu_pressed_at)>=1500) leaving=true;
 +}
 +SDL_Surface* rg_video(int w,int h,int,Uint32) {
 +    if(fb<0) {
@@ -182,26 +363,306 @@
 +}
 +int rg_poll(SDL_Event* e) {
 +    input();
++    if(leaving) { pending.clear(); return 0; }
 +    if(!pending.empty()) { *e=pending.front(); pending.pop_front(); return 1; }
 +    return SDL_PollEvent(e);
 +}
 +Uint8* rg_keys(int* count) { input(); if(count) *count=SDLK_LAST; return keys; }
 --- /dev/null
 +++ b/platform/rg35xx.h
-@@ -0,0 +1,13 @@
+@@ -0,0 +1,15 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#pragma once
 +#include <SDL.h>
++#include "pak.h"
 +SDL_Surface* rg_video(int,int,int,Uint32);
 +int rg_flip(SDL_Surface*);
 +int rg_poll(SDL_Event*);
 +Uint8* rg_keys(int*);
++bool rg_exit_requested();
 +#ifndef RG_IMPLEMENTATION
 +#define SDL_SetVideoMode rg_video
 +#define SDL_Flip rg_flip
 +#define SDL_PollEvent rg_poll
 +#define SDL_GetKeyState rg_keys
 +#endif
+--- a/src/gameloop.cpp
++++ b/src/gameloop.cpp
+@@ -757,7 +757,7 @@
+ 
+   draw();
+ 
+-  while (exit_status == ES_NONE)
++  while (exit_status == ES_NONE && !rg_exit_requested())
+     {
+       /* Calculate the movement-factor */
+       double frame_ratio = ((double)(update_time-last_update_time))/((double)FRAME_RATE);
+@@ -855,6 +855,7 @@
+ #endif
+     }
+   
++  if(rg_exit_requested()) exit_status=ES_LEVEL_ABORT;
+   return exit_status;
+ }
+ 
+--- a/src/globals.cpp
++++ b/src/globals.cpp
+@@ -104,6 +104,7 @@
+ 
+   for(i = 0; maxdelay.check() || !i; ++i)
+     {
++      if(rg_exit_requested()) return 2;
+       while (SDL_PollEvent(&event))
+         {
+           if(!mindelay.check())
+--- a/src/high_scores.cpp
++++ b/src/high_scores.cpp
+@@ -49,7 +49,7 @@
+ 
+   FILE * fi;
+   lisp_object_t* root_obj = 0;
+-  fi = fopen(highscore_filename, "r");
++  fi = pak_fopen(highscore_filename, "r");
+   if (fi == NULL)
+     {
+       perror(highscore_filename);
+@@ -96,7 +96,7 @@
+   strcpy(highscore_menu->item[0].input,hs_name.c_str());
+ 
+   /* ask for player's name */
+-  while(Menu::current())
++  while(Menu::current() && !rg_exit_requested())
+     {
+       bkgd->draw_bg();
+ 
+@@ -137,7 +137,7 @@
+   fcreatedir(filename.c_str());
+   if(fwriteable(filename.c_str()))
+     {
+-      fi = fopen(filename.c_str(), "w");
++      fi = pak_fopen(filename.c_str(), "w");
+       if (fi == NULL)
+         {
+           perror(filename.c_str());
+--- a/src/level.cpp
++++ b/src/level.cpp
+@@ -107,7 +107,7 @@
+     snprintf(filename, 1024, "%s/levels/%s/info", datadir.c_str(), subset);
+   if(faccessible(filename))
+     {
+-      fi = fopen(filename, "r");
++      fi = pak_fopen(filename, "r");
+       if (fi == NULL)
+         {
+           perror(filename);
+@@ -179,7 +179,7 @@
+     filename = datadir + "/levels/" + name + "/info";
+   if(fwriteable(filename.c_str()))
+     {
+-      fi = fopen(filename.c_str(), "w");
++      fi = pak_fopen(filename.c_str(), "w");
+       if (fi == NULL)
+         {
+           perror(filename.c_str());
+@@ -555,7 +555,7 @@
+     snprintf(filename, 1024, "%s/levels/%s/level%d.stl", datadir.c_str(),
+         subset.c_str(), level);
+ 
+-  FILE * fi = fopen(filename, "w");
++  FILE * fi = pak_fopen(filename, "w");
+   if (fi == NULL)
+     {
+       perror(filename);
+--- a/src/lispreader.cpp
++++ b/src/lispreader.cpp
+@@ -1375,7 +1375,7 @@
+   else
+     {
+       lisp_object_t* obj = 0;
+-      FILE* in = fopen(filename.c_str(), "r");
++      FILE* in = pak_fopen(filename.c_str(), "r");
+ 
+       if (in)
+         {
+--- a/src/menu.cpp
++++ b/src/menu.cpp
+@@ -31,6 +31,9 @@
+ #include "defines.h"
+ #include "globals.h"
+ #include "menu.h"
++#include "player.h"
++#include "configfile.h"
++#include "../platform/buttons.h"
+ #include "screen.h"
+ #include "setup.h"
+ #ifndef NOSOUND
+@@ -82,6 +85,9 @@
+ 
+   while(true)
+   {
++    if(rg_exit_requested()) {
++      delete cap_screen; Menu::set_current(0); delete dialog; return false;
++    }
+     SDL_Event event;
+ 
+     while (SDL_PollEvent(&event))
+@@ -126,6 +132,7 @@
+   if (current_)
+     last_menus.push_back(current_);
+ 
++  pmenu->capturing_control=false;
+   current_ = pmenu;
+   current_->effect.start(500);
+ }
+@@ -133,6 +140,7 @@
+ void
+ Menu::pop_current()
+ {
++  if(current_) current_->capturing_control=false;
+   if (!last_menus.empty())
+   {
+     current_ = last_menus.back();
+@@ -151,8 +159,10 @@
+ {
+   last_menus.clear();
+ 
+-  if (menu)
++  if (menu) {
++    menu->capturing_control=false;
+     menu->effect.start(500);
++  }
+ 
+   current_ = menu;
+ }
+@@ -247,6 +257,10 @@
+ //TODO (GP2X): get joystick in here somehow
+ void Menu::get_controlfield_key_into_input(MenuItem *item)
+ {
++  if(const char* name=rg_button_name(*item->int_p)) {
++    item->change_input(name);
++    return;
++  }
+ #ifndef GP2X
+   switch(*item->int_p)
+   {
+@@ -320,6 +334,8 @@
+ {
+   hit_item = -1;
+   menuaction = MENU_ACTION_NONE;
++  capturing_control = false;
++  capture_wait_release = false;
+   delete_character = 0;
+   mn_input_char = '\0';
+ 
+@@ -417,7 +433,17 @@
+           item[active_item].toggled = !item[active_item].toggled;
+           break;
+ 
++        case MN_CONTROLFIELD:
++          capturing_control = true;
++          capture_wait_release = SDL_GetKeyState(NULL)[SDLK_LCTRL] ||
++                                 SDL_GetKeyState(NULL)[SDLK_RETURN];
++          break;
+         case MN_ACTION:
++          if(this==options_keys_menu && item[active_item].id==MNID_RESETCONTROLS) {
++            keymap=PlayerKeymap();
++            saveconfig();
++            break;
++          }
+           Menu::set_current(0);
+           item[active_item].toggled = true;
+           break;
+@@ -609,7 +635,7 @@
+           gold_text->draw_align((pitem.get_input_with_symbol(false)).c_str(), x_pos + text_pos, y_pos, A_HMIDDLE, A_VMIDDLE, 2);
+       }
+       else
+-        gold_text->draw_align(pitem.input,
++        gold_text->draw_align(capturing_control && index==active_item ? "?" : pitem.input,
+                               x_pos + text_pos, y_pos,
+                               A_HMIDDLE, A_VMIDDLE, 2);
+ 
+@@ -755,13 +781,42 @@
+ void
+ Menu::event(SDL_Event& event)
+ {
++  if(capturing_control) {
++    if(event.type==SDL_KEYUP) {
++      if(event.key.keysym.sym==SDLK_LCTRL || event.key.keysym.sym==SDLK_RETURN)
++        capture_wait_release=false;
++      return;
++    }
++    if(event.type==SDL_KEYDOWN) {
++      SDLKey key=event.key.keysym.sym;
++      if(key==SDLK_ESCAPE) {
++        capturing_control=false;
++        menuaction=MENU_ACTION_NONE;
++        return;
++      }
++      if(capture_wait_release || !rg_bindable(key)) return;
++      int* target=item[active_item].int_p;
++      int previous=*target;
++      int* fields[]={&keymap.left,&keymap.right,&keymap.jump,&keymap.duck,&keymap.fire};
++      for(unsigned n=0;n<sizeof(fields)/sizeof(fields[0]);++n)
++        if(fields[n]!=target && *fields[n]==key) *fields[n]=previous;
++      *target=key;
++      capturing_control=false;
++      menuaction=MENU_ACTION_NONE;
++      saveconfig();
++    }
++    return;
++  }
++
+   SDLKey key;
+   switch(event.type)
+   {
+   case SDL_KEYDOWN:
+     key = event.key.keysym.sym;
++    if(key==SDLK_SPACE) key=SDLK_ESCAPE;
+     SDLMod keymod;
+     char ch[2];
++    ch[0]=ch[1]=0;
+     keymod = SDL_GetModState();
+     int x,y;
+ 
+@@ -776,19 +831,6 @@
+     {
+       /* An International Character. */
+     }
+-
+-    if(item[active_item].kind == MN_CONTROLFIELD)
+-    {
+-      if(key == SDLK_ESCAPE)
+-      {
+-        Menu::pop_current();
+-        return;
+-      }
+-      *item[active_item].int_p = key;
+-      menuaction = MENU_ACTION_DOWN;
+-      return;
+-    }
+-
+ 
+     switch(key)
+     {
+--- a/src/menu.h
++++ b/src/menu.h
+@@ -44,6 +44,7 @@
+   MNID_SOUND,
+   MNID_MUSIC,
+   MNID_SHOWFPS,
++  MNID_RESETCONTROLS,
+   MNID_SHOWMOUSE
+   };
+ 
+@@ -176,6 +177,8 @@
+   MenuAction menuaction;
+ 
+   /* input implementation variables */
++  bool capturing_control;
++  bool capture_wait_release;
+   int delete_character;
+   char mn_input_char;
+   
 --- a/src/music_manager.cpp
 +++ b/src/music_manager.cpp
 @@ -40,8 +40,8 @@
@@ -215,6 +676,15 @@
    }
  
    std::map<std::string, MusicResource>::iterator i = musics.find(file);
+@@ -62,7 +62,7 @@
+ }
+   
+ #ifndef USEMIKMOD
+-  Mix_Music* song = Mix_LoadMUS(file.c_str());
++  Mix_Music* song = pak_music(file.c_str());
+ #else
+   char mfile[100];
+   snprintf(mfile,sizeof(mfile),"%s",file.c_str());
 @@ -158,7 +158,7 @@
  #endif
    } else {
@@ -224,6 +694,25 @@
  #else
      Player_Start(current_music->music);
  #endif
+--- a/src/player.cpp
++++ b/src/player.cpp
+@@ -43,11 +43,11 @@
+ 
+ PlayerKeymap::PlayerKeymap()
+ {
+-  keymap.jump  = SDLK_LCTRL;
+-  keymap.duck  = SDLK_DOWN;
+-  keymap.left  = SDLK_LEFT;
+-  keymap.right = SDLK_RIGHT;
+-  keymap.fire  = SDLK_SPACE; //SDLK_LALT;
++  jump  = SDLK_LCTRL;
++  duck  = SDLK_DOWN;
++  left  = SDLK_LEFT;
++  right = SDLK_RIGHT;
++  fire  = SDLK_SPACE; //SDLK_LALT;
+ }
+ 
+ void player_input_init(player_input_type* pplayer_input)
 --- a/src/setup.cpp
 +++ b/src/setup.cpp
 @@ -74,7 +74,7 @@
@@ -235,7 +724,63 @@
  #define DATA_PREFIX "data/"
  #endif
  
-@@ -319,7 +319,7 @@
+@@ -86,6 +86,7 @@
+ /* Does the given file exist and is it accessible? */
+ int faccessible(const char *filename)
+ {
++  if(pak_exists(filename)) return true;
+   struct stat filestat;
+   if (stat(filename, &filestat) == -1)
+     {
+@@ -104,7 +105,7 @@
+ int fwriteable(const char *filename)
+ {
+   FILE* fi;
+-  fi = fopen(filename, "wa");
++  fi = pak_fopen(filename, "wa");
+   if (fi == NULL)
+     {
+       return false;
+@@ -150,7 +151,7 @@
+   strcat(filename, rel_filename);
+ 
+   /* Try opening the file: */
+-  fi = fopen(filename, mode);
++  fi = pak_fopen(filename, mode);
+ 
+   if (fi == NULL)
+     {
+@@ -236,6 +237,14 @@
+       closedir(dirStructP);
+     }
+ 
++  std::vector<std::string> packed=pak_children(std::string(datadir)+"/"+rel_path,true);
++  for(size_t n=0;n<packed.size();++n) {
++    std::string full=std::string(datadir)+"/"+rel_path+"/"+packed[n];
++    if(expected_file && !pak_exists((full+"/"+expected_file).c_str()))continue;
++    bool duplicate=false;
++    for(int j=0;j<sdirs.num_items;++j) if(packed[n]==sdirs.item[j])duplicate=true;
++    if(!duplicate)string_list_add_item(&sdirs,packed[n].c_str());
++  }
+   return sdirs;
+ }
+ 
+@@ -301,6 +310,14 @@
+       closedir(dirStructP);
+     }
+ 
++  std::vector<std::string> packed=pak_children(std::string(datadir)+"/"+rel_path,false);
++  for(size_t n=0;n<packed.size();++n) {
++    if(glob && packed[n].find(glob)==std::string::npos)continue;
++    if(exception_str && packed[n].find(exception_str)!=std::string::npos)continue;
++    bool duplicate=false;
++    for(int j=0;j<sdirs.num_items;++j) if(packed[n]==sdirs.item[j])duplicate=true;
++    if(!duplicate)string_list_add_item(&sdirs,packed[n].c_str());
++  }
+   return sdirs;
+ }
+ 
+@@ -319,7 +336,7 @@
    char str[1024];
    /* Get home directory (from $HOME variable)... if we can't determine it,
       use the current directory ("."): */
@@ -244,7 +789,7 @@
    if (getenv("HOME") != NULL)
      home = getenv("HOME");
    else
-@@ -356,9 +356,9 @@
+@@ -356,9 +373,9 @@
    if (datadir.empty())
      {
        // Detect datadir
@@ -256,7 +801,7 @@
          {
            puts("Couldn't read /proc/self/exe, using default path: " DATA_PREFIX);
            datadir = DATA_PREFIX;
-@@ -412,7 +412,9 @@
+@@ -412,7 +429,9 @@
    main_menu->additem(MN_GOTO, "Options",0,options_menu, MNID_OPTIONMENU);
    
  #ifndef GP2X
@@ -266,7 +811,7 @@
  #endif
    main_menu->additem(MN_ACTION,"Credits",0,0, MNID_CREDITS);
    main_menu->additem(MN_ACTION,"Quit",0,0, MNID_QUITMAINMENU);
-@@ -420,12 +422,14 @@
+@@ -420,12 +439,14 @@
    options_menu->additem(MN_LABEL,"Options",0,0);
    options_menu->additem(MN_HL,"",0,0);
  #ifndef GP2X
@@ -281,7 +826,17 @@
  #endif
  #ifndef NOSOUND
    if(audio_device)
-@@ -867,6 +871,11 @@
+@@ -464,7 +485,9 @@
+   options_keys_menu->additem(MN_CONTROLFIELD,"Duck", 0,0, 0,&keymap.duck);
+   options_keys_menu->additem(MN_CONTROLFIELD,"Power/Run", 0,0, 0,&keymap.fire);
+   options_keys_menu->additem(MN_HL,"",0,0);
++  options_keys_menu->additem(MN_ACTION,"Reset Controls",0,0,MNID_RESETCONTROLS);
+   options_keys_menu->additem(MN_BACK,"Back",0,0);
++  options_keys_menu->additem(MN_LABEL,"A: assign; MENU: cancel",0,0);
+ 
+ #ifndef GP2X
+   if(use_joystick)
+@@ -867,6 +890,11 @@
  
  void st_joystick_setup(void)
  {
@@ -293,13 +848,253 @@
  
    /* Init Joystick: */
  
+@@ -1031,7 +1059,7 @@
+ 
+   /* Load icon into a surface: */
+ 
+-  icon = IMG_Load((datadir + "/images/icon.xpm").c_str());
++  icon = pak_image((datadir + "/images/icon.xpm").c_str());
+   if (icon == NULL)
+     {
+       fprintf(stderr,
+--- a/src/sound.cpp
++++ b/src/sound.cpp
+@@ -182,7 +182,7 @@
+   if(!audio_device)
+     return 0;
+   
+-  Mix_Chunk* snd = Mix_LoadWAV(file.c_str());
++  Mix_Chunk* snd = pak_wave(file.c_str());
+ 
+   if (snd == 0)
+     st_abort("Can't load", file);
 --- a/src/supertux.cpp
 +++ b/src/supertux.cpp
-@@ -37,6 +37,7 @@
+@@ -37,8 +37,10 @@
  #undef main
  int main(int argc, char * argv[])
  {
 +  setvbuf(stdout, NULL, _IOLBF, 0);
    st_directory_setup();
    parseargs(argc, argv);
++  pak_init(datadir);
    
+   st_audio_setup();
+   st_video_setup();
+--- a/src/text.cpp
++++ b/src/text.cpp
+@@ -259,7 +259,7 @@
+   char filename[1024];
+   string_list_init(&names);
+   sprintf(filename,"%s/%s", datadir.c_str(), file.c_str());
+-  if((fi = fopen(filename,"r")) != NULL)
++  if((fi = pak_fopen(filename,"r")) != NULL)
+     {
+       while(fgets(temp, sizeof(temp), fi) != NULL)
+         {
+@@ -287,7 +287,7 @@
+   SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY, SDL_DEFAULT_REPEAT_INTERVAL);
+ 
+   Uint32 lastticks = SDL_GetTicks();
+-  while(done == 0)
++  while(done == 0 && !rg_exit_requested())
+     {
+       /* in case of input, exit */
+       SDL_Event event;
+--- a/src/texture.cpp
++++ b/src/texture.cpp
+@@ -325,7 +325,7 @@
+   SDL_Surface * temp;
+   SDL_Surface * conv;
+ 
+-  temp = IMG_Load(file.c_str());
++  temp = pak_image(file.c_str());
+ 
+   if (temp == NULL)
+     st_abort("Can't load", file);
+@@ -376,7 +376,7 @@
+   SDL_Surface* sdl_surface;
+   SDL_Surface* temp;
+ 
+-  temp = IMG_Load(file.c_str());
++  temp = pak_image(file.c_str());
+ 
+   if (temp == NULL)
+     st_abort("Can't load", file);
+--- a/src/title.cpp
++++ b/src/title.cpp
+@@ -280,7 +280,7 @@
+   random_timer.start(rand() % 2000 + 2000);
+ 
+   Menu::set_current(main_menu);
+-  while (Menu::current())
++  while (Menu::current() && !rg_exit_requested())
+     {
+       // if we spent to much time on a menu entry
+       if( (update_time - last_update_time) > 1000)
+--- a/src/worldmap.cpp
++++ b/src/worldmap.cpp
+@@ -517,7 +517,7 @@
+ 
+   FILE * fi;
+   lisp_object_t* root_obj = 0;
+-  fi = fopen((datadir +  "/levels/" + level->name).c_str(), "r");
++  fi = pak_fopen((datadir +  "/levels/" + level->name).c_str(), "r");
+   if (fi == NULL)
+   {
+     perror((datadir +  "/levels/" + level->name).c_str());
+@@ -1058,7 +1058,7 @@
+ 
+   last_update_time = update_time = st_get_ticks();
+ 
+-  while(!quit)
++  while(!quit && !rg_exit_requested())
+     {
+       float delta = ((float)(update_time-last_update_time))/100.0;
+ 
+@@ -1120,6 +1120,7 @@
+ #endif
+       SDL_Delay(10);
+     }
++  if(rg_exit_requested() && !savegame_file.empty()) savegame(savegame_file);
+ }
+ 
+ void
+--- /dev/null
++++ b/tests/qemu-controls.py
+@@ -0,0 +1,72 @@
++#!/usr/bin/env python3
++# SPDX-License-Identifier: GPL-2.0-or-later
++import argparse,re,subprocess,time
++from pathlib import Path
++ap=argparse.ArgumentParser()
++ap.add_argument('--qemu',type=Path,required=True)
++ap.add_argument('--app',type=Path,required=True)
++ap.add_argument('--session',default='supertux-ui-regression')
++a=ap.parse_args()
++root=a.qemu/'state'/a.session
++process=None
++def launch():
++ global process
++ process=subprocess.Popen([str(a.qemu/'rg35xx'),'run','--session',a.session,
++  '--app',str(a.app),'--exec','supertux','--headless','--seconds','180'],stdout=subprocess.DEVNULL)
++ for _ in range(200):
++  time.sleep(.1)
++  if process.poll() is not None:raise AssertionError('Game exited before startup')
++  log=root/'console.log'
++  if log.exists() and 'input=' in log.read_text(errors='replace'):time.sleep(2);return
++ raise AssertionError('Startup timeout')
++def key(button,hold='.12'):
++ result=subprocess.run([str(a.qemu/'rg35xx'),'key',button,'--hold',str(hold),'--session',a.session],stdout=subprocess.DEVNULL,stderr=subprocess.PIPE)
++ if result.returncode:
++  # A successful long-MENU exit can close the modeled FIFO before key release.
++  if button!='menu' or float(hold)<1.5 or process.wait(timeout=3)!=0:
++   raise AssertionError(result.stderr.decode('utf8','replace'))
++ time.sleep(.12)
++def keys(*items):
++ for button in items:key(button)
++def config():
++ file=root/'root/mnt/mmc/CFW/.supertux/config'
++ return {k:int(v) for k,v in re.findall(r'\(keyboard-(\w+)\s+(-?\d+)\)',file.read_text())}
++def controls():keys('down','down','a','down','down','down','a')
++defaults={'jump':306,'duck':274,'left':276,'right':275,'fire':32}
++try:
++ launch();controls()
++ keys('down','down','down','down','down','a')
++ assert config()==defaults,config()
++ keys('up','up','up','up','up','down','down','down','down')
++ assert config()==defaults,config()
++ keys('a','x');assert config()['fire']==304,config()
++ keys('a','y');assert config()['fire']==308,config()
++ keys('a','menu');assert config()['fire']==308,config()
++ keys('a','b');assert config()['fire']==32,config()
++ keys('a','l1','r1','l2','r2');assert config()['fire']==32,config()
++ keys('y');assert config()['fire']==308,config()
++ keys('menu')
++ assert process.poll() is None,'Short MENU exited'
++ key('menu','1.7');assert process.wait(timeout=8)==0
++ print('PASS navigation, explicit capture, B/X/Y, cancel, ignored shoulders, short/long MENU')
++ launch();assert config()['fire']==308,'Mapping did not survive restart'
++ controls();keys('down','down','down','down','down','a')
++ assert config()==defaults,'Reset failed'
++ keys('menu','menu','up','up','a','a')
++ time.sleep(.5);keys('menu');time.sleep(.4);keys('down','a')
++ time.sleep(3.5)
++ key('menu','1.7');assert process.wait(timeout=10)==0
++ slot=root/'root/mnt/mmc/CFW/.supertux/save/slot1.stsg'
++ assert slot.is_file(),'Long MENU did not save world progress'
++ assert config()==defaults
++ assert 'savegame:' in (root/'console.log').read_text(errors='replace')
++ print('PASS restart persistence, reset, packed first level, long MENU exits with slot/config saved')
++ launch()
++ keys('a','a')
++ time.sleep(.7)
++ key('menu','1.7')
++ assert process.wait(timeout=10)==0,'Long MENU lost during intro/loading transition'
++ print('PASS long MENU across intro/loading transition')
++
++finally:
++ if process and process.poll() is None:process.terminate();process.wait(timeout=10)
+--- /dev/null
++++ b/tools/pack.py
+@@ -0,0 +1,60 @@
++#!/usr/bin/env python3
++# SPDX-License-Identifier: GPL-2.0-or-later
++import argparse,struct,zlib,hashlib
++from pathlib import Path
++MAGIC=b'STPAK1\0\0'
++def build(source,output):
++    files=[]
++    for item in sorted(source.rglob('*')):
++        if item.is_symlink():raise ValueError('Symlink resource: '+str(item))
++        if item.is_file():
++            name=item.relative_to(source).as_posix().encode('utf8')
++            data=item.read_bytes()
++            if len(name)>65535:raise ValueError('Resource name too long')
++            files.append((name,data))
++    index_size=sum(24+len(name) for name,data in files)
++    offset=(16+index_size+7)&~7
++    records=[]
++    for name,data in files:
++        records.append((name,data,offset))
++        offset=(offset+len(data)+7)&~7
++    output.parent.mkdir(parents=True,exist_ok=True)
++    temporary=output.with_suffix(output.suffix+'.tmp')
++    with temporary.open('wb') as stream:
++        stream.write(MAGIC+struct.pack('<II',len(files),index_size))
++        for name,data,offset in records:
++            stream.write(struct.pack('<HHIQQ',len(name),0,zlib.crc32(data),offset,len(data))+name)
++        for name,data,offset in records:
++            stream.write(bytes(offset-stream.tell()))
++            stream.write(data)
++    temporary.replace(output)
++    validate(output,source)
++    print(str(output)+': '+str(len(files))+' files, '+str(output.stat().st_size)+' bytes, no compression')
++def validate(path,source=None):
++    data=path.read_bytes()
++    if len(data)<16 or data[:8]!=MAGIC:raise ValueError('Bad PAK header')
++    count,index_size=struct.unpack_from('<II',data,8)
++    cursor=16;end=16+index_size;names=set();ranges=[]
++    if end>len(data) or count>100000:raise ValueError('Bad index length')
++    for _ in range(count):
++        if cursor+24>end:raise ValueError('Truncated entry')
++        length,flags,crc,offset,size=struct.unpack_from('<HHIQQ',data,cursor);cursor+=24
++        if not length or cursor+length>end:raise ValueError('Bad name')
++        name=data[cursor:cursor+length].decode('utf8');cursor+=length
++        if flags or name in names or name.startswith('/') or '..' in name or '\\' in name or '\0' in name:raise ValueError('Unsafe name')
++        if offset<end or offset+size>len(data):raise ValueError('Bad bounds')
++        content=data[offset:offset+size]
++        if zlib.crc32(content)!=crc:raise ValueError('CRC: '+name)
++        if source is not None and (source/name).read_bytes()!=content:raise ValueError('Data mismatch: '+name)
++        names.add(name);ranges.append((offset,offset+size))
++    if cursor!=end:raise ValueError('Index length mismatch')
++    ranges.sort()
++    if any(a[1]>b[0] for a,b in zip(ranges,ranges[1:])):raise ValueError('Overlapping entries')
++    if source is not None:
++        expected={x.relative_to(source).as_posix() for x in source.rglob('*') if x.is_file()}
++        if names!=expected:raise ValueError('File list mismatch')
++    return len(names)
++if __name__=='__main__':
++    ap=argparse.ArgumentParser(description='STPAK1: indexed uncompressed SuperTux resources')
++    ap.add_argument('source',type=Path);ap.add_argument('output',type=Path)
++    args=ap.parse_args();build(args.source,args.output)

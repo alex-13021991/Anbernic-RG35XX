@@ -4,8 +4,8 @@
  SYSROOT ?= $(CURDIR)/../sysroot
  CXX = $(SDK)/bin/arm-linux-g++
  CPU = -marm -mcpu=cortex-a9 -mfpu=neon -mfloat-abi=softfp
--CPPFLAGS = -DNOOPENGL -DHAVE_SOUND -DRG35XX -DVERSION=\"0.1.3-rg35xx-0.1.1\"
-+CPPFLAGS = -DNOOPENGL -DHAVE_SOUND -DRG35XX -DVERSION=\"0.1.3-rg35xx-0.2.1-ru\"
+-CPPFLAGS = -DNOOPENGL -DHAVE_SOUND -DRG35XX -DVERSION=\"0.1.3-rg35xx-0.1.2\"
++CPPFLAGS = -DNOOPENGL -DHAVE_SOUND -DRG35XX -DVERSION=\"0.1.3-rg35xx-0.2.2-ru\"
  CXXFLAGS = $(CPU) --sysroot=$(SYSROOT) -O2 -std=gnu++03 -Wall -I$(SYSROOT)/usr/include/SDL -include platform/rg35xx.h
  LDLIBS = -lSDL_mixer -lSDL_image -lSDL_gfx -lSDL -lz -lm -lpthread
  LDFLAGS = $(CPU) --sysroot=$(SYSROOT) -Wl,-rpath-link,$(SYSROOT)/usr/lib:$(SYSROOT)/lib
@@ -13,8 +13,8 @@
  OBJECTS = $(patsubst %.cpp,build/%.o,$(SOURCES))
  supertux: $(OBJECTS)
  	$(CXX) $(LDFLAGS) $^ $(LDLIBS) -o $@
--build/%.o: %.cpp platform/rg35xx.h
-+build/%.o: %.cpp platform/rg35xx.h platform/utf8.h
+-build/%.o: %.cpp platform/rg35xx.h platform/buttons.h platform/pak.h
++build/%.o: %.cpp platform/rg35xx.h platform/buttons.h platform/pak.h platform/utf8.h
  	@mkdir -p $(dir $@)
  	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
 --- a/data/CREDITS
@@ -96,7 +96,7 @@
  
  	Larry Ewing
 - Creator of Tux, the Linux penguin
-+ Создатель Такса, пингвина Linux
++ Создатель Тукса, пингвина Linux
  
  	SDL and OpenGL
 - For making such a great gaming experience
@@ -217,7 +217,7 @@
  
  	Larry Ewing
 - Creator of Tux, the Linux penguin
-+ Создатель Такса, пингвина Linux
++ Создатель Тукса, пингвина Linux
  
  	SDL and OpenGL
   For making such a great gaming 
@@ -343,7 +343,7 @@
 -	frantically searching for his beloved.
 -	Alas, he found neither Penny nor Nolok
 -	there, but instead, another note.
-+	Такс ворвался в тронный зал,
++	Тукс ворвался в тронный зал,
 +	отчаянно разыскивая свою любимую.
 +	Но ни Пенни, ни Нолока там не было.
 +	Вместо них он нашёл новую записку.
@@ -355,7 +355,7 @@
 -	here. What you did not realize is that
 -	this is just one of my many fortresses,
 -	spread far across the lands!
-+	"Молодец, Такс, молодец.
++	"Молодец, Тукс, молодец.
 +	Раз ты это читаешь, значит,
 +	я больше не хозяин ледяной крепости.
 +	Но, как видишь, Пенни здесь нет.
@@ -382,7 +382,7 @@
 -	drawn in various lands. On the corner
 -	of the map was Penny's signature, a
 -	drawing of the ice flower.
-+	Такс печально вышел из зала.
++	Тукс печально вышел из зала.
 +	Вдруг он наступил на конверт,
 +	адресованный ему! Внутри была
 +	наспех нарисованная карта крепостей
@@ -393,7 +393,7 @@
 -	Tux ran out of the fortress, map in
 -	hand. No, he decided, he would not give
 -	up. Penny was counting on him.
-+	С картой в руках Такс выбежал
++	С картой в руках Тукс выбежал
 +	из крепости. Нет, он не сдастся!
 +	Пенни рассчитывает на него.
 --- a/data/intro.txt
@@ -407,11 +407,11 @@
 -	Suddenly, a creature jumped from
 -	behind an ice bush, there was a flash,
 -	and Tux fell asleep!
-+	Такс и Пенни устроили пикник
++	Тукс и Пенни устроили пикник
 +	среди ледяных просторов Антарктиды.
 +	Вдруг из-за заснеженного куста
 +	выскочило какое-то существо.
-+	Вспышка - и Такс потерял сознание!
++	Вспышка - и Тукс потерял сознание!
  
 -	When Tux wakes up, he finds that Penny
 -	is missing. Where she lay before now
@@ -422,9 +422,9 @@
 -	is littered with my minions. Give up on
 -	the thought of trying to reclaim her,
 -	you haven't a chance! -Nolok"
-+	Очнувшись, Такс не нашёл Пенни.
++	Очнувшись, Тукс не нашёл Пенни.
 +	На её месте лежало письмо:
-+	"Такс, мой заклятый враг!
++	"Тукс, мой заклятый враг!
 +	Я похитил твою прекрасную Пенни
 +	и увёз её в свою крепость.
 +	Путь к ней охраняют мои приспешники.
@@ -435,7 +435,7 @@
 -	Tux looks and see Nolok's fortress in
 -	the distance. Determined to save his
 -	beloved Penny, he begins his journey.
-+	Вдалеке Такс увидел крепость Нолока.
++	Вдалеке Тукс увидел крепость Нолока.
 +	Твёрдо решив спасти любимую Пенни,
 +	он отправился в путь.
 --- a/data/levels/bonus1/abednego-level1.stl
@@ -2645,7 +2645,7 @@
    gold_text->drawf(str, 0, 200, A_HMIDDLE, A_TOP, 1);
  
 -  sprintf(str, "TUX x %d", player_status.lives);
-+  sprintf(str, "ТАКС x %d", player_status.lives);
++  sprintf(str, "ТУКС x %d", player_status.lives);
    white_text->drawf(str, 0, 224, A_HMIDDLE, A_TOP, 1);
    
 -  sprintf(str, "by %s", world->get_level()->author.c_str());
@@ -2662,7 +2662,7 @@
      }
  
    if(Menu::current())
-@@ -884,30 +884,30 @@
+@@ -885,30 +885,30 @@
   xdiv=1;
  #endif
  
@@ -2701,7 +2701,7 @@
    if (player_status.lives >= 5)
      {
        sprintf(str, "%dx", player_status.lives);
-@@ -944,12 +944,12 @@
+@@ -945,12 +945,12 @@
    else
      drawgradient(get_level()->bkgd_top, get_level()->bkgd_bottom);
  
@@ -2718,7 +2718,7 @@
    gold_text->drawf(str, 0, 256, A_HMIDDLE, A_TOP, 1);
  
    flipscreen();
-@@ -968,12 +968,12 @@
+@@ -969,12 +969,12 @@
    else
      drawgradient(get_level()->bkgd_top, get_level()->bkgd_bottom);
  
@@ -2735,7 +2735,7 @@
    gold_text->drawf(str, 0, 256, A_HMIDDLE, A_TOP, 1);
  
    flipscreen();
-@@ -994,18 +994,20 @@
+@@ -995,18 +995,20 @@
      {
        LispReader reader(lisp_cdr(savegame));
        reader.read_string("title", &title);
@@ -2779,7 +2779,7 @@
  //  $Id$
  //
  //  SuperTux
-@@ -74,8 +75,8 @@
+@@ -77,8 +78,8 @@
    Menu* dialog = new Menu;
    dialog->additem(MN_DEACTIVE, text,0,0);
    dialog->additem(MN_HL,"",0,0);
@@ -2790,7 +2790,7 @@
    dialog->additem(MN_HL,"",0,0);
  
    Menu::set_current(dialog);
-@@ -251,40 +252,40 @@
+@@ -265,40 +266,40 @@
    switch(*item->int_p)
    {
    case SDLK_UP:
@@ -2843,7 +2843,7 @@
      break;
    default:
      {
-@@ -529,9 +530,9 @@
+@@ -555,9 +556,9 @@
    int x_pos       = pos_x;
    int y_pos       = pos_y + (int)(24)*index - menu_height/2 + 12 + effect_offset;
    int shadow_size = 2;
@@ -2856,7 +2856,7 @@
    Text* text_font = white_text;
  
    if (arrange_left)
-@@ -683,7 +684,7 @@
+@@ -709,7 +710,7 @@
    int menu_width = 0;
    for(unsigned int i = 0; i < item.size(); ++i)
    {
@@ -2878,7 +2878,7 @@
  
 --- a/src/setup.cpp
 +++ b/src/setup.cpp
-@@ -407,19 +407,19 @@
+@@ -424,19 +424,19 @@
    worldmap_menu  = new Menu();
  
    main_menu->set_pos(screen->w/2, (int)(335)+20);
@@ -2905,7 +2905,7 @@
    options_menu->additem(MN_HL,"",0,0);
  #ifndef GP2X
  #if !defined(RG35XX)
-@@ -434,21 +434,21 @@
+@@ -451,21 +451,21 @@
  #ifndef NOSOUND
    if(audio_device)
      {
@@ -2933,7 +2933,7 @@
  #endif
  
    //if(use_joystick)
-@@ -458,17 +458,17 @@
+@@ -475,19 +475,19 @@
  #endif
  
    options_menu->additem(MN_HL,"",0,0);
@@ -2954,12 +2954,16 @@
 +  options_keys_menu->additem(MN_CONTROLFIELD,"Пригнуться", 0,0, 0,&keymap.duck);
 +  options_keys_menu->additem(MN_CONTROLFIELD,"Бег / действие", 0,0, 0,&keymap.fire);
    options_keys_menu->additem(MN_HL,"",0,0);
+-  options_keys_menu->additem(MN_ACTION,"Reset Controls",0,0,MNID_RESETCONTROLS);
 -  options_keys_menu->additem(MN_BACK,"Back",0,0);
+-  options_keys_menu->additem(MN_LABEL,"A: assign; MENU: cancel",0,0);
++  options_keys_menu->additem(MN_ACTION,"Сбросить управление",0,0,MNID_RESETCONTROLS);
 +  options_keys_menu->additem(MN_BACK,"Назад",0,0);
++  options_keys_menu->additem(MN_LABEL,"A: назначить; MENU: отмена",0,0);
  
  #ifndef GP2X
    if(use_joystick)
-@@ -482,7 +482,7 @@
+@@ -501,7 +501,7 @@
      options_joystick_menu->additem(MN_CONTROLFIELD,"Start", 0,0, 0,&joystick_keymap.start_button);
      options_joystick_menu->additem(MN_CONTROLFIELD,"DeadZone", 0,0, 0,&joystick_keymap.dead_zone);
      options_joystick_menu->additem(MN_HL,"",0,0);
@@ -2968,7 +2972,7 @@
      }
  #else
      options_joystick_axis_menu->additem(MN_LABEL,"Joystick Move Setup",0,0);
-@@ -490,50 +490,50 @@
+@@ -509,50 +509,50 @@
      options_joystick_axis_menu->additem(MN_CONTROLFIELD,"Down", 0,0, 12,&joystick_keymap.down_button);
      options_joystick_axis_menu->additem(MN_CONTROLFIELD,"Left", 0,0, 13,&joystick_keymap.left_button);
      options_joystick_axis_menu->additem(MN_CONTROLFIELD,"Right", 0,0, 14,&joystick_keymap.right_button);
@@ -3255,7 +3259,7 @@
    if (player_status.lives >= 5)
      {
        sprintf(str, "%dx", player_status.lives);
-@@ -1137,7 +1137,7 @@
+@@ -1138,7 +1138,7 @@
  
    out << "(supertux-savegame\n"
        << "  (version 1)\n"
@@ -3314,7 +3318,7 @@
 +(root/'data/fonts/LICENSE-DejaVu.txt').write_bytes((root/'tools/font-source/LICENSE-DejaVu.txt').read_bytes())
 --- /dev/null
 +++ b/translations/interface-ru.json
-@@ -0,0 +1,71 @@
+@@ -0,0 +1,73 @@
 +{
 +  "Start Game": "Начать игру",
 +  "Bonus Levels": "Бонусные уровни",
@@ -3341,7 +3345,7 @@
 +  "Yes": "Да",
 +  "No": "Нет",
 +  "Loading...": "Загрузка...",
-+  "TUX x %d": "ТАКС x %d",
++  "TUX x %d": "ТУКС x %d",
 +  "by %s": "Автор: %s",
 +  "PAUSE - Press 'P' To Play": "ПАУЗА - START: продолжить",
 +  "SCORE": "ОЧКИ",
@@ -3384,7 +3388,9 @@
 +  "Copyright (c) 2003 SuperTux Devel Team\\n": "Авторские права (c) 2003 SuperTux Devel Team\\n",
 +  "This game comes with ABSOLUTELY NO WARRANTY. This is free software, and you\\n": "Игра поставляется БЕЗ КАКИХ-ЛИБО ГАРАНТИЙ. Это свободное ПО.\\n",
 +  "are welcome to redistribute it under certain conditions; see the file COPYING\\n": "Распространение разрешено на условиях лицензии; см. COPYING.\\n",
-+  "for details.\\n": "Подробности приведены в файле COPYING.\\n"
++  "for details.\\n": "Подробности приведены в файле COPYING.\\n",
++  "Reset Controls": "Сбросить управление",
++  "A: assign; MENU: cancel": "A: назначить; MENU: отмена"
 +}
 --- /dev/null
 +++ b/translations/levels-ru.json

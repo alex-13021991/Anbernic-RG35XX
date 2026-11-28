@@ -1,0 +1,3 @@
+PASS navigation, explicit capture, B/X/Y, cancel, ignored shoulders, short/long MENU
+PASS restart persistence, reset, packed first level, long MENU exits with slot/config saved
+PASS long MENU across intro/loading transition

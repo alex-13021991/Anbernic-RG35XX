@@ -25,22 +25,25 @@ for variant in (['en','ru'] if args.variant=='both' else [args.variant]):
     with tempfile.TemporaryDirectory(prefix='supertux-package-',dir=args.work) as td:
         stage=Path(td);shutil.copytree(ROOT/'package',stage,dirs_exist_ok=True)
         app=stage/'Roms/PORTS/SuperTux'
-        shutil.copytree(source/'data',app/'data')
+        subprocess.run(['python3',str(source/'tools/pack.py'),str(source/'data'),str(app/'data.pak')],check=True)
+        if variant=='ru':
+            (app/'LICENSES').mkdir()
+            shutil.copy2(source/'data/fonts/LICENSE-DejaVu.txt',app/'LICENSES/DejaVu.txt')
         shutil.copy2(source/'supertux',app/'supertux')
         subprocess.run([str(sdk/'bin/arm-linux-strip'),str(app/'supertux')],check=True)
         (app/'supertux').chmod(0o755)
         for name in ['COPYING','AUTHORS']:shutil.copy2(source/name,app/name)
         shutil.copy2(ROOT/'docs/INSTALL-RU.txt',app/'README-RU.txt')
         shutil.copy2(ROOT/'sources/provenance.json',app/'PROVENANCE.json')
-        (app/'VERSION').write_text(('0.2.1-ru' if variant=='ru' else '0.1.1-en')+'\n')
+        (app/'VERSION').write_text(('0.2.2-ru' if variant=='ru' else '0.1.2-en')+'\n')
         shutil.copy2(ROOT/'docs/INSTALL-RU.txt',stage/'УСТАНОВКА.txt')
-        filename='SuperTux_RG35XX_v0.2.1_RU.zip' if variant=='ru' else 'SuperTux_RG35XX_v0.1.1_EN.zip'
+        filename='SuperTux_RG35XX_v0.2.2_RU.zip' if variant=='ru' else 'SuperTux_RG35XX_v0.1.2_EN.zip'
         zip_tree(stage,args.out/filename)
-zip_tree(ROOT,args.out/'SuperTux_RG35XX_v0.2.1_sources-and-patches.zip','SuperTux_RG35XX')
+zip_tree(ROOT,args.out/'SuperTux_RG35XX_v0.2.2_sources-and-patches.zip','SuperTux_RG35XX')
 if args.variant=='both':
-    enpath=args.out/'SuperTux_RG35XX_v0.1.1_EN.zip'
-    rupath=args.out/'SuperTux_RG35XX_v0.2.1_RU.zip'
-    delta=args.out/'SuperTux_RG35XX_v0.2.1_russifier.zip'
+    enpath=args.out/'SuperTux_RG35XX_v0.1.2_EN.zip'
+    rupath=args.out/'SuperTux_RG35XX_v0.2.2_RU.zip'
+    delta=args.out/'SuperTux_RG35XX_v0.2.2_russifier.zip'
     with zipfile.ZipFile(enpath) as ez,zipfile.ZipFile(rupath) as rz:
         baseline={n:ez.read(n) for n in ez.namelist()}
         expected={n:rz.read(n) for n in rz.namelist()}

@@ -1,0 +1,9 @@
+Datadir: /mnt/SDCARD/Roms/PORTS/SuperTux/./data
+SuperTux: data.pak, 795 resources, 12707769 bytes, stored/uncompressed
+SuperTux fb0: 640x480 virtual=640x960 bpp=32 stride=2560 offset=0,0 RGB=0:8/8:8/16:8 alpha=24:0
+SuperTux RG35XX: framebuffer 640x480, input=5
+loadgame: /mnt/SDCARD/Roms/PORTS/SuperTux/Saves/.supertux/save/slot1.stsg
+Enter the current level: world1/level6.stl
+savegame: /mnt/SDCARD/Roms/PORTS/SuperTux/Saves/.supertux/save/slot1.stsg
+savegame: /mnt/SDCARD/Roms/PORTS/SuperTux/Saves/.supertux/save/slot1.stsg
+SuperTux exit: 0

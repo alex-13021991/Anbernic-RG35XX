@@ -1,2 +1,4 @@
-Пересобранный из слоёв RU ELF после strip побайтно совпал с исправленным бинарником на приставке.
-SHA-256: b92cf3ad920e0f70028b8696c3d7f412c186c869d5480cc2f3d5e1485b3c3491
+Версия 0.2.2: supertux, data.pak и превью из финального установочного ZIP совпали с файлами на приставке по SHA-256.
+2dfd3fd22993f71433b55d11d078f1ccc69052e0f19d55c6f0f1b312522a85a1  /mnt/SDCARD/Roms/PORTS/SuperTux/supertux
+5eedd7dfa89b652ee3524ab4f8202192352d79ca98de3ea63ca8e5fd97d3b0b5  /mnt/SDCARD/Roms/PORTS/SuperTux/data.pak
+3babc217d57f379527e550875d9d42e42cf90fc3b3eda2b2d7ed1c8acab942eb  /mnt/SDCARD/Roms/PORTS/Imgs/SuperTux.png
