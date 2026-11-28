@@ -1,0 +1,500 @@
+/*
+ * Portions of this file are based on the PopCap Games Framework
+ * Copyright (C) 2005-2009 PopCap Games, Inc.
+ *
+ * Copyright (C) 2026 Zhou Qiankang <wszqkzqk@qq.com>
+ *
+ * SPDX-License-Identifier: LGPL-3.0-or-later AND LicenseRef-PopCap
+ *
+ * This file is part of PvZ-Portable.
+ *
+ * PvZ-Portable is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * PvZ-Portable is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with PvZ-Portable. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+#include <algorithm>
+#include <filesystem>
+#include "Common.h"
+#include "PakInterface.h"
+#include "fcaseopen/fcaseopen.h"
+
+using Sexy::LogInfoLn;
+
+typedef unsigned char uchar;
+typedef unsigned short ushort;
+typedef unsigned long ulong;
+
+enum
+{
+	FILEFLAGS_END = 0x80
+};
+
+PakInterface* gPakInterface = new PakInterface();
+
+PakInterface::PakInterface()
+{
+}
+
+PakInterface::~PakInterface()
+{
+}
+
+// Normalize path for pak lookup.
+std::string PakInterface::NormalizePakPath(std::string_view theFileName)
+{
+	std::filesystem::path aFilePath = Sexy::PathFromU8(theFileName);
+
+	// Make rooted paths relative to resource folder.
+	if (Sexy::IsPathRooted(theFileName))
+	{
+		const std::string& aResourceFolder = Sexy::GetResourceFolder();
+		if (!aResourceFolder.empty())
+		{
+			std::filesystem::path aResPath = Sexy::PathFromU8(aResourceFolder);
+			auto [aResEnd, aFileIt] = std::mismatch(aResPath.begin(), aResPath.end(),
+												   aFilePath.begin(), aFilePath.end());
+			if (aResEnd == aResPath.end())
+			{
+				std::filesystem::path aRelativePath;
+				for (; aFileIt != aFilePath.end(); ++aFileIt)
+					aRelativePath /= *aFileIt;
+				aFilePath = aRelativePath;
+			}
+		}
+	}
+
+	std::string aResult = Sexy::PathToU8(aFilePath.lexically_normal());
+
+	if (aResult.size() >= 2 && aResult[0] == '.' && aResult[1] == '/')
+		aResult = aResult.substr(2);
+
+	std::transform(aResult.begin(), aResult.end(), aResult.begin(),
+				   [](unsigned char c) { return std::toupper(c); });
+
+	return aResult;
+}
+
+bool PakInterface::AddPakFile(const std::string& theFileName)
+{
+	FILE *aFileHandle = fcaseopen(theFileName.c_str(), "rb");
+	if (!aFileHandle)
+	{
+		const std::string& aResourceBase = Sexy::GetResourceFolder();
+		if (!aResourceBase.empty() && !Sexy::IsPathRooted(theFileName))
+		{
+			aFileHandle = fcaseopenat(aResourceBase.c_str(), theFileName.c_str(), "rb");
+		}
+	}
+
+	if (!aFileHandle)
+	{
+		LogInfoLn("PakInterface: AddPakFile('{}') failed to open file (errno={})", theFileName, errno);
+		return false;
+	}
+
+	fseek(aFileHandle, 0, SEEK_END);
+	size_t aFileSize = ftell(aFileHandle);
+	fseek(aFileHandle, 0, SEEK_SET);
+
+	if (aFileSize < 8)
+	{
+		LogInfoLn("PakInterface: AddPakFile('{}') file size too small ({} bytes)", theFileName, aFileSize);
+		fclose(aFileHandle);
+		return false;
+	}
+
+	uint32_t aRawMagic = 0;
+	if (fread(&aRawMagic, sizeof(uint32_t), 1, aFileHandle) != 1)
+	{
+		fclose(aFileHandle);
+		return false;
+	}
+	aRawMagic = Sexy::FromLE32(aRawMagic);
+
+	bool aEncryptedHeader = false;
+	if (aRawMagic == 0x4D37BD37) // Standard PopCap XOR 0xF7 (0xBAC04AC0 ^ 0xF7F7F7F7)
+	{
+		aEncryptedHeader = true;
+	}
+	else if (aRawMagic == 0xBAC04AC0) // Unencrypted header
+	{
+		aEncryptedHeader = false;
+	}
+	else
+	{
+		LogInfoLn("PakInterface: AddPakFile('{}') invalid magic 0x{:08X}", theFileName, aRawMagic);
+		fclose(aFileHandle);
+		return false;
+	}
+
+	uint32_t aRawVersion = 0;
+	if (fread(&aRawVersion, sizeof(uint32_t), 1, aFileHandle) != 1)
+	{
+		fclose(aFileHandle);
+		return false;
+	}
+	aRawVersion = Sexy::FromLE32(aRawVersion);
+	if (aEncryptedHeader)
+		aRawVersion ^= 0xF7F7F7F7;
+
+	if (aRawVersion > 0)
+	{
+		LogInfoLn("PakInterface: AddPakFile('{}') unsupported version {}", theFileName, aRawVersion);
+		fclose(aFileHandle);
+		return false;
+	}
+
+	auto ReadHeaderBytes = [aFileHandle, aEncryptedHeader](void* theDest, size_t theCount) -> bool {
+		if (fread(theDest, 1, theCount, aFileHandle) != theCount)
+			return false;
+		if (aEncryptedHeader)
+		{
+			auto* aPtr = static_cast<uint8_t*>(theDest);
+			for (size_t i = 0; i < theCount; ++i)
+				aPtr[i] ^= 0xF7;
+		}
+		return true;
+	};
+
+	std::vector<PakRecord> aParsedRecords;
+	int aPos = 0;
+	for (;;)
+	{
+		uchar aFlags = 0;
+		if (!ReadHeaderBytes(&aFlags, 1))
+			break;
+		if ((aFlags & FILEFLAGS_END) || (aFlags == 0x80))
+			break;
+
+		uchar aNameWidth = 0;
+		if (!ReadHeaderBytes(&aNameWidth, 1))
+			break;
+
+		char aName[256];
+		if (!ReadHeaderBytes(aName, aNameWidth))
+			break;
+		aName[aNameWidth] = 0;
+
+		int aSrcSize = 0;
+		if (!ReadHeaderBytes(&aSrcSize, sizeof(int)))
+			break;
+		aSrcSize = static_cast<int>(Sexy::FromLE32(static_cast<uint32_t>(aSrcSize)));
+
+		int64_t aFileTime = 0;
+		if (!ReadHeaderBytes(&aFileTime, sizeof(int64_t)))
+			break;
+		aFileTime = static_cast<int64_t>(Sexy::FromLE64(static_cast<uint64_t>(aFileTime)));
+
+		for (int i = 0; i < aNameWidth; i++)
+		{
+			if (aName[i] == '\\')
+				aName[i] = '/';
+		}
+
+		std::string aKey = NormalizePakPath(aName);
+		PakRecord aRecord;
+		aRecord.mCollection = nullptr;
+		aRecord.mFileName = aKey;
+		aRecord.mStartPos = aPos;
+		aRecord.mSize = aSrcSize;
+		aRecord.mFileTime = aFileTime;
+		aParsedRecords.push_back(std::move(aRecord));
+
+		aPos += aSrcSize;
+	}
+
+	long aDataStartOffset = ftell(aFileHandle);
+
+	for (auto& rec : aParsedRecords)
+	{
+		rec.mStartPos += aDataStartOffset;
+	}
+
+	// Detect payload encryption
+	bool aEncryptedPayload = true;
+	if (aEncryptedHeader)
+	{
+		aEncryptedPayload = true;
+	}
+	else
+	{
+		// Probe records to check if payload is XOR 0xF7 or plain
+		for (const auto& rec : aParsedRecords)
+		{
+			if (rec.mSize >= 4)
+			{
+				if (fseek(aFileHandle, rec.mStartPos, SEEK_SET) == 0)
+				{
+					uint8_t aProbe[4] = {0};
+					if (fread(aProbe, 1, 4, aFileHandle) == 4)
+					{
+						if (rec.mFileName.find("XML") != std::string::npos ||
+							rec.mFileName.find("TXT") != std::string::npos)
+						{
+							// Plain XML starts with "<?" (0x3C, 0x3F); XOR 0xF7 starts with (0xCB, 0xC8)
+							if (aProbe[0] == 0x3C && aProbe[1] == 0x3F)
+								aEncryptedPayload = false;
+							else if (aProbe[0] == 0xCB && aProbe[1] == 0xC8)
+								aEncryptedPayload = true;
+							break;
+						}
+						else if (rec.mFileName.find(".PNG") != std::string::npos)
+						{
+							// Plain PNG starts with \x89P (0x89, 0x50); XOR 0xF7 starts with (0x7E, 0xA7)
+							if (aProbe[0] == 0x89 && aProbe[1] == 0x50)
+								aEncryptedPayload = false;
+							else if (aProbe[0] == 0x7E && aProbe[1] == 0xA7)
+								aEncryptedPayload = true;
+							break;
+						}
+					}
+				}
+			}
+		}
+	}
+
+#ifdef LOW_MEMORY
+	mPakCollectionList.emplace_back(aFileHandle, aEncryptedPayload);
+	PakCollection* aPakCollection = &mPakCollectionList.back();
+#else
+	mPakCollectionList.emplace_back(aFileSize, aEncryptedPayload);
+	PakCollection* aPakCollection = &mPakCollectionList.back();
+	fseek(aFileHandle, 0, SEEK_SET);
+	if (fread(aPakCollection->mDataPtr, 1, aFileSize, aFileHandle) != aFileSize)
+	{
+		fclose(aFileHandle);
+		mPakCollectionList.pop_back();
+		return false;
+	}
+	fclose(aFileHandle);
+
+	if (aEncryptedPayload)
+	{
+		auto *aDataPtr = static_cast<uint8_t *>(aPakCollection->mDataPtr);
+		for (size_t i = 0; i < aFileSize; i++)
+			*aDataPtr++ ^= 0xF7;
+	}
+#endif
+
+	for (auto& rec : aParsedRecords)
+	{
+		rec.mCollection = aPakCollection;
+		mPakRecordMap[rec.mFileName] = std::move(rec);
+	}
+
+	LogInfoLn("PakInterface: Mounted '{}' with {} files (data offset {}, enc_header={}, enc_payload={})",
+		theFileName, aParsedRecords.size(), aDataStartOffset, aEncryptedHeader, aEncryptedPayload);
+
+	return true;
+}
+
+PFILE* PakInterface::FOpen(const char* theFileName, const char* anAccess)
+{
+	if ((strcasecmp(anAccess, "r") == 0) || (strcasecmp(anAccess, "rb") == 0) || (strcasecmp(anAccess, "rt") == 0))
+	{
+		std::string aKey = NormalizePakPath(theFileName);
+		auto anItr = mPakRecordMap.find(aKey);
+		if (anItr != mPakRecordMap.end())
+		{
+			PFILE* aPFP = new PFILE;
+			aPFP->mRecord = &anItr->second;
+			aPFP->mPos = 0;
+			aPFP->mFP = nullptr;
+#ifdef LOW_MEMORY
+			aPFP->mBufferStart = 0;
+			aPFP->mBufferLen = 0;
+#endif
+			return aPFP;
+		}
+	}
+
+	const std::string& aResourceBase = Sexy::GetResourceFolder();
+	FILE* aFP = nullptr;
+	if (!aResourceBase.empty() && !Sexy::IsPathRooted(theFileName))
+	{
+		aFP = fcaseopenat(aResourceBase.c_str(), theFileName, anAccess);
+	}
+	else
+	{
+		aFP = fcaseopen(theFileName, anAccess);
+	}
+
+	if (aFP == nullptr)
+		return nullptr;
+
+	PFILE* aPFP = new PFILE;
+	aPFP->mRecord = nullptr;
+	aPFP->mPos = 0;
+	aPFP->mFP = aFP;
+#ifdef LOW_MEMORY
+	aPFP->mBufferStart = 0;
+	aPFP->mBufferLen = 0;
+#endif
+	return aPFP;
+}
+
+int PakInterface::FClose(PFILE* theFile)
+{
+	if (theFile->mRecord == nullptr)
+		fclose(theFile->mFP);
+	delete theFile;
+	return 0;
+}
+
+int PakInterface::FSeek(PFILE* theFile, long theOffset, int theOrigin)
+{
+	if (theFile->mRecord != nullptr)
+	{
+		if (theOrigin == SEEK_SET)
+			theFile->mPos = theOffset;
+		else if (theOrigin == SEEK_END)
+			theFile->mPos = theFile->mRecord->mSize - theOffset;
+		else if (theOrigin == SEEK_CUR)
+			theFile->mPos += theOffset;
+
+		theFile->mPos = std::clamp(theFile->mPos, 0, theFile->mRecord->mSize);
+#ifdef LOW_MEMORY
+		theFile->mBufferLen = 0;
+#endif
+		return 0;
+	}
+	else
+		return fseek(theFile->mFP, theOffset, theOrigin);
+}
+
+int PakInterface::FTell(PFILE* theFile)
+{
+	if (theFile->mRecord != nullptr)
+		return theFile->mPos;
+	else
+		return ftell(theFile->mFP);
+}
+
+static size_t ReadRecordBytes(PFILE* theFile, void* thePtr, int theSize)
+{
+#ifdef LOW_MEMORY
+	if (theSize >= PFILE::BUFFER_SIZE)
+	{
+		int aSizeBytes = std::min(theSize, theFile->mRecord->mSize - theFile->mPos);
+		size_t aRead = theFile->mRecord->mCollection->ReadAt(thePtr, theFile->mRecord->mStartPos + theFile->mPos, aSizeBytes);
+		theFile->mPos += (int) aRead;
+		theFile->mBufferLen = 0;
+		return aRead;
+	}
+
+	auto* aDest = static_cast<uint8_t*>(thePtr);
+	size_t aDone = 0;
+	while (aDone < static_cast<size_t>(theSize))
+	{
+		int aBufOffset = theFile->mPos - theFile->mBufferStart;
+		if (aBufOffset < 0 || aBufOffset >= theFile->mBufferLen)
+		{
+			int aFill = std::min(theFile->mRecord->mSize - theFile->mPos, PFILE::BUFFER_SIZE);
+			if (aFill <= 0)
+				break;
+			theFile->mBufferStart = theFile->mPos;
+			theFile->mBufferLen = (int) theFile->mRecord->mCollection->ReadAt(theFile->mBuffer.data(), theFile->mRecord->mStartPos + theFile->mPos, aFill);
+			if (theFile->mBufferLen == 0)
+				break;
+			aBufOffset = 0;
+		}
+		int aChunk = std::min(theFile->mBufferLen - aBufOffset, (int) (theSize - aDone));
+		memcpy(aDest + aDone, theFile->mBuffer.data() + aBufOffset, aChunk);
+		theFile->mPos += aChunk;
+		aDone += aChunk;
+	}
+	return aDone;
+#else
+	int aSizeBytes = std::min(theSize, theFile->mRecord->mSize - theFile->mPos);
+
+	uchar* src = (uchar*) theFile->mRecord->mCollection->mDataPtr + theFile->mRecord->mStartPos + theFile->mPos;
+	memcpy(thePtr, src, aSizeBytes);
+	theFile->mPos += aSizeBytes;
+	return aSizeBytes;
+#endif
+}
+
+size_t PakInterface::FRead(void* thePtr, int theElemSize, int theCount, PFILE* theFile)
+{
+	if (theFile->mRecord != nullptr)
+		return ReadRecordBytes(theFile, thePtr, theElemSize*theCount) / theElemSize;
+
+	return fread(thePtr, theElemSize, theCount, theFile->mFP);
+}
+
+int PakInterface::FGetC(PFILE* theFile)
+{
+	if (theFile->mRecord != nullptr)
+	{
+		for (;;)
+		{
+			if (theFile->mPos >= theFile->mRecord->mSize)
+				return EOF;
+			char aChar;
+			if (ReadRecordBytes(theFile, &aChar, 1) == 0)
+				return EOF;
+			if (aChar != '\r')
+				return (uchar) aChar;
+		}
+	}
+
+	return fgetc(theFile->mFP);
+}
+
+int PakInterface::UnGetC(int theChar, PFILE* theFile)
+{
+	if (theFile->mRecord != nullptr)
+	{
+		// This won't work if we're not pushing the same chars back in the stream
+		theFile->mPos = std::max(theFile->mPos - 1, 0);
+		return theChar;
+	}
+
+	return ungetc(theChar, theFile->mFP);
+}
+
+char* PakInterface::FGetS(char* thePtr, int theSize, PFILE* theFile)
+{
+	if (theFile->mRecord != nullptr)
+	{
+		int anIdx = 0;
+		while (anIdx < theSize - 1) // fgets semantics: at most theSize-1 chars plus the NUL
+		{
+			if (theFile->mPos >= theFile->mRecord->mSize)
+			{
+				if (anIdx == 0)
+					return nullptr;
+				break;
+			}
+			char aChar;
+			if (ReadRecordBytes(theFile, &aChar, 1) == 0)
+				break;
+			if (aChar != '\r')
+				thePtr[anIdx++] = aChar;
+			if (aChar == '\n')
+				break;
+		}
+		thePtr[anIdx] = 0;
+		return thePtr;
+	}
+
+	return fgets(thePtr, theSize, theFile->mFP);
+}
+
+int PakInterface::FEof(PFILE* theFile)
+{
+	if (theFile->mRecord != nullptr)
+		return theFile->mPos >= theFile->mRecord->mSize;
+	else
+		return feof(theFile->mFP);
+}

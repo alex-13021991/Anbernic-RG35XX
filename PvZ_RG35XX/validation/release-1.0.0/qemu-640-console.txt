@@ -1,0 +1,136 @@
+INFO: Product: io.github.wszqkzqk.pvz-portable
+INFO: BuildNum: 100
+INFO: CommitDate: 2026-10-12
+INFO: PakInterface: Mounted '/app/main_mmp.pak' with 3198 files (data offset 143506, enc_header=false, enc_payload=true)
+INFO: PakInterface: AddPakFile('/app/main.pak') failed to open file (errno=2)
+INFO: PakInterface: AddPakFile('main.pak') failed to open file (errno=2)
+INFO: Pak loading status: main_mmp.pak = true, main.pak = false
+INFO: RegEmu: Can't read '/mnt/mmc/CFW/io.github.wszqkzqk/PvZPortable/registry.regemu': File does not exist
+INFO: RegEmu: Key 'SOFTWARE\SteamPopCap\PlantsVsZombies' does not exist
+INFO: RegEmu: Key 'SOFTWARE\SteamPopCap\PlantsVsZombies' does not exist
+INFO: RegEmu: Key 'SOFTWARE\SteamPopCap\PlantsVsZombies' does not exist
+INFO: RegEmu: Key 'SOFTWARE\SteamPopCap\PlantsVsZombies' does not exist
+INFO: RegEmu: Key 'SOFTWARE\SteamPopCap\PlantsVsZombies' does not exist
+INFO: RegEmu: Key 'SOFTWARE\SteamPopCap\PlantsVsZombies' does not exist
+INFO: RegEmu: Key 'SOFTWARE\SteamPopCap\PlantsVsZombies' does not exist
+INFO: RegEmu: Key 'SOFTWARE\SteamPopCap\PlantsVsZombies' does not exist
+INFO: RegEmu: Key 'SOFTWARE\SteamPopCap\PlantsVsZombies' does not exist
+INFO: RegEmu: Value 'FastSpeedPreference' does not exist
+RG35XX: logical=800x600 raster=640x480 output=640x480
+RG35XX: audio 44100Hz channels=2 requested_period=2048 samples
+RG35XX: audio affinity CPU2 result=0
+INFO: session id: 1795845473
+INFO: LOADED: 'Init' 88 ms on Game Loading
+INFO: LOADED: 'LoaderBar' 241 ms on Game Loading
+INFO: RegEmu: Value 'CurUser' does not exist
+INFO: 'reanim/LoadBar_sprout.reanim'
+INFO: 'reanim/LoadBar_Zombiehead.reanim'
+libpng warning: iCCP: known incorrect sRGB profile
+INFO: First Draw Time: 2285 ms
+fb0: 16-bit RGB 640x480 stride=1280 offset=0,0 channels=11/5/0 alpha=0
+RG35XX: presenting 640x480 -> 640x480
+RG35XX: present_fps=0.08 maxrss_kib=69980
+libpng warning: iCCP: known incorrect sRGB profile
+libpng warning: iCCP: known incorrect sRGB profile
+libpng warning: iCCP: known incorrect sRGB profile
+libpng warning: iCCP: known incorrect sRGB profile
+libpng warning: iCCP: known incorrect sRGB profile
+libpng warning: iCCP: known incorrect sRGB profile
+libpng warning: iCCP: known incorrect sRGB profile
+libpng warning: iCCP: known incorrect sRGB profile
+libpng warning: iCCP: known incorrect sRGB profile
+libpng warning: iCCP: known incorrect sRGB profile
+libpng warning: iCCP: known incorrect sRGB profile
+libpng warning: iCCP: known incorrect sRGB profile
+libpng warning: iCCP: known incorrect sRGB profile
+libpng warning: iCCP: known incorrect sRGB profile
+libpng warning: iCCP: known incorrect sRGB profile
+libpng warning: iCCP: known incorrect sRGB profile
+libpng warning: iCCP: known incorrect sRGB profile
+libpng warning: iCCP: known incorrect sRGB profile
+libpng warning: iCCP: known incorrect sRGB profile
+libpng warning: iCCP: known incorrect sRGB profile
+libpng warning: iCCP: known incorrect sRGB profile
+libpng warning: iCCP: known incorrect sRGB profile
+libpng warning: iCCP: known incorrect sRGB profile
+libpng warning: iCCP: known incorrect sRGB profile
+libpng warning: iCCP: known incorrect sRGB profile
+INFO: loading 'resources' 2668 ms
+RG35XX: present_fps=19.83 maxrss_kib=124108
+RG35XX: present_fps=20.00 maxrss_kib=129036
+RG35XX: present_fps=20.00 maxrss_kib=133916
+RG35XX: present_fps=19.97 maxrss_kib=138972
+INFO: LOADED: 'DelayLoad_Almanac' 166 ms on Game Loading
+INFO: SpriteCache: Cache missing or outdated. Generating 24-frame sprites to SD card...
+INFO: 'reanim/SunFlower.reanim'
+INFO: LOADING:Long reanim 'reanim/SunFlower.reanim' 592 ms on Game Loading
+INFO: 'reanim/TwinSunflower.reanim'
+INFO: 'reanim/PeaShooterSingle.reanim'
+INFO: LOADING:Long reanim 'reanim/PeaShooterSingle.reanim' 124 ms on Game Loading
+INFO: 'reanim/PeaShooter.reanim'
+RG35XX: present_fps=20.01 maxrss_kib=151708
+INFO: LOADING:Long reanim 'reanim/PeaShooter.reanim' 167 ms on Game Loading
+INFO: 'reanim/GatlingPea.reanim'
+INFO: LOADING:Long reanim 'reanim/GatlingPea.reanim' 164 ms on Game Loading
+INFO: 'reanim/SnowPea.reanim'
+INFO: LOADING:Long reanim 'reanim/SnowPea.reanim' 164 ms on Game Loading
+INFO: 'reanim/Wallnut.reanim'
+INFO: 'reanim/Tallnut.reanim'
+INFO: 'reanim/Puffshroom.reanim'
+INFO: LOADING:Long reanim 'reanim/Puffshroom.reanim' 134 ms on Game Loading
+INFO: 'reanim/Fumeshroom.reanim'
+INFO: LOADING:Long reanim 'reanim/Fumeshroom.reanim' 110 ms on Game Loading
+INFO: 'reanim/ThreePeater.reanim'
+INFO: LOADING:Long reanim 'reanim/ThreePeater.reanim' 199 ms on Game Loading
+INFO: 'reanim/Zombie.reanim'
+INFO: LOADING:Long reanim 'reanim/Zombie.reanim' 596 ms on Game Loading
+INFO: 'reanim/Zombie_FlagPole.reanim'
+INFO: 'reanim/Zombie_football.reanim'
+INFO: LOADING:Long reanim 'reanim/Zombie_football.reanim' 538 ms on Game Loading
+INFO: 'reanim/Zombie_paper.reanim'
+libpng warning: iCCP: known incorrect sRGB profile
+INFO: LOADING:Long reanim 'reanim/Zombie_paper.reanim' 613 ms on Game Loading
+INFO: 'reanim/Zombie_snorkle.reanim'
+INFO: LOADING:Long reanim 'reanim/Zombie_snorkle.reanim' 369 ms on Game Loading
+INFO: 'reanim/Zombie_polevaulter.reanim'
+libpng warning: iCCP: known incorrect sRGB profile
+INFO: LOADING:Long reanim 'reanim/Zombie_polevaulter.reanim' 358 ms on Game Loading
+INFO: 'reanim/Zombie_imp.reanim'
+INFO: LOADING:Long reanim 'reanim/Zombie_imp.reanim' 218 ms on Game Loading
+INFO: SpriteCache: Baking completed successfully in 5328 ms
+INFO: loading 'stuff' 5504 ms
+libpng warning: iCCP: known incorrect sRGB profile
+INFO: loading 'trail' 16 ms
+libpng warning: iCCP: known incorrect sRGB profile
+libpng warning: iCCP: known incorrect sRGB profile
+RG35XX: present_fps=20.00 maxrss_kib=159124
+libpng warning: iCCP: known incorrect sRGB profile
+libpng warning: iCCP: known incorrect sRGB profile
+libpng warning: iCCP: cHRM chunk does not match sRGB
+INFO: 'reanim/Puff.reanim'
+INFO: 'reanim/LawnMoweredZombie.reanim'
+INFO: 'reanim/StartReadySetPlant.reanim'
+INFO: 'reanim/FinalWave.reanim'
+INFO: 'reanim/Sun.reanim'
+INFO: 'reanim/TextFadeOn.reanim'
+INFO: 'reanim/SelectorScreen.reanim'
+libpng warning: iCCP: known incorrect sRGB profile
+libpng warning: iCCP: known incorrect sRGB profile
+INFO: LOADING:Long reanim 'reanim/SelectorScreen.reanim' 706 ms on Game Loading
+INFO: 'reanim/Zombie_hand.reanim'
+INFO: LOADING:Long reanim 'reanim/Zombie_hand.reanim' 338 ms on Game Loading
+INFO: 'reanim/Zombie_charred.reanim'
+INFO: LOADING:Long reanim 'reanim/Zombie_charred.reanim' 305 ms on Game Loading
+INFO: Resource Loading Time: 61467
+RG35XX: present_fps=60.99 maxrss_kib=170648
+RG35XX: present_fps=99.79 maxrss_kib=170648
+RG35XX: present_fps=100.02 maxrss_kib=170648
+RG35XX: present_fps=99.19 maxrss_kib=170648
+RG35XX: present_fps=88.74 maxrss_kib=170656
+INFO: Seconds       = 82.541
+INFO: Sleep Count   = 4474
+INFO: Update Count  = 5586
+INFO: Draw Count    = 2888
+INFO: Draw Time     = 11923
+INFO: Screen Blt    = 4
+INFO: Avg FPS       = 242

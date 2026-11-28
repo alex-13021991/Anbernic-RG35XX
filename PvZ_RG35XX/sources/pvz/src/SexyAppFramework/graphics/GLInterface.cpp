@@ -1,0 +1,2491 @@
+#include "platform/rg35xx/LowResScreen.h"
+/*
+ * Portions of this file are based on the PopCap Games Framework
+ * Copyright (C) 2005-2009 PopCap Games, Inc.
+ *
+ * Copyright (C) 2026 Zhou Qiankang <wszqkzqk@qq.com>
+ *
+ * SPDX-License-Identifier: LGPL-3.0-or-later AND LicenseRef-PopCap
+ *
+ * This file is part of PvZ-Portable.
+ *
+ * PvZ-Portable is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * PvZ-Portable is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with PvZ-Portable. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+#define GLAD_GLES2_IMPLEMENTATION
+#include "graphics/GLPlatform.h"
+
+#include <SDL.h>
+#ifdef PVZ_RG35XX
+#include "platform/rg35xx/Platform.h"
+#endif
+
+#include "graphics/GLInterface.h"
+#include "graphics/GLImage.h"
+#include "graphics/Graphics.h"
+#include "graphics/MemoryImage.h"
+#include "graphics/NeonBlit.hpp"
+#include "SexyAppBase.h"
+#include "graphics/CursorPixels.h"
+#include <cstdlib>
+#include <cstring>
+#include <mutex>
+#include <vector>
+#include <atomic>
+#if defined(PVZ_ENABLE_DUALCORE)
+#include "threading/ComputeWorker.h"
+#endif
+
+constexpr const int MAX_VERTICES = 16384;
+
+#ifndef GL_FRAMEBUFFER_SRGB
+#define GL_FRAMEBUFFER_SRGB 0x8DB9 // Not in GLES 2.0 headers, but needed to disable sRGB on Windows.
+#endif
+
+using namespace Sexy;
+
+bool gDesktopGLFallback = false;
+
+#if PVZ_ENABLE_GLES
+
+static inline uint32_t ArgbToRgba(uint32_t argb) noexcept
+{
+	uint32_t abgr = (argb & 0xFF00FF00u)
+					| ((argb >> 16) & 0x000000FFu)
+					| ((argb << 16) & 0x00FF0000u);
+	return ToLE32(abgr);
+}
+
+static inline uint32_t RgbaToArgb(uint32_t rgba) noexcept
+{
+	uint32_t abgr = FromLE32(rgba);
+	return (abgr & 0xFF00FF00u)
+		| ((abgr >> 16) & 0x000000FFu)
+		| ((abgr << 16) & 0x00FF0000u);
+}
+
+static inline uint32_t VertexColor(uint32_t triVertexColor, uint32_t fallback) noexcept
+{
+	return triVertexColor ? ArgbToRgba(triVertexColor) : fallback;
+}
+
+static inline uint32_t GetColorFromTriVertex(const TriVertex& v, uint32_t c) noexcept { return VertexColor(v.color, c); }
+
+static int gMinTextureWidth;
+static int gMinTextureHeight;
+static int gMaxTextureWidth;
+static int gMaxTextureHeight;
+static int gSupportedPixelFormats;
+static bool gTextureSizeMustBePow2;
+static int MAX_TEXTURE_SIZE;
+static bool gLinearFilter = false;
+
+static std::vector<GLVertex> gVertices;
+static int gNumVertices;
+static GLenum gVertexMode;
+static GLuint gProgram;
+static GLuint gVbo;
+static GLint gUfViewProjMtx, gUfTexture, gUfUseTexture, gUfUvBounds, gUfClampUvEnabled, gUfMixedBlend;
+
+static void GfxBegin(GLenum vertexMode)
+{
+	if (gVertexMode != (GLenum)-1) return;
+	gVertexMode = vertexMode;
+}
+
+static GLenum gBlendSrc = 0;
+static GLenum gBlendDst = 0;
+
+static void SetBlendFunc(GLenum theSrc, GLenum theDst)
+{
+	if (gBlendSrc == theSrc && gBlendDst == theDst) return;
+	glBlendFunc(theSrc, theDst);
+	gBlendSrc = theSrc;
+	gBlendDst = theDst;
+}
+
+static int gMixedBlend = -1;
+
+static void SetMixedBlendMode(bool theEnabled)
+{
+	int anEnabled = theEnabled ? 1 : 0;
+	if (gMixedBlend == anEnabled) return;
+	glUniform1i(gUfMixedBlend, anEnabled);
+	gMixedBlend = anEnabled;
+}
+
+static void GfxEnd()
+{
+	if (gVertexMode == (GLenum)-1) return;
+
+	if (gNumVertices > 0)
+	{
+		glBindBuffer(GL_ARRAY_BUFFER, gVbo);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(GLVertex) * gNumVertices, gVertices.data(), GL_DYNAMIC_DRAW);
+		glDrawArrays(gVertexMode, 0, gNumVertices);
+	}
+
+	gVertexMode = (GLenum)-1;
+	gNumVertices = 0;
+}
+
+static void GfxEnsureSpace(int theAdditional)
+{
+	if (gVertexMode == (GLenum)-1 || gNumVertices + theAdditional <= MAX_VERTICES) return;
+	GLenum oldMode = gVertexMode;
+	GfxEnd();
+	GfxBegin(oldMode);
+}
+
+static void GfxAddVertices(const GLVertex *arr, int arrCount)
+{
+	if (gVertexMode == (GLenum)-1) return;
+	if (arrCount <= 0) return;
+
+	GfxEnsureSpace(arrCount);
+	if (arrCount > MAX_VERTICES)
+		gVertices.resize(arrCount);
+	memcpy(gVertices.data() + gNumVertices, arr, sizeof(GLVertex) * arrCount);
+	gNumVertices += arrCount;
+}
+
+static void GfxAddVertices(VertexList &arr)
+{
+	GfxAddVertices(arr.mVerts, (int)arr.size());
+}
+
+static void GfxAddVertices(const TriVertex arr[][3], int arrCount, unsigned int theColor,
+						   float tx, float ty, float aMaxTotalU, float aMaxTotalV, const uint8_t* theDrawModes = nullptr)
+{
+	if (gVertexMode == (GLenum)-1) return;
+	if (arrCount <= 0) return;
+
+	GfxEnsureSpace(arrCount * 3);
+	if (arrCount * 3 > MAX_VERTICES)
+		gVertices.resize(arrCount * 3);
+
+	GLVertex* dst = gVertices.data() + gNumVertices;
+	for (int tri = 0; tri < arrCount; tri++)
+	{
+		const TriVertex* v = arr[tri];
+		for (int i = 0; i < 3; i++)
+		{
+			dst[i].sx    = v[i].x + tx;
+			dst[i].sy    = v[i].y + ty;
+			dst[i].sz    = theDrawModes != nullptr && theDrawModes[tri] == Graphics::DRAWMODE_ADDITIVE ? 1.0f : 0.0f;
+			dst[i].color = GetColorFromTriVertex(v[i], theColor);
+			dst[i].tu    = v[i].u * aMaxTotalU;
+			dst[i].tv    = v[i].v * aMaxTotalV;
+		}
+		dst += 3;
+		gNumVertices += 3;
+	}
+}
+
+// Unified GLSL body; VERT_IN / V2F / FRAG_OUT / TEX2D macros from GLPlatform.h.
+static constexpr const char *SHADER_CODE = R"DELIMITER(
+V2F vec4 v_color;
+V2F vec2 v_uv;
+V2F float v_additive;
+
+#ifdef VERTEX
+	uniform mat4 u_viewProj;
+	VERT_IN vec3 a_position;
+	VERT_IN vec4 a_color;
+	VERT_IN vec2 a_uv;
+	void main() {
+		v_color = a_color;
+		v_uv = a_uv;
+		v_additive = a_position.z;
+		gl_Position = u_viewProj * vec4(a_position.xy, 0.0, 1.0);
+	}
+#endif
+#ifdef FRAGMENT
+	uniform sampler2D u_texture;
+	uniform int u_useTexture;
+	uniform vec4 u_uvBounds;
+	uniform int u_clampUvEnabled;
+	uniform int u_mixedBlend;
+	void main() {
+		vec4 fragColor = v_color;
+		if (u_useTexture != 0) {
+			vec2 uv = (u_clampUvEnabled != 0) ? clamp(v_uv, u_uvBounds.xy, u_uvBounds.zw) : v_uv;
+			fragColor = TEX2D(u_texture, uv) * v_color;
+		}
+		if (u_mixedBlend != 0) {
+			// Premultiplied normal uses the source alpha; additive clears it to keep the destination.
+			fragColor.rgb *= fragColor.a;
+			if (v_additive != 0.0)
+				fragColor.a = 0.0;
+		}
+		FRAG_OUT = fragColor;
+	}
+#endif
+)DELIMITER";
+
+static GLuint shaderCompile(const char *src, uint32_t srcLen, GLenum type)
+{
+	// GLSL ES 1.00 for native ES contexts; GLSL 1.20 for desktop GL fallback.
+	const char *versionLine = gDesktopGLFallback
+		? "#version 120\n"
+		: "#version 100\nprecision mediump float;\n";
+	const char *macros = (type == GL_VERTEX_SHADER)
+		? GLSL_VERT_MACROS "#define VERTEX\n"
+		: GLSL_FRAG_MACROS "#define FRAGMENT\n";
+
+	const GLchar *strings[3]  = { versionLine, macros, src };
+	GLint         lengths[3]  = { (GLint)strlen(versionLine), (GLint)strlen(macros), (GLint)srcLen };
+
+	GLuint shader = glCreateShader(type);
+	glShaderSource(shader, 3, strings, lengths);
+	glCompileShader(shader);
+
+	GLint ok;
+	glGetShaderiv(shader, GL_COMPILE_STATUS, &ok);
+	if (!ok)
+	{
+		GLint logLen;
+		glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &logLen);
+		char *log = (char*)malloc(logLen);
+		glGetShaderInfoLog(shader, logLen, &logLen, log);
+		Sexy::LogInfoLn("Shader error: {}\n{}{}{}", log, strings[0], strings[1], strings[2]);
+		free(log);
+		glDeleteShader(shader);
+		if (gSexyAppBase != nullptr)
+			gSexyAppBase->Shutdown();
+		else
+			exit(1);
+		return 0;
+	}
+	return shader;
+}
+
+static GLuint shaderLoad(const char *src)
+{
+	GLuint vert = shaderCompile(src, strlen(src), GL_VERTEX_SHADER);
+	GLuint frag = shaderCompile(src, strlen(src), GL_FRAGMENT_SHADER);
+	if (vert == 0 || frag == 0)
+	{
+		if (vert != 0)
+			glDeleteShader(vert);
+		if (frag != 0)
+			glDeleteShader(frag);
+		return 0;
+	}
+
+	GLuint prog = glCreateProgram();
+	glAttachShader(prog, vert);
+	glAttachShader(prog, frag);
+
+	const char *attribs[] = { "a_position", "a_color", "a_uv" };
+	for (int i = 0; i < 3; i++)
+		glBindAttribLocation(prog, i, attribs[i]);
+
+	glLinkProgram(prog);
+	glDeleteShader(vert);
+	glDeleteShader(frag);
+	return prog;
+}
+
+// Orthographic projection
+static void MakeOrthoMatrix(float l, float r, float b, float t, float n, float f, float* m)
+{
+	m[0]  = 2.0f / (r - l);  m[1]  = 0;                m[2]  = 0;                 m[3]  = 0;
+	m[4]  = 0;                m[5]  = 2.0f / (t - b);   m[6]  = 0;                 m[7]  = 0;
+	m[8]  = 0;                m[9]  = 0;                 m[10] = -2.0f / (f - n);   m[11] = 0;
+	m[12] = -(r+l)/(r-l);    m[13] = -(t+b)/(t-b);     m[14] = -(f+n)/(f-n);      m[15] = 1;
+}
+
+static void CopyImageToTexture8888(MemoryImage *img, int offx, int offy,
+	int w, int h, int pitch, int dstH, bool padR, bool padB, bool create)
+{
+	std::vector<uint32_t> aDst(pitch * dstH);
+	uint32_t *dst = aDst.data();
+
+	if (img->mColorTable == nullptr)
+	{
+		uint32_t *srcRow = (uint32_t*)img->GetBits() + offy * img->GetWidth() + offx;
+		uint32_t *dstRow = dst;
+		for (int y = 0; y < h; y++)
+		{
+			uint32_t *s = srcRow, *d = dstRow;
+			for (int x = 0; x < w; x++)
+				*d++ = ArgbToRgba(*s++);
+			if (padR) *d = *(d - 1);
+			srcRow += img->GetWidth();
+			dstRow += pitch;
+		}
+	}
+	else
+	{
+		uint8_t  *srcRow = (uint8_t*)img->mColorIndices.get() + offy * img->GetWidth() + offx;
+		uint32_t *dstRow = dst;
+		uint32_t *pal = (uint32_t*)img->mColorTable.get();
+		for (int y = 0; y < h; y++)
+		{
+			uint8_t *s = srcRow; uint32_t *d = dstRow;
+			for (int x = 0; x < w; x++)
+				*d++ = ArgbToRgba(pal[*s++]);
+			if (padR) *d = *(d - 1);
+			srcRow += img->GetWidth();
+			dstRow += pitch;
+		}
+	}
+
+	if (padB)
+	{
+		uint32_t *lastRow = dst + pitch * (h - 1);
+		for (int y = h; y < dstH; y++)
+			memcpy(dst + pitch * y, lastRow, pitch * sizeof(uint32_t));
+	}
+
+	if (create)
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, pitch, dstH, 0, GL_RGBA, GL_UNSIGNED_BYTE, dst);
+	else
+		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, pitch, dstH, GL_RGBA, GL_UNSIGNED_BYTE, dst);
+}
+
+static void CopyImageToTexture4444(MemoryImage *img, int offx, int offy,
+	int w, int h, int pitch, int dstH, bool padR, bool padB, bool create)
+{
+	std::vector<uint16_t> aDst(pitch * dstH);
+	uint16_t *dst = aDst.data();
+
+	auto argbTo4444 = [](uint32_t p) -> uint16_t {
+		return static_cast<uint16_t>(
+			((p >> 8)  & 0xF000) | ((p >> 4) & 0x0F00) |
+			 (p        & 0x00F0) | ((p >> 28) & 0x000F));
+	};
+
+	if (img->mColorTable == nullptr)
+	{
+		uint32_t *srcRow = (uint32_t*)img->GetBits() + offy * img->GetWidth() + offx;
+		uint16_t *dstRow = dst;
+		for (int y = 0; y < h; y++)
+		{
+			uint32_t *s = srcRow; uint16_t *d = dstRow;
+			for (int x = 0; x < w; x++)
+				*d++ = argbTo4444(*s++);
+			if (padR) *d = *(d - 1);
+			srcRow += img->GetWidth();
+			dstRow += pitch;
+		}
+	}
+	else
+	{
+		uint8_t  *srcRow = (uint8_t*)img->mColorIndices.get() + offy * img->GetWidth() + offx;
+		uint16_t *dstRow = dst;
+		uint32_t *pal = (uint32_t*)img->mColorTable.get();
+		for (int y = 0; y < h; y++)
+		{
+			uint8_t *s = srcRow; uint16_t *d = dstRow;
+			for (int x = 0; x < w; x++)
+				*d++ = argbTo4444(pal[*s++]);
+			if (padR) *d = *(d - 1);
+			srcRow += img->GetWidth();
+			dstRow += pitch;
+		}
+	}
+
+	if (padB)
+	{
+		uint16_t *lastRow = dst + pitch * (h - 1);
+		for (int y = h; y < dstH; y++)
+			memcpy(dst + pitch * y, lastRow, pitch * sizeof(uint16_t));
+	}
+
+	if (create)
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, pitch, dstH, 0, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, dst);
+	else
+		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, pitch, dstH, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, dst);
+}
+
+static void CopyImageToTexture565(MemoryImage *img, int offx, int offy,
+	int w, int h, int pitch, int dstH, bool padR, bool padB, bool create)
+{
+	std::vector<uint16_t> aDst(pitch * dstH);
+	uint16_t *dst = aDst.data();
+
+	auto argbTo565 = [](uint32_t p) -> uint16_t {
+		return static_cast<uint16_t>(
+			((p >> 8) & 0xF800) | ((p >> 5) & 0x07E0) | ((p >> 3) & 0x001F));
+	};
+
+	if (img->mColorTable == nullptr)
+	{
+		uint32_t *srcRow = (uint32_t*)img->GetBits() + offy * img->GetWidth() + offx;
+		uint16_t *dstRow = dst;
+		for (int y = 0; y < h; y++)
+		{
+			uint32_t *s = srcRow; uint16_t *d = dstRow;
+			for (int x = 0; x < w; x++)
+				*d++ = argbTo565(*s++);
+			if (padR) *d = *(d - 1);
+			srcRow += img->GetWidth();
+			dstRow += pitch;
+		}
+	}
+	else
+	{
+		uint8_t  *srcRow = (uint8_t*)img->mColorIndices.get() + offy * img->GetWidth() + offx;
+		uint16_t *dstRow = dst;
+		uint32_t *pal = (uint32_t*)img->mColorTable.get();
+		for (int y = 0; y < h; y++)
+		{
+			uint8_t *s = srcRow; uint16_t *d = dstRow;
+			for (int x = 0; x < w; x++)
+				*d++ = argbTo565(pal[*s++]);
+			if (padR) *d = *(d - 1);
+			srcRow += img->GetWidth();
+			dstRow += pitch;
+		}
+	}
+
+	if (padB)
+	{
+		uint16_t *lastRow = dst + pitch * (h - 1);
+		for (int y = h; y < dstH; y++)
+			memcpy(dst + pitch * y, lastRow, pitch * sizeof(uint16_t));
+	}
+
+	if (create)
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, pitch, dstH, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, dst);
+	else
+		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, pitch, dstH, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, dst);
+}
+
+static void CopyImageToTexturePalette8(MemoryImage *img, int offx, int offy,
+	int w, int h, int pitch, int dstH, bool padR, bool padB, bool create)
+{
+	std::vector<uint32_t> aDst(pitch * dstH);
+	uint32_t *dst = aDst.data();
+	uint8_t  *srcRow = (uint8_t*)img->mColorIndices.get() + offy * img->GetWidth() + offx;
+	uint32_t *dstRow = dst;
+	uint32_t *pal = (uint32_t*)img->mColorTable.get();
+
+	for (int y = 0; y < h; y++)
+	{
+		uint8_t *s = srcRow; uint32_t *d = dstRow;
+		for (int x = 0; x < w; x++)
+			*d++ = ArgbToRgba(pal[*s++]);
+		if (padR) *d = *(d - 1);
+		srcRow += img->GetWidth();
+		dstRow += pitch;
+	}
+
+	if (padB)
+	{
+		uint32_t *lastRow = dst + pitch * (h - 1);
+		for (int y = h; y < dstH; y++)
+			memcpy(dst + pitch * y, lastRow, pitch * sizeof(uint32_t));
+	}
+
+	if (create)
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, pitch, dstH, 0, GL_RGBA, GL_UNSIGNED_BYTE, dst);
+	else
+		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, pitch, dstH, GL_RGBA, GL_UNSIGNED_BYTE, dst);
+}
+
+static void CopyImageToTexture(MemoryImage *img, int offx, int offy,
+	int texW, int texH, PixelFormat fmt, bool create)
+{
+	GLint wrap = (img->mRenderFlags & RenderImageFlag_Repeat) ? GL_REPEAT : GL_CLAMP_TO_EDGE;
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap);
+
+	int w = std::min(texW, img->GetWidth()  - offx);
+	int h = std::min(texH, img->GetHeight() - offy);
+	bool padR = w < texW, padB = h < texH;
+
+	if (w > 0 && h > 0)
+	{
+		switch (fmt)
+		{
+		case PixelFormat_A8R8G8B8: CopyImageToTexture8888    (img, offx, offy, w, h, texW, texH, padR, padB, create); break;
+		case PixelFormat_A4R4G4B4: CopyImageToTexture4444    (img, offx, offy, w, h, texW, texH, padR, padB, create); break;
+		case PixelFormat_R5G6B5:   CopyImageToTexture565     (img, offx, offy, w, h, texW, texH, padR, padB, create); break;
+		case PixelFormat_Palette8: CopyImageToTexturePalette8(img, offx, offy, w, h, texW, texH, padR, padB, create); break;
+		case PixelFormat_Unknown:  break;
+		}
+	}
+}
+
+static int GetClosestPowerOf2Above(int n)
+{
+	int p = 1;
+	while (p < n) p <<= 1;
+	return p;
+}
+
+static bool IsPowerOf2(int n)
+{
+	return n > 0 && (n & (n - 1)) == 0;
+}
+
+static void GetBestTextureDimensions(int &w, int &h, bool isEdge, bool usePow2, uint32_t flags)
+{
+	if (flags & RenderImageFlag_Use64By64Subdivisions) { w = h = 64; return; }
+
+	static int* sGoodSizes = nullptr;
+	if (!sGoodSizes)
+	{
+		sGoodSizes = new int[MAX_TEXTURE_SIZE];
+		int pow2 = 1;
+		for (int i = 0; i < MAX_TEXTURE_SIZE; i++)
+		{
+			if (i > pow2) pow2 <<= 1;
+			int good = pow2;
+			if (good - i > 64)
+			{
+				good >>= 1;
+				while (true)
+				{
+					int leftover = i % good;
+					if (leftover < 64 || IsPowerOf2(leftover)) break;
+					good >>= 1;
+				}
+			}
+			sGoodSizes[i] = good;
+		}
+	}
+
+	int aw = w, ah = h;
+	if (usePow2)
+	{
+		if (isEdge || (flags & RenderImageFlag_MinimizeNumSubdivisions))
+		{
+			aw = aw >= gMaxTextureWidth  ? gMaxTextureWidth  : GetClosestPowerOf2Above(aw);
+			ah = ah >= gMaxTextureHeight ? gMaxTextureHeight : GetClosestPowerOf2Above(ah);
+		}
+		else
+		{
+			aw = aw >= gMaxTextureWidth  ? gMaxTextureWidth  : sGoodSizes[aw];
+			ah = ah >= gMaxTextureHeight ? gMaxTextureHeight : sGoodSizes[ah];
+		}
+	}
+	aw = std::max(aw, gMinTextureWidth);
+	ah = std::max(ah, gMinTextureHeight);
+	w = aw; h = ah;
+}
+
+TextureData::TextureData()
+	: mWidth(0), mHeight(0), mTexVecWidth(0), mTexVecHeight(0),
+	  mBitsChangedCount(0), mTexMemSize(0), mTexPieceWidth(64), mTexPieceHeight(64),
+	  mPixelFormat(PixelFormat_Unknown), mImageFlags(0)
+{
+}
+
+TextureData::~TextureData()
+{
+	ReleaseTextures();
+}
+
+struct GfxTextureCache
+{
+	GLuint tex = 0;
+	int filter = 0;
+	int clampUv = -1;
+	float uvBounds[4] = {};
+	bool valid = false;
+};
+static GfxTextureCache gTextureCache;
+
+static void GfxInvalidateTextureCache()
+{
+	gTextureCache.valid = false;
+}
+
+void TextureData::ReleaseTextures()
+{
+	GfxInvalidateTextureCache();
+	for (auto &piece : mTextures)
+		glDeleteTextures(1, &piece.mTexture);
+	mTextures.clear();
+	mTexMemSize = 0;
+}
+
+void TextureData::CreateTextureDimensions(MemoryImage *theImage)
+{
+	int aWidth  = theImage->GetWidth();
+	int aHeight = theImage->GetHeight();
+
+	mTexPieceWidth  = aWidth;
+	mTexPieceHeight = aHeight;
+	GetBestTextureDimensions(mTexPieceWidth, mTexPieceHeight, false, true, mImageFlags);
+
+	int aRightWidth  = aWidth % mTexPieceWidth;
+	int aRightHeight = mTexPieceHeight;
+	if (aRightWidth > 0)
+		GetBestTextureDimensions(aRightWidth, aRightHeight, true, true, mImageFlags);
+	else
+		aRightWidth = mTexPieceWidth;
+
+	int aBottomWidth  = mTexPieceWidth;
+	int aBottomHeight = aHeight % mTexPieceHeight;
+	if (aBottomHeight > 0)
+		GetBestTextureDimensions(aBottomWidth, aBottomHeight, true, true, mImageFlags);
+	else
+		aBottomHeight = mTexPieceHeight;
+
+	int aCornerWidth  = aRightWidth;
+	int aCornerHeight = aBottomHeight;
+	GetBestTextureDimensions(aCornerWidth, aCornerHeight, true, true, mImageFlags);
+
+	mTexVecWidth  = (aWidth  + mTexPieceWidth  - 1) / mTexPieceWidth;
+	mTexVecHeight = (aHeight + mTexPieceHeight - 1) / mTexPieceHeight;
+	mTextures.resize(mTexVecWidth * mTexVecHeight);
+
+	for (auto &p : mTextures)        { p.mTexture = 0; p.mWidth = mTexPieceWidth; p.mHeight = mTexPieceHeight; }
+	for (unsigned i = mTexVecWidth - 1; i < mTextures.size(); i += mTexVecWidth)
+									  { mTextures[i].mWidth = aRightWidth;  mTextures[i].mHeight = aRightHeight; }
+	for (unsigned i = mTexVecWidth * (mTexVecHeight - 1); i < mTextures.size(); i++)
+									  { mTextures[i].mWidth = aBottomWidth; mTextures[i].mHeight = aBottomHeight; }
+	mTextures.back().mWidth  = aCornerWidth;
+	mTextures.back().mHeight = aCornerHeight;
+
+	mMaxTotalU = aWidth  / (float)mTexPieceWidth;
+	mMaxTotalV = aHeight / (float)mTexPieceHeight;
+}
+
+void TextureData::CreateTextures(MemoryImage *theImage)
+{
+	theImage->DeleteSWBuffers();
+
+	PixelFormat aFormat = PixelFormat_A8R8G8B8;
+	theImage->CommitBits();
+
+	if (!theImage->mHasAlpha && !theImage->mHasTrans
+		&& (gSupportedPixelFormats & PixelFormat_R5G6B5)
+		&& !(theImage->mRenderFlags & RenderImageFlag_UseA8R8G8B8))
+		aFormat = PixelFormat_R5G6B5;
+
+	if ((theImage->mRenderFlags & RenderImageFlag_UseA4R4G4B4)
+		&& aFormat == PixelFormat_A8R8G8B8
+		&& (gSupportedPixelFormats & PixelFormat_A4R4G4B4))
+		aFormat = PixelFormat_A4R4G4B4;
+
+	if (aFormat == PixelFormat_A8R8G8B8 && !(gSupportedPixelFormats & PixelFormat_A8R8G8B8))
+		aFormat = PixelFormat_A4R4G4B4;
+
+	bool createTextures = false;
+	if (mWidth != theImage->mWidth || mHeight != theImage->mHeight
+		|| aFormat != mPixelFormat
+		|| (theImage->mRenderFlags & RenderImageFlag_TextureMask) != mImageFlags)
+	{
+		ReleaseTextures();
+		mPixelFormat = aFormat;
+		mImageFlags  = theImage->mRenderFlags & RenderImageFlag_TextureMask;
+		CreateTextureDimensions(theImage);
+		createTextures = true;
+	}
+
+	int aHeight = theImage->GetHeight();
+	int aWidth  = theImage->GetWidth();
+	int fmtSize = (aFormat == PixelFormat_R5G6B5 || aFormat == PixelFormat_A4R4G4B4) ? 2 : 4;
+
+	int idx = 0;
+	for (int y = 0; y < aHeight; y += mTexPieceHeight)
+	{
+		for (int x = 0; x < aWidth; x += mTexPieceWidth, idx++)
+		{
+			TextureDataPiece &piece = mTextures[idx];
+			if (createTextures)
+			{
+				glGenTextures(1, &piece.mTexture);
+				mTexMemSize += piece.mWidth * piece.mHeight * fmtSize;
+			}
+			glBindTexture(GL_TEXTURE_2D, piece.mTexture);
+			CopyImageToTexture(theImage, x, y, piece.mWidth, piece.mHeight, aFormat, createTextures);
+		}
+	}
+
+	mWidth  = theImage->mWidth;
+	mHeight = theImage->mHeight;
+	mBitsChangedCount = theImage->mBitsChangedCount;
+	mPixelFormat = aFormat;
+	GfxInvalidateTextureCache();
+}
+
+void TextureData::CheckCreateTextures(MemoryImage *theImage)
+{
+	if (mPixelFormat == PixelFormat_Unknown
+		|| theImage->mWidth != mWidth || theImage->mHeight != mHeight
+		|| theImage->mBitsChangedCount != mBitsChangedCount
+		|| (theImage->mRenderFlags & RenderImageFlag_TextureMask) != mImageFlags)
+	{
+		CreateTextures(theImage);
+		if (theImage->mPurgeBits)
+			theImage->PurgeBits();
+	}
+	else if (theImage->mPurgeBits && theImage->mBits != nullptr)
+		theImage->PurgeBits();
+}
+
+GLuint& TextureData::GetTexture(int x, int y, int &width, int &height,
+								float &u1, float &v1, float &u2, float &v2,
+								float *uvBounds)
+{
+	int tx = x / mTexPieceWidth, ty = y / mTexPieceHeight;
+	TextureDataPiece &p = mTextures[ty * mTexVecWidth + tx];
+
+	int left = x % mTexPieceWidth, top = y % mTexPieceHeight;
+	int right  = std::min(left + width,  p.mWidth);
+	int bottom = std::min(top  + height, p.mHeight);
+	width  = right - left;
+	height = bottom - top;
+
+	u1 = (float)left  / p.mWidth;  v1 = (float)top    / p.mHeight;
+	u2 = (float)right / p.mWidth;  v2 = (float)bottom / p.mHeight;
+
+	// Half-texel inset for shader UV clamping; midpoint fallback guarantees min <= max.
+	float halfU = 0.5f / p.mWidth, halfV = 0.5f / p.mHeight;
+	float midU = (u1 + u2) * 0.5f, midV = (v1 + v2) * 0.5f;
+	uvBounds[0] = std::min(u1 + halfU, midU);  uvBounds[1] = std::min(v1 + halfV, midV);
+	uvBounds[2] = std::max(u2 - halfU, midU);  uvBounds[3] = std::max(v2 - halfV, midV);
+	return p.mTexture;
+}
+
+GLuint& TextureData::GetTextureF(float x, float y, float &width, float &height,
+								 float &u1, float &v1, float &u2, float &v2,
+								 float *uvBounds)
+{
+	int tx = (int)(x / mTexPieceWidth), ty = (int)(y / mTexPieceHeight);
+	TextureDataPiece &p = mTextures[ty * mTexVecWidth + tx];
+
+	float left   = x - tx * mTexPieceWidth;
+	float top    = y - ty * mTexPieceHeight;
+	float right  = std::min(left + width,  (float)p.mWidth);
+	float bottom = std::min(top  + height, (float)p.mHeight);
+	width  = right - left;
+	height = bottom - top;
+
+	u1 = left   / p.mWidth;  v1 = top    / p.mHeight;
+	u2 = right  / p.mWidth;  v2 = bottom / p.mHeight;
+
+	float halfU = 0.5f / p.mWidth, halfV = 0.5f / p.mHeight;
+	float midU = (u1 + u2) * 0.5f, midV = (v1 + v2) * 0.5f;
+	uvBounds[0] = std::min(u1 + halfU, midU);  uvBounds[1] = std::min(v1 + halfV, midV);
+	uvBounds[2] = std::max(u2 - halfU, midU);  uvBounds[3] = std::max(v2 - halfV, midV);
+	return p.mTexture;
+}
+
+static void SetLinearFilter(bool linear)
+{
+	gLinearFilter = linear;
+}
+
+static constexpr float kDefaultUvBounds[4] = { 0.f, 0.f, 1.f, 1.f };
+
+static void GfxBindTexture(GLuint tex, const float *uvBounds = kDefaultUvBounds, bool clampUv = true)
+{
+	int f = gLinearFilter ? GL_LINEAR : GL_NEAREST;
+	int c = clampUv ? 1 : 0;
+	if (gTextureCache.valid
+		&& gTextureCache.tex == tex
+		&& gTextureCache.filter == f
+		&& gTextureCache.clampUv == c
+		&& memcmp(gTextureCache.uvBounds, uvBounds, sizeof(gTextureCache.uvBounds)) == 0)
+		return;
+
+	glBindTexture(GL_TEXTURE_2D, tex);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, f);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, f);
+	glUniform1i(gUfClampUvEnabled, c);
+	glUniform4fv(gUfUvBounds, 1, uvBounds);
+
+	gTextureCache.tex = tex;
+	gTextureCache.filter = f;
+	gTextureCache.clampUv = c;
+	memcpy(gTextureCache.uvBounds, uvBounds, sizeof(gTextureCache.uvBounds));
+	gTextureCache.valid = true;
+}
+
+void TextureData::Blt(float theX, float theY, const Rect& theSrcRect, const Color& theColor)
+{
+	int srcLeft   = theSrcRect.mX;
+	int srcTop    = theSrcRect.mY;
+	int srcRight  = srcLeft + theSrcRect.mWidth;
+	int srcBottom = srcTop  + theSrcRect.mHeight;
+	if (srcLeft >= srcRight || srcTop >= srcBottom) return;
+
+	uint32_t aColor = theColor.ToGLColor();
+	glActiveTexture(GL_TEXTURE0);
+	glUniform1i(gUfUseTexture, 1);
+
+	int srcX, srcY;
+	float dstX, dstY;
+	int w, h;
+	float u1, v1, u2, v2;
+	float uvb[4];
+
+	srcY = srcTop; dstY = theY;
+	while (srcY < srcBottom)
+	{
+		srcX = srcLeft; dstX = theX;
+		while (srcX < srcRight)
+		{
+			w = srcRight - srcX; h = srcBottom - srcY;
+			GLuint &tex = GetTexture(srcX, srcY, w, h, u1, v1, u2, v2, uvb);
+			float x = dstX, y = dstY;
+
+			GLVertex v[4] = {
+				{ x,     y,     0, aColor, u1, v1 },
+				{ x,     y + h, 0, aColor, u1, v2 },
+				{ x + w, y,     0, aColor, u2, v1 },
+				{ x + w, y + h, 0, aColor, u2, v2 },
+			};
+			GfxBindTexture(tex, uvb);
+			GfxBegin(GL_TRIANGLE_STRIP);
+			GfxAddVertices(v, 4);
+			GfxEnd();
+
+			srcX += w; dstX += w;
+		}
+		srcY += h; dstY += h;
+	}
+}
+
+static inline float GetCoord(const GLVertex& v, int n)
+{
+	switch (n)
+	{
+	case 0: return v.sx; case 1: return v.sy; case 2: return v.sz;
+	case 3: return v.tu; case 4: return v.tv; default: return 0;
+	}
+}
+
+static inline GLVertex Interpolate(const GLVertex &a, const GLVertex &b, float t)
+{
+	GLVertex r = a;
+	r.sx = a.sx + t * (b.sx - a.sx);
+	r.sy = a.sy + t * (b.sy - a.sy);
+	r.tu = a.tu + t * (b.tu - a.tu);
+	r.tv = a.tv + t * (b.tv - a.tv);
+	if (a.color != b.color)
+	{
+		auto lerp = [&](int shift) {
+			return (int)(((a.color >> shift) & 0xff) + t * (((b.color >> shift) & 0xff) - ((a.color >> shift) & 0xff)));
+		};
+		r.color = (lerp(0)) | (lerp(8) << 8) | (lerp(16) << 16) | (lerp(24) << 24);
+	}
+	return r;
+}
+
+template<class Pred>
+struct PointClipper
+{
+	Pred mPred;
+
+	void ClipPoint(int n, float clipVal, const GLVertex& v1, const GLVertex& v2, VertexList& out)
+	{
+		bool c1 = mPred(GetCoord(v1, n), clipVal);
+		bool c2 = mPred(GetCoord(v2, n), clipVal);
+		if (!c1)
+		{
+			if (!c2)
+				out.push_back(v2);
+			else
+				out.push_back(Interpolate(v1, v2, (clipVal - GetCoord(v1, n)) / (GetCoord(v2, n) - GetCoord(v1, n))));
+		}
+		else if (!c2)
+		{
+			out.push_back(Interpolate(v1, v2, (clipVal - GetCoord(v1, n)) / (GetCoord(v2, n) - GetCoord(v1, n))));
+			out.push_back(v2);
+		}
+	}
+
+	void ClipPoints(int n, float clipVal, VertexList& in, VertexList& out)
+	{
+		if (in.size() < 2) return;
+		ClipPoint(n, clipVal, in[in.size() - 1], in[0], out);
+		for (int i = 0; i < in.size() - 1; i++)
+			ClipPoint(n, clipVal, in[i], in[i + 1], out);
+	}
+};
+
+static void DrawPolyClipped(const Rect *clip, const VertexList &list)
+{
+	VertexList l1, l2;
+	l1 = list;
+
+	int left = clip->mX, top = clip->mY;
+	int right = left + clip->mWidth, bottom = top + clip->mHeight;
+
+	VertexList *in = &l1, *out = &l2;
+	PointClipper<std::less<float>>          lc;
+	PointClipper<std::greater_equal<float>> gc;
+
+	lc.ClipPoints(0, left,   *in, *out); std::swap(in, out); out->clear();
+	lc.ClipPoints(1, top,    *in, *out); std::swap(in, out); out->clear();
+	gc.ClipPoints(0, right,  *in, *out); std::swap(in, out); out->clear();
+	gc.ClipPoints(1, bottom, *in, *out);
+
+	if (out->size() >= 3)
+	{
+		GfxBegin(GL_TRIANGLE_FAN);
+		GfxAddVertices(*out);
+		GfxEnd();
+	}
+}
+
+static void DoPolyTextureClip(VertexList &list)
+{
+	VertexList l2;
+	VertexList *in = &list, *out = &l2;
+	PointClipper<std::less<float>>          lc;
+	PointClipper<std::greater_equal<float>> gc;
+
+	lc.ClipPoints(3, 0, *in, *out); std::swap(in, out); out->clear();
+	lc.ClipPoints(4, 0, *in, *out); std::swap(in, out); out->clear();
+	gc.ClipPoints(3, 1, *in, *out); std::swap(in, out); out->clear();
+	gc.ClipPoints(4, 1, *in, *out);
+}
+
+void TextureData::BltTransformed(const SexyMatrix3 &theTrans, const Rect& theSrcRect,
+	const Color& theColor, const Rect *theClipRect, float theX, float theY, bool center)
+{
+	int srcLeft   = theSrcRect.mX;
+	int srcTop    = theSrcRect.mY;
+	int srcRight  = srcLeft + theSrcRect.mWidth;
+	int srcBottom = srcTop  + theSrcRect.mHeight;
+	if (srcLeft >= srcRight || srcTop >= srcBottom) return;
+
+	float startx = 0, starty = 0;
+	if (center)
+	{
+		startx = -theSrcRect.mWidth  / 2.0f;
+		starty = -theSrcRect.mHeight / 2.0f;
+	}
+
+	uint32_t aColor = theColor.ToGLColor();
+	glActiveTexture(GL_TEXTURE0);
+	glUniform1i(gUfUseTexture, 1);
+
+	int srcX, srcY;
+	float dstX, dstY;
+	int w, h;
+	float u1, v1, u2, v2;
+	float uvb[4];
+
+	srcY = srcTop; dstY = starty;
+	while (srcY < srcBottom)
+	{
+		srcX = srcLeft; dstX = startx;
+		while (srcX < srcRight)
+		{
+			w = srcRight - srcX; h = srcBottom - srcY;
+			GLuint &tex = GetTexture(srcX, srcY, w, h, u1, v1, u2, v2, uvb);
+
+			float x = dstX, y = dstY;
+			SexyVector2 p[4] = { {x, y}, {x, y+h}, {x+w, y}, {x+w, y+h} };
+			SexyVector2 tp[4];
+			for (int i = 0; i < 4; i++)
+			{
+				tp[i] = theTrans * p[i];
+				tp[i].x += theX;
+				tp[i].y += theY;
+			}
+
+			bool clipped = false;
+			if (theClipRect)
+			{
+				int cl = theClipRect->mX, ct = theClipRect->mY;
+				int cr = cl + theClipRect->mWidth, cb = ct + theClipRect->mHeight;
+				for (int i = 0; i < 4; i++)
+					if (tp[i].x < cl || tp[i].x >= cr || tp[i].y < ct || tp[i].y >= cb)
+						{ clipped = true; break; }
+			}
+
+			GLVertex vtx[4] = {
+				{ tp[0].x, tp[0].y, 0, aColor, u1, v1 },
+				{ tp[1].x, tp[1].y, 0, aColor, u1, v2 },
+				{ tp[2].x, tp[2].y, 0, aColor, u2, v1 },
+				{ tp[3].x, tp[3].y, 0, aColor, u2, v2 },
+			};
+			GfxBindTexture(tex, uvb);
+
+			if (!clipped)
+			{
+				GfxBegin(GL_TRIANGLE_STRIP);
+				GfxAddVertices(vtx, 4);
+				GfxEnd();
+			}
+			else
+			{
+				VertexList vl;
+				vl.push_back(vtx[0]); vl.push_back(vtx[1]);
+				vl.push_back(vtx[3]); vl.push_back(vtx[2]);
+				DrawPolyClipped(theClipRect, vl);
+			}
+
+			srcX += w; dstX += w;
+		}
+		srcY += h; dstY += h;
+	}
+}
+
+void TextureData::BltTriangles(const TriVertex theVertices[][3], int theNumTriangles,
+							   unsigned int theColor, float tx, float ty, bool clampUv, const uint8_t* theDrawModes)
+{
+	glUniform1i(gUfUseTexture, 1);
+	if (mMaxTotalU <= 1.0 && mMaxTotalV <= 1.0)
+	{
+		// Single-texture fast path
+		TextureDataPiece& piece = mTextures[0];
+		float halfU = 0.5f / piece.mWidth;
+		float halfV = 0.5f / piece.mHeight;
+		float midU = mMaxTotalU * 0.5f;
+		float midV = mMaxTotalV * 0.5f;
+		float uvb[4] = {
+			std::min(halfU, midU),
+			std::min(halfV, midV),
+			std::max(mMaxTotalU - halfU, midU),
+			std::max(mMaxTotalV - halfV, midV)
+		};
+		glActiveTexture(GL_TEXTURE0);
+		GfxBindTexture(piece.mTexture, uvb, clampUv);
+
+		GfxBegin(GL_TRIANGLES);
+		GfxAddVertices(theVertices, theNumTriangles, theColor, tx, ty, mMaxTotalU, mMaxTotalV, theDrawModes);
+		GfxEnd();
+		return;
+	}
+
+	// Multi-texture path
+	for (int tri = 0; tri < theNumTriangles; tri++)
+	{
+		TriVertex* tv = (TriVertex*)theVertices[tri];
+		GLVertex vtx[3] = {
+			{ tv[0].x+tx, tv[0].y+ty, 0, GetColorFromTriVertex(tv[0], theColor), tv[0].u*mMaxTotalU, tv[0].v*mMaxTotalV },
+			{ tv[1].x+tx, tv[1].y+ty, 0, GetColorFromTriVertex(tv[1], theColor), tv[1].u*mMaxTotalU, tv[1].v*mMaxTotalV },
+			{ tv[2].x+tx, tv[2].y+ty, 0, GetColorFromTriVertex(tv[2], theColor), tv[2].u*mMaxTotalU, tv[2].v*mMaxTotalV },
+		};
+
+		float minU = mMaxTotalU, minV = mMaxTotalV, maxU = 0, maxV = 0;
+		for (int i = 0; i < 3; i++)
+		{
+			minU = std::min(minU, vtx[i].tu); maxU = std::max(maxU, vtx[i].tu);
+			minV = std::min(minV, vtx[i].tv); maxV = std::max(maxV, vtx[i].tv);
+		}
+
+		VertexList master;
+		master.push_back(vtx[0]); master.push_back(vtx[1]); master.push_back(vtx[2]);
+
+		int aLeft   = std::max(0, (int)floorf(minU));
+		int aTop    = std::max(0, (int)floorf(minV));
+		int aRight  = std::min(mTexVecWidth,  (int)ceilf(maxU));
+		int aBottom = std::min(mTexVecHeight, (int)ceilf(maxV));
+
+		TextureDataPiece &std0 = mTextures[0];
+		for (int i = aTop; i < aBottom; i++)
+		{
+			for (int j = aLeft; j < aRight; j++)
+			{
+				TextureDataPiece &piece = mTextures[i * mTexVecWidth + j];
+				float halfU = 0.5f / piece.mWidth;
+				float halfV = 0.5f / piece.mHeight;
+				float uvb[4] = {
+					std::min(halfU, 0.5f),
+					std::min(halfV, 0.5f),
+					std::max(1.0f - halfU, 0.5f),
+					std::max(1.0f - halfV, 0.5f)
+				};
+				VertexList vl = master;
+				for (int k = 0; k < 3; k++)
+				{
+					vl[k].tu -= j;
+					vl[k].tv -= i;
+					if (i == mTexVecHeight - 1)
+						vl[k].tv *= (float)std0.mHeight / piece.mHeight;
+					if (j == mTexVecWidth - 1)
+						vl[k].tu *= (float)std0.mWidth / piece.mWidth;
+				}
+				DoPolyTextureClip(vl);
+				if (vl.size() >= 3)
+				{
+					if (theDrawModes != nullptr && theDrawModes[tri] == Graphics::DRAWMODE_ADDITIVE)
+						for (int k = 0; k < (int)vl.size(); k++)
+							vl[k].sz = 1.0f;
+					GfxBindTexture(piece.mTexture, uvb, clampUv);
+					GfxBegin(GL_TRIANGLE_FAN);
+					GfxAddVertices(vl);
+					GfxEnd();
+				}
+			}
+		}
+	}
+}
+#else // !PVZ_ENABLE_GLES
+
+TextureData::TextureData()
+{
+	mWidth = mHeight = mTexVecWidth = mTexVecHeight = mTexPieceWidth = mTexPieceHeight = 0;
+	mBitsChangedCount = mTexMemSize = 0;
+	mMaxTotalU = mMaxTotalV = 1.0f;
+	mPixelFormat = PixelFormat_Unknown;
+	mImageFlags = 0;
+}
+
+TextureData::~TextureData() {}
+void TextureData::ReleaseTextures() {}
+void TextureData::CreateTextureDimensions(MemoryImage*) {}
+void TextureData::CreateTextures(MemoryImage*) {}
+void TextureData::CheckCreateTextures(MemoryImage*) {}
+GLuint& TextureData::GetTexture(int, int, int&, int&, float&, float&, float&, float&, float*) { static GLuint d = 0; return d; }
+GLuint& TextureData::GetTextureF(float, float, float&, float&, float&, float&, float&, float&, float*) { static GLuint d = 0; return d; }
+void TextureData::Blt(float, float, const Rect&, const Color&) {}
+void TextureData::BltTransformed(const SexyMatrix3&, const Rect&, const Color&, const Rect*, float, float, bool) {}
+void TextureData::BltTriangles(const TriVertex[][3], int, unsigned int, float, float, bool, const uint8_t*) {}
+
+#endif // !PVZ_ENABLE_GLES
+
+GLInterface::GLInterface(SexyAppBase* theApp)
+{
+	mApp = theApp;
+	mWidth  = mApp->mWidth;
+	mHeight = mApp->mHeight;
+	mDisplayWidth  = mWidth;
+	mDisplayHeight = mHeight;
+	mPresentationRect = Rect(0, 0, mWidth, mHeight);
+	mRefreshRate = 60;
+	mMillisecondsPerFrame = 1000 / mRefreshRate;
+	mNextCursorX = mNextCursorY = 0;
+	mCursorX = mCursorY = 0;
+
+#if PVZ_ENABLE_GLES
+	gVertexMode  = (GLenum)-1;
+	gNumVertices = 0;
+	gVertices.resize(MAX_VERTICES);
+#endif
+}
+
+#if !PVZ_ENABLE_GLES
+static SDL_Texture* sVirtualCursorTex = nullptr;
+#endif
+
+GLInterface::~GLInterface()
+{
+#if defined(PVZ_ENABLE_DUALCORE)
+	ComputeWorker::WaitForTask();
+#endif
+	mScreenImage.reset();
+	Flush();
+#if !PVZ_ENABLE_GLES
+	if (sVirtualCursorTex)
+	{
+		SDL_DestroyTexture(sVirtualCursorTex);
+		sVirtualCursorTex = nullptr;
+	}
+	if (mSdlTexture)
+	{
+		SDL_DestroyTexture((SDL_Texture*)mSdlTexture);
+		mSdlTexture = nullptr;
+		mTexWidth = 0;
+		mTexHeight = 0;
+	}
+	if (mSdlRenderer)
+	{
+		SDL_DestroyRenderer((SDL_Renderer*)mSdlRenderer);
+		mSdlRenderer = nullptr;
+	}
+#endif
+	for (auto *img : mImageSet)
+	{
+		delete img->mRenderData;
+		img->mRenderData = nullptr;
+	}
+}
+
+void GLInterface::SetDrawMode(int theDrawMode)
+{
+#if PVZ_ENABLE_GLES
+	if (theDrawMode == Graphics::DRAWMODE_NORMAL)
+		SetBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	else
+		SetBlendFunc(GL_SRC_ALPHA, GL_ONE);
+#endif
+}
+
+void GLInterface::AddGLImage(GLImage* theGLImage)
+{
+	std::scoped_lock lk(mCritSect);
+	mGLImageSet.insert(theGLImage);
+}
+
+void GLInterface::RemoveGLImage(GLImage* theGLImage)
+{
+	std::scoped_lock lk(mCritSect);
+	mGLImageSet.erase(theGLImage);
+}
+
+void GLInterface::Remove3DData(MemoryImage* theImage)
+{
+	if (theImage->mRenderData)
+	{
+		delete theImage->mRenderData;
+		theImage->mRenderData = nullptr;
+		std::scoped_lock lk(mCritSect);
+		mImageSet.erase(theImage);
+	}
+}
+
+GLImage* GLInterface::GetScreenImage() { return mScreenImage.get(); }
+
+void GLInterface::UpdateViewport()
+{
+#if !PVZ_ENABLE_GLES
+	const char* env640 = getenv("PVZ_NATIVE_640");
+	if (env640 && (strcmp(env640, "1") == 0 || strcmp(env640, "true") == 0 || strcmp(env640, "on") == 0))
+	{
+		mIsNative640 = true;
+		mWidth = 640;
+		mHeight = 480;
+	}
+	int winW = mWidth;
+	int winH = mHeight;
+	if (mApp && mApp->mWindow)
+	{
+		SDL_GetWindowSize((SDL_Window*)mApp->mWindow, &winW, &winH);
+	}
+	mPresentationRect = Rect(0, 0, winW, winH);
+#else
+	int vx = 0, vy = 0, vw, vh;
+
+#ifdef __SWITCH__
+	int width = 1280, height = 720;
+#else
+	int width, height;
+	SDL_GL_GetDrawableSize((SDL_Window*)mApp->mWindow, &width, &height);
+#endif
+
+	vw = width; vh = height;
+
+	// Letterbox to 4:3
+	if (width * 3 > height * 4)
+	{
+		vw = height * 4 / 3;
+		vx = (width - vw) / 2;
+	}
+	else if (width * 3 < height * 4)
+	{
+		vh = width * 3 / 4;
+		vy = (height - vh) / 2;
+	}
+
+	glViewport(vx, vy, vw, vh);
+	mPresentationRect = Rect(vx, vy, vw, vh);
+#endif
+}
+
+int GLInterface::Init(bool IsWindowed)
+{
+#if !PVZ_ENABLE_GLES
+	const char* env640 = getenv("PVZ_NATIVE_640");
+	if (env640 && (strcmp(env640, "1") == 0 || strcmp(env640, "true") == 0 || strcmp(env640, "on") == 0))
+	{
+		mIsNative640 = true;
+		mWidth = 640;
+		mHeight = 480;
+	}
+	int winW = mWidth;
+	int winH = mHeight;
+	if (mApp && mApp->mWindow)
+	{
+		SDL_GetWindowSize((SDL_Window*)mApp->mWindow, &winW, &winH);
+	}
+	mPresentationRect = Rect(0, 0, winW, winH);
+	mRGBBits   = 32;
+	mRedBits   = 8; mGreenBits = 8; mBlueBits  = 8;
+	mRedShift  = 0; mGreenShift = 8; mBlueShift = 16;
+	mRedMask   = 0xFFu << mRedShift;
+	mGreenMask = 0xFFu << mGreenShift;
+	mBlueMask  = 0xFFu << mBlueShift;
+
+	if (!mSdlRenderer && mApp && mApp->mWindow)
+	{
+		SDL_Window* win = (SDL_Window*)mApp->mWindow;
+		SDL_Renderer* ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+		if (!ren)
+			ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_PRESENTVSYNC);
+		if (!ren)
+			ren = SDL_CreateRenderer(win, -1, 0);
+		if (!ren)
+			ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_SOFTWARE);
+		mSdlRenderer = (void*)ren;
+		if (ren)
+		{
+#if defined(PVZ_ENABLE_DUALCORE)
+			mIs16BitMode = true;
+#else
+			const char* env16 = getenv("PVZ_16BIT");
+			if (env16 && (strcmp(env16, "1") == 0 || strcmp(env16, "true") == 0 || strcmp(env16, "on") == 0))
+				mIs16BitMode = true;
+			else
+				mIs16BitMode = false;
+#endif
+
+			uint32_t texFormat = mIs16BitMode ? SDL_PIXELFORMAT_RGB565 : SDL_PIXELFORMAT_ARGB8888;
+			SDL_Texture* tex = SDL_CreateTexture(ren, texFormat, SDL_TEXTUREACCESS_STREAMING, Rg35xx::renderWidth()<800 ? Rg35xx::renderWidth() : winW, Rg35xx::renderWidth()<800 ? Rg35xx::renderWidth()*3/4 : winH);
+			if (tex)
+			{
+				SDL_SetTextureBlendMode(tex, SDL_BLENDMODE_NONE);
+				mSdlTexture = (void*)tex;
+				mTexWidth = Rg35xx::renderWidth()<800 ? Rg35xx::renderWidth() : winW;
+				mTexHeight = Rg35xx::renderWidth()<800 ? Rg35xx::renderWidth()*3/4 : winH;
+			}
+		}
+	}
+
+	SetVideoOnlyDraw(false);
+	return 1;
+#else
+	static bool inited = false;
+	if (!inited)
+	{
+		inited = true;
+		PlatformGLInit();
+
+		gProgram = shaderLoad(SHADER_CODE);
+		if (gProgram == 0)
+			return 0;
+		gUfViewProjMtx = glGetUniformLocation(gProgram, "u_viewProj");
+		gUfTexture     = glGetUniformLocation(gProgram, "u_texture");
+		gUfUseTexture  = glGetUniformLocation(gProgram, "u_useTexture");
+		gUfUvBounds    = glGetUniformLocation(gProgram, "u_uvBounds");
+		gUfClampUvEnabled = glGetUniformLocation(gProgram, "u_clampUvEnabled");
+		gUfMixedBlend  = glGetUniformLocation(gProgram, "u_mixedBlend");
+
+		glGenBuffers(1, &gVbo);
+		glBindBuffer(GL_ARRAY_BUFFER, gVbo);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(GLVertex) * MAX_VERTICES, nullptr, GL_DYNAMIC_DRAW);
+
+		glVertexAttribPointer(0, 3, GL_FLOAT,         GL_FALSE, sizeof(GLVertex), (const void*)0);
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(1, 4, GL_UNSIGNED_BYTE,  GL_TRUE,  sizeof(GLVertex), (const void*)(sizeof(float)*3));
+		glEnableVertexAttribArray(1);
+		glVertexAttribPointer(2, 2, GL_FLOAT,         GL_FALSE, sizeof(GLVertex), (const void*)(sizeof(float)*3 + sizeof(uint32_t)));
+		glEnableVertexAttribArray(2);
+	}
+
+	int aMaxSize;
+	glGetIntegerv(GL_MAX_TEXTURE_SIZE, &aMaxSize);
+	MAX_TEXTURE_SIZE = aMaxSize;
+
+	glClearColor(0, 0, 0, 1);
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	gTextureSizeMustBePow2 = false;
+	gMinTextureWidth  = 8;
+	gMinTextureHeight = 8;
+	gMaxTextureWidth  = aMaxSize;
+	gMaxTextureHeight = aMaxSize;
+	gSupportedPixelFormats = PixelFormat_A8R8G8B8 | PixelFormat_A4R4G4B4 | PixelFormat_R5G6B5 | PixelFormat_Palette8;
+	gLinearFilter = false;
+
+	glUseProgram(gProgram);
+	float ortho[16];
+	MakeOrthoMatrix(0, (float)mWidth, (float)mHeight, 0, -10, 10, ortho);
+	glUniformMatrix4fv(gUfViewProjMtx, 1, GL_FALSE, ortho);
+	glUniform1i(gUfTexture, 0);
+	glUniform1i(gUfClampUvEnabled, 1);
+	glUniform1i(gUfMixedBlend, 0);
+	gMixedBlend = 0;
+
+	glEnable(GL_BLEND);
+	glDisable(GL_DITHER);
+	glDisable(GL_DEPTH_TEST);
+	glDisable(GL_CULL_FACE);
+	glDisable(GL_FRAMEBUFFER_SRGB); // Prevent double gamma correction (already sRGB passthrough)
+	glGetError(); // clear GL_INVALID_ENUM on pure GLES implementations
+
+	mRGBBits   = 32;
+	mRedBits   = 8; mGreenBits = 8; mBlueBits  = 8;
+	mRedShift  = 0; mGreenShift = 8; mBlueShift = 16;
+	mRedMask   = 0xFFu << mRedShift;
+	mGreenMask = 0xFFu << mGreenShift;
+	mBlueMask  = 0xFFu << mBlueShift;
+
+	SetVideoOnlyDraw(false);
+	return 1;
+#endif
+}
+
+bool GLInterface::Redraw(Rect*)
+{
+	Flush();
+	return true;
+}
+
+void GLInterface::SetVideoOnlyDraw(bool)
+{
+	if (Rg35xx::renderWidth()<800) {
+        mScreenImage=std::make_unique<Rg35xx::LowResScreen>(this,Rg35xx::renderWidth());
+        fprintf(stderr,"RG35XX: logical=800x600 raster=%dx%d output=640x480\n",Rg35xx::renderWidth(),Rg35xx::renderWidth()*3/4);
+    } else mScreenImage = std::make_unique<GLImage>(this);
+	mScreenImage->mWidth  = mWidth;
+	mScreenImage->mHeight = mHeight;
+	mScreenImage->SetImageMode(false, false);
+}
+
+void GLInterface::SetCursorPos(int x, int y)
+{
+	mNextCursorX = x;
+	mNextCursorY = y;
+}
+
+bool GLInterface::PreDraw()
+{
+#if PVZ_ENABLE_GLES
+	SetMixedBlendMode(false);
+	SetBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+#endif
+	return true;
+}
+
+#if !PVZ_ENABLE_GLES
+#if defined(__ARM_NEON) || defined(__ARM_NEON__)
+#include <arm_neon.h>
+
+static inline void DownscaleRow800To640(const uint32_t* src, uint32_t* dst)
+{
+	static const uint8_t kW1_data[16] = {
+		205, 205, 205, 205,
+		154, 154, 154, 154,
+		102, 102, 102, 102,
+		51,  51,  51,  51
+	};
+	static const uint8_t kW2_data[16] = {
+		51,  51,  51,  51,
+		102, 102, 102, 102,
+		154, 154, 154, 154,
+		205, 205, 205, 205
+	};
+	const uint8x16_t kW1 = vld1q_u8(kW1_data);
+	const uint8x16_t kW2 = vld1q_u8(kW2_data);
+
+	for (int i = 0; i < 160; ++i)
+	{
+		__builtin_prefetch(src + 20, 0, 0);
+		uint8x16_t v1 = vld1q_u8(reinterpret_cast<const uint8_t*>(src));
+		uint8x16_t v2 = vld1q_u8(reinterpret_cast<const uint8_t*>(src) + 4);
+
+		uint16x8_t p_lo = vmull_u8(vget_low_u8(v1), vget_low_u8(kW1));
+		p_lo = vmlal_u8(p_lo, vget_low_u8(v2), vget_low_u8(kW2));
+
+		uint16x8_t p_hi = vmull_u8(vget_high_u8(v1), vget_high_u8(kW1));
+		p_hi = vmlal_u8(p_hi, vget_high_u8(v2), vget_high_u8(kW2));
+
+		uint8x8_t r_lo = vshrn_n_u16(p_lo, 8);
+		uint8x8_t r_hi = vshrn_n_u16(p_hi, 8);
+
+		vst1q_u8(reinterpret_cast<uint8_t*>(dst), vcombine_u8(r_lo, r_hi));
+
+		src += 5;
+		dst += 4;
+	}
+}
+
+static inline void BlendRow640(const uint32_t* r1, const uint32_t* r2, uint32_t* dst, uint32_t w1, uint32_t w2)
+{
+	const uint8_t* p1 = reinterpret_cast<const uint8_t*>(r1);
+	const uint8_t* p2 = reinterpret_cast<const uint8_t*>(r2);
+	uint8_t* d = reinterpret_cast<uint8_t*>(dst);
+
+	uint8x8_t vw1 = vdup_n_u8(static_cast<uint8_t>(w1));
+	uint8x8_t vw2 = vdup_n_u8(static_cast<uint8_t>(w2));
+
+	for (int i = 0; i < 160; ++i)
+	{
+		uint8x16_t v1 = vld1q_u8(p1);
+		uint8x16_t v2 = vld1q_u8(p2);
+
+		uint16x8_t p_lo = vmull_u8(vget_low_u8(v1), vw1);
+		p_lo = vmlal_u8(p_lo, vget_low_u8(v2), vw2);
+
+		uint16x8_t p_hi = vmull_u8(vget_high_u8(v1), vw1);
+		p_hi = vmlal_u8(p_hi, vget_high_u8(v2), vw2);
+
+		uint8x8_t r_lo = vshrn_n_u16(p_lo, 8);
+		uint8x8_t r_hi = vshrn_n_u16(p_hi, 8);
+
+		vst1q_u8(d, vcombine_u8(r_lo, r_hi));
+
+		p1 += 16;
+		p2 += 16;
+		d += 16;
+	}
+}
+
+static inline void AverageRow800(const uint32_t* r1, const uint32_t* r2, uint32_t* dst)
+{
+	const uint8_t* p1 = reinterpret_cast<const uint8_t*>(r1);
+	const uint8_t* p2 = reinterpret_cast<const uint8_t*>(r2);
+	uint8_t* d = reinterpret_cast<uint8_t*>(dst);
+
+	for (int i = 0; i < 200; ++i)
+	{
+		uint8x16_t v1 = vld1q_u8(p1);
+		uint8x16_t v2 = vld1q_u8(p2);
+		vst1q_u8(d, vrhaddq_u8(v1, v2));
+		p1 += 16;
+		p2 += 16;
+		d += 16;
+	}
+}
+
+static inline void AverageAndDownscaleRow800To640(const uint32_t* src1, const uint32_t* src2, uint32_t* dst)
+{
+	static const uint8_t kW1_data[16] = {
+		205, 205, 205, 205,
+		154, 154, 154, 154,
+		102, 102, 102, 102,
+		51,  51,  51,  51
+	};
+	static const uint8_t kW2_data[16] = {
+		51,  51,  51,  51,
+		102, 102, 102, 102,
+		154, 154, 154, 154,
+		205, 205, 205, 205
+	};
+	const uint8x16_t kW1 = vld1q_u8(kW1_data);
+	const uint8x16_t kW2 = vld1q_u8(kW2_data);
+
+	for (int i = 0; i < 160; ++i)
+	{
+		__builtin_prefetch(src1 + 20, 0, 0);
+		__builtin_prefetch(src2 + 20, 0, 0);
+		uint8x16_t a1 = vld1q_u8(reinterpret_cast<const uint8_t*>(src1));
+		uint8x16_t b1 = vld1q_u8(reinterpret_cast<const uint8_t*>(src2));
+		uint8x16_t v1 = vrhaddq_u8(a1, b1);
+
+		uint8x16_t a2 = vld1q_u8(reinterpret_cast<const uint8_t*>(src1) + 4);
+		uint8x16_t b2 = vld1q_u8(reinterpret_cast<const uint8_t*>(src2) + 4);
+		uint8x16_t v2 = vrhaddq_u8(a2, b2);
+
+		uint16x8_t p_lo = vmull_u8(vget_low_u8(v1), vget_low_u8(kW1));
+		p_lo = vmlal_u8(p_lo, vget_low_u8(v2), vget_low_u8(kW2));
+
+		uint16x8_t p_hi = vmull_u8(vget_high_u8(v1), vget_high_u8(kW1));
+		p_hi = vmlal_u8(p_hi, vget_high_u8(v2), vget_high_u8(kW2));
+
+		uint8x8_t r_lo = vshrn_n_u16(p_lo, 8);
+		uint8x8_t r_hi = vshrn_n_u16(p_hi, 8);
+
+		vst1q_u8(reinterpret_cast<uint8_t*>(dst), vcombine_u8(r_lo, r_hi));
+
+		src1 += 5;
+		src2 += 5;
+		dst += 4;
+	}
+}
+#else
+static inline uint32_t ScaleBlend2(uint32_t c1, uint32_t c2, uint32_t w1, uint32_t w2)
+{
+	uint32_t rb1 = c1 & 0x00FF00FF;
+	uint32_t ag1 = (c1 >> 8) & 0x00FF00FF;
+	uint32_t rb2 = c2 & 0x00FF00FF;
+	uint32_t ag2 = (c2 >> 8) & 0x00FF00FF;
+
+	uint32_t rb = ((rb1 * w1 + rb2 * w2) >> 8) & 0x00FF00FF;
+	uint32_t ag = (ag1 * w1 + ag2 * w2) & 0xFF00FF00;
+	return rb | ag;
+}
+
+static inline void DownscaleRow800To640(const uint32_t* src, uint32_t* dst)
+{
+	for (int i = 0; i < 160; ++i)
+	{
+		uint32_t s0 = src[0];
+		uint32_t s1 = src[1];
+		uint32_t s2 = src[2];
+		uint32_t s3 = src[3];
+		uint32_t s4 = src[4];
+
+		dst[0] = ScaleBlend2(s0, s1, 205, 51);
+		dst[1] = ScaleBlend2(s1, s2, 154, 102);
+		dst[2] = ScaleBlend2(s2, s3, 102, 154);
+		dst[3] = ScaleBlend2(s3, s4, 51, 205);
+
+		src += 5;
+		dst += 4;
+	}
+}
+
+static inline void BlendRow640(const uint32_t* r1, const uint32_t* r2, uint32_t* dst, uint32_t w1, uint32_t w2)
+{
+	for (int x = 0; x < 640; ++x)
+	{
+		dst[x] = ScaleBlend2(r1[x], r2[x], w1, w2);
+	}
+}
+
+static inline void AverageRow800(const uint32_t* r1, const uint32_t* r2, uint32_t* dst)
+{
+	for (int i = 0; i < 800; ++i)
+	{
+		uint32_t a = r1[i];
+		uint32_t b = r2[i];
+		dst[i] = ((a & 0xFEFEFEFEu) >> 1) + ((b & 0xFEFEFEFEu) >> 1) + (a & b & 0x01010101u);
+	}
+}
+
+static inline void AverageAndDownscaleRow800To640(const uint32_t* src1, const uint32_t* src2, uint32_t* dst)
+{
+	for (int i = 0; i < 160; ++i)
+	{
+		uint32_t s0 = ScaleBlend2(src1[0], src2[0], 128, 128);
+		uint32_t s1 = ScaleBlend2(src1[1], src2[1], 128, 128);
+		uint32_t s2 = ScaleBlend2(src1[2], src2[2], 128, 128);
+		uint32_t s3 = ScaleBlend2(src1[3], src2[3], 128, 128);
+		uint32_t s4 = ScaleBlend2(src1[4], src2[4], 128, 128);
+
+		dst[0] = ScaleBlend2(s0, s1, 205, 51);
+		dst[1] = ScaleBlend2(s1, s2, 154, 102);
+		dst[2] = ScaleBlend2(s2, s3, 102, 154);
+		dst[3] = ScaleBlend2(s3, s4, 51, 205);
+
+		src1 += 5;
+		src2 += 5;
+		dst += 4;
+	}
+}
+#endif
+
+void NeonBilinearDownscale5to4_RGB565(const uint32_t* src, uint16_t* dst, int srcW, int srcH, int dstW, int dstH)
+{
+	(void)srcW; (void)srcH; (void)dstW; (void)dstH;
+	if (!src || !dst) return;
+	uint32_t rowTemp[640];
+	uint16_t* dstRow = dst;
+	for (int block = 0; block < 120; ++block)
+	{
+		int sy = block * 5;
+#if defined(__ARM_NEON) || defined(__ARM_NEON__)
+		if (block + 1 < 120)
+		{
+			__builtin_prefetch(src + (sy + 5) * 800, 0, 0);
+			__builtin_prefetch(dstRow + 4 * 640, 1, 0);
+		}
+#endif
+		DownscaleRow800To640(src + (sy + 0) * 800, rowTemp);
+		PvZ::Graphics::NeonBlit_RGB565_From_ARGB(dstRow + 0 * 640, rowTemp, 640);
+
+		DownscaleRow800To640(src + (sy + 1) * 800, rowTemp);
+		PvZ::Graphics::NeonBlit_RGB565_From_ARGB(dstRow + 1 * 640, rowTemp, 640);
+
+		DownscaleRow800To640(src + (sy + 2) * 800, rowTemp);
+		PvZ::Graphics::NeonBlit_RGB565_From_ARGB(dstRow + 2 * 640, rowTemp, 640);
+
+		AverageAndDownscaleRow800To640(src + (sy + 3) * 800, src + (sy + 4) * 800, rowTemp);
+		PvZ::Graphics::NeonBlit_RGB565_From_ARGB(dstRow + 3 * 640, rowTemp, 640);
+
+		dstRow += 4 * 640;
+	}
+}
+#endif
+#if PVZ_ENABLE_GLES
+void NeonBilinearDownscale5to4_RGB565(const uint32_t*, uint16_t*, int, int, int, int)
+{
+}
+#endif
+
+#if defined(PVZ_ENABLE_DUALCORE)
+alignas(64) static uint16_t gStagingFb[640 * 480];
+#endif
+
+void GLInterface::PresentStagedFrame()
+{
+}
+
+void GLInterface::Flush()
+{
+    if (auto* low=dynamic_cast<Rg35xx::LowResScreen*>(mScreenImage.get())) {
+        auto& target=low->target();
+        static std::vector<uint16_t> pixels;
+        pixels.resize(target.mWidth*target.mHeight);
+        PvZ::Graphics::NeonBlit_RGB565_From_ARGB(pixels.data(),target.GetBits(),pixels.size());
+        bool cursor=SexyAppBase::sShowVirtualCursor || (mApp && mApp->GetDialogCount()>0);
+        if (!cursor) {
+            Rg35xxPresentScaledPixels(pixels.data(),target.mWidth,target.mHeight);
+        } else if (mSdlRenderer && mSdlTexture) {
+            SDL_Renderer* ren=(SDL_Renderer*)mSdlRenderer;
+            SDL_UpdateTexture((SDL_Texture*)mSdlTexture,nullptr,pixels.data(),target.mWidth*2);
+            SDL_RenderCopy(ren,(SDL_Texture*)mSdlTexture,nullptr,nullptr);
+			// Render virtual cursor overlay for handheld navigation (menus, dialogs, etc.)
+			if (SexyAppBase::sShowVirtualCursor || (mApp && mApp->GetDialogCount() > 0))
+			{
+				int cx = (int)(SexyAppBase::sVirtualCursorX * 640.0f / 800.0f);
+				int cy = (int)(SexyAppBase::sVirtualCursorY * 480.0f / 600.0f);
+
+				if (!sVirtualCursorTex)
+				{
+					SDL_Surface* cursorSurf = SDL_CreateRGBSurfaceWithFormatFrom(
+						(void*)sCursorPixels, sCursorW, sCursorH, 32, sCursorW * sizeof(uint32_t), SDL_PIXELFORMAT_ARGB8888);
+					if (cursorSurf)
+					{
+						sVirtualCursorTex = SDL_CreateTextureFromSurface(ren, cursorSurf);
+						SDL_FreeSurface(cursorSurf);
+					}
+				}
+
+				if (sVirtualCursorTex)
+				{
+					SDL_Rect dstRect;
+					dstRect.x = cx - sCursorHotspotX;
+					dstRect.y = cy - sCursorHotspotY;
+					dstRect.w = sCursorW;
+					dstRect.h = sCursorH;
+					SDL_RenderCopy(ren, sVirtualCursorTex, nullptr, &dstRect);
+				}
+			}
+
+            Rg35xxPresent(ren);
+        }
+        return;
+    }
+
+#if !PVZ_ENABLE_GLES
+	if (mSdlRenderer && mSdlTexture && mScreenImage && mScreenImage->GetBits())
+	{
+		SDL_Renderer* ren = (SDL_Renderer*)mSdlRenderer;
+		SDL_Texture* tex = (SDL_Texture*)mSdlTexture;
+		int texW = mTexWidth;
+		int texH = mTexHeight;
+		if (texW <= 0 || texH <= 0)
+		{
+			SDL_QueryTexture(tex, nullptr, nullptr, &texW, &texH);
+			mTexWidth = texW;
+			mTexHeight = texH;
+		}
+
+#if defined(PVZ_ENABLE_DUALCORE)
+		// Dual-core accelerated downscale (800x600 -> 640x480 RGB565)
+		if (texW == 640 && texH == 480 && mWidth == 800 && mHeight == 600)
+		{
+			// 1. Dispatch Frame N 5:4 bilinear downscale to Core 1:
+			ComputeWorker::DispatchTask(WORKER_TASK_DOWNSCALE, mScreenImage->GetBits(), gStagingFb, 800, 600);
+
+			// 2. Await downscale completion on Core 1 before presenting:
+			ComputeWorker::WaitForTask();
+#ifdef PVZ_RG35XX
+            // The scaled RGB565 frame is already final during lawn gameplay.
+            // Skip texture upload, SDL format conversions, renderer copy and readback.
+            if (!SexyAppBase::sShowVirtualCursor && mApp && mApp->GetDialogCount()==0) {
+                Rg35xxPresentPixels(gStagingFb);
+                return;
+            }
+#endif
+
+
+			// 3. Present Frame N immediately on Core 0 (zero inter-frame lag, zero dirty-rect flicker):
+			SDL_UpdateTexture(tex, nullptr, gStagingFb, 640 * sizeof(uint16_t));
+			if (texW < 640 || texH < 480)
+			{
+				SDL_RenderClear(ren);
+			}
+			SDL_RenderCopy(ren, tex, nullptr, nullptr);
+
+			// Render virtual cursor overlay for handheld navigation (menus, dialogs, etc.)
+			if (SexyAppBase::sShowVirtualCursor || (mApp && mApp->GetDialogCount() > 0))
+			{
+				int cx = (int)(SexyAppBase::sVirtualCursorX * 640.0f / 800.0f);
+				int cy = (int)(SexyAppBase::sVirtualCursorY * 480.0f / 600.0f);
+
+				if (!sVirtualCursorTex)
+				{
+					SDL_Surface* cursorSurf = SDL_CreateRGBSurfaceWithFormatFrom(
+						(void*)sCursorPixels, sCursorW, sCursorH, 32, sCursorW * sizeof(uint32_t), SDL_PIXELFORMAT_ARGB8888);
+					if (cursorSurf)
+					{
+						sVirtualCursorTex = SDL_CreateTextureFromSurface(ren, cursorSurf);
+						SDL_FreeSurface(cursorSurf);
+					}
+				}
+
+				if (sVirtualCursorTex)
+				{
+					SDL_Rect dstRect;
+					dstRect.x = cx - sCursorHotspotX;
+					dstRect.y = cy - sCursorHotspotY;
+					dstRect.w = sCursorW;
+					dstRect.h = sCursorH;
+					SDL_RenderCopy(ren, sVirtualCursorTex, nullptr, &dstRect);
+				}
+			}
+
+			Rg35xxPresent(ren);
+			return;
+		}
+#endif
+
+		void* texPixels = nullptr;
+		int texPitch = 0;
+		if (SDL_LockTexture(tex, nullptr, &texPixels, &texPitch) == 0)
+		{
+			const uint32_t* srcBits = mScreenImage->GetBits();
+			uint8_t* dstRow = (uint8_t*)texPixels;
+
+			if (texW == mWidth && texH == mHeight)
+			{
+				if (mIs16BitMode)
+				{
+					if (texPitch == (int)(mWidth * sizeof(uint16_t)))
+					{
+						PvZ::Graphics::NeonBlit_RGB565_From_ARGB((uint16_t*)texPixels, srcBits, mWidth * mHeight);
+					}
+					else
+					{
+						for (int y = 0; y < mHeight; ++y)
+						{
+							PvZ::Graphics::NeonBlit_RGB565_From_ARGB((uint16_t*)dstRow, srcBits + (y * mWidth), mWidth);
+							dstRow += texPitch;
+						}
+					}
+				}
+				else
+				{
+					if (texPitch == (int)(mWidth * sizeof(uint32_t)))
+					{
+						memcpy(texPixels, srcBits, mWidth * mHeight * sizeof(uint32_t));
+					}
+					else
+					{
+						for (int y = 0; y < mHeight; ++y)
+						{
+							memcpy(dstRow, srcBits + (y * mWidth), mWidth * sizeof(uint32_t));
+							dstRow += texPitch;
+						}
+					}
+				}
+			}
+			else if (texW == 640 && texH == 480 && mWidth == 800 && mHeight == 600)
+			{
+				static bool sSmoothScale = true;
+				static bool sSmoothScaleInit = false;
+				if (!sSmoothScaleInit)
+				{
+					const char* env = getenv("PVZ_SMOOTH_SCALE");
+					if (env && (strcmp(env, "0") == 0 || strcmp(env, "off") == 0 || strcmp(env, "false") == 0))
+						sSmoothScale = false;
+					else if (env && (strcmp(env, "1") == 0 || strcmp(env, "on") == 0 || strcmp(env, "true") == 0))
+						sSmoothScale = true;
+					sSmoothScaleInit = true;
+				}
+
+				static int sScaleX[640];
+				static bool sScaleXInit = false;
+				if (!sScaleXInit)
+				{
+					for (int x = 0; x < 640; ++x)
+						sScaleX[x] = (x * 5) / 4;
+					sScaleXInit = true;
+				}
+
+				if (sSmoothScale)
+				{
+					// Option A: Fused 1-pass edge-smoothing downscaler (800x600 -> 640x480)
+					if (mIs16BitMode)
+					{
+						if (texPitch == (int)(640 * sizeof(uint16_t)))
+						{
+							NeonBilinearDownscale5to4_RGB565(srcBits, (uint16_t*)dstRow, 800, 600, 640, 480);
+							dstRow += 480 * texPitch;
+						}
+						else
+						{
+							uint32_t rowTemp[640];
+							for (int block = 0; block < 120; ++block)
+							{
+								int sy = block * 5;
+								if (block + 1 < 120)
+								{
+									__builtin_prefetch(srcBits + (sy + 5) * 800, 0, 0);
+									__builtin_prefetch(dstRow + 4 * texPitch, 1, 0);
+								}
+
+								DownscaleRow800To640(srcBits + (sy + 0) * 800, rowTemp);
+								PvZ::Graphics::NeonBlit_RGB565_From_ARGB((uint16_t*)(dstRow + 0 * texPitch), rowTemp, 640);
+
+								DownscaleRow800To640(srcBits + (sy + 1) * 800, rowTemp);
+								PvZ::Graphics::NeonBlit_RGB565_From_ARGB((uint16_t*)(dstRow + 1 * texPitch), rowTemp, 640);
+
+								DownscaleRow800To640(srcBits + (sy + 2) * 800, rowTemp);
+								PvZ::Graphics::NeonBlit_RGB565_From_ARGB((uint16_t*)(dstRow + 2 * texPitch), rowTemp, 640);
+
+								AverageAndDownscaleRow800To640(srcBits + (sy + 3) * 800, srcBits + (sy + 4) * 800, rowTemp);
+								PvZ::Graphics::NeonBlit_RGB565_From_ARGB((uint16_t*)(dstRow + 3 * texPitch), rowTemp, 640);
+
+								dstRow += 4 * texPitch;
+							}
+						}
+					}
+					else
+					{
+						for (int block = 0; block < 120; ++block)
+						{
+							int sy = block * 5;
+							if (block + 1 < 120)
+							{
+								__builtin_prefetch(srcBits + (sy + 5) * 800, 0, 0);
+								__builtin_prefetch(dstRow + 4 * texPitch, 1, 0);
+							}
+
+							DownscaleRow800To640(srcBits + (sy + 0) * 800, (uint32_t*)(dstRow + 0 * texPitch));
+							DownscaleRow800To640(srcBits + (sy + 1) * 800, (uint32_t*)(dstRow + 1 * texPitch));
+							DownscaleRow800To640(srcBits + (sy + 2) * 800, (uint32_t*)(dstRow + 2 * texPitch));
+
+							AverageAndDownscaleRow800To640(srcBits + (sy + 3) * 800, srcBits + (sy + 4) * 800, (uint32_t*)(dstRow + 3 * texPitch));
+
+							dstRow += 4 * texPitch;
+						}
+					}
+				}
+				else
+				{
+					if (mIs16BitMode)
+					{
+						for (int dy = 0; dy < 480; ++dy)
+						{
+							int sy = (dy * 5) / 4;
+							const uint32_t* srcRow = srcBits + (sy * 800);
+							uint16_t* dst16 = (uint16_t*)dstRow;
+
+							for (int dx = 0; dx < 640; dx += 4)
+							{
+								for (int k = 0; k < 4; ++k)
+								{
+									uint32_t px = srcRow[sScaleX[dx + k]];
+									uint8_t r = static_cast<uint8_t>((px >> 16) & 0xFF);
+									uint8_t g = static_cast<uint8_t>((px >> 8) & 0xFF);
+									uint8_t b = static_cast<uint8_t>(px & 0xFF);
+									dst16[dx + k] = static_cast<uint16_t>(((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3));
+								}
+							}
+							dstRow += texPitch;
+						}
+					}
+					else
+					{
+						for (int dy = 0; dy < 480; ++dy)
+						{
+							int sy = (dy * 5) / 4;
+							const uint32_t* srcRow = srcBits + (sy * 800);
+							uint32_t* dst = (uint32_t*)dstRow;
+
+							for (int dx = 0; dx < 640; dx += 4)
+							{
+								dst[dx + 0] = srcRow[sScaleX[dx + 0]];
+								dst[dx + 1] = srcRow[sScaleX[dx + 1]];
+								dst[dx + 2] = srcRow[sScaleX[dx + 2]];
+								dst[dx + 3] = srcRow[sScaleX[dx + 3]];
+							}
+							dstRow += texPitch;
+						}
+					}
+				}
+			}
+			else if (texW > 0 && texH > 0)
+			{
+				if (mIs16BitMode)
+				{
+					for (int dy = 0; dy < texH; ++dy)
+					{
+						int sy = (dy * mHeight) / texH;
+						const uint32_t* srcRow = srcBits + (sy * mWidth);
+						uint16_t* dst16 = (uint16_t*)dstRow;
+						for (int dx = 0; dx < texW; ++dx)
+						{
+							int sx = (dx * mWidth) / texW;
+							uint32_t px = srcRow[sx];
+							uint8_t r = static_cast<uint8_t>((px >> 16) & 0xFF);
+							uint8_t g = static_cast<uint8_t>((px >> 8) & 0xFF);
+							uint8_t b = static_cast<uint8_t>(px & 0xFF);
+							dst16[dx] = static_cast<uint16_t>(((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3));
+						}
+						dstRow += texPitch;
+					}
+				}
+				else
+				{
+					for (int dy = 0; dy < texH; ++dy)
+					{
+						int sy = (dy * mHeight) / texH;
+						const uint32_t* srcRow = srcBits + (sy * mWidth);
+						uint32_t* dst = (uint32_t*)dstRow;
+						for (int dx = 0; dx < texW; ++dx)
+						{
+							int sx = (dx * mWidth) / texW;
+							dst[dx] = srcRow[sx];
+						}
+						dstRow += texPitch;
+					}
+				}
+			}
+			SDL_UnlockTexture(tex);
+		}
+		else if (texW == mWidth && texH == mHeight)
+		{
+			if (mIs16BitMode)
+			{
+				std::vector<uint16_t> buf16(mWidth * mHeight);
+				PvZ::Graphics::NeonBlit_RGB565_From_ARGB(buf16.data(), mScreenImage->GetBits(), mWidth * mHeight);
+				SDL_UpdateTexture(tex, nullptr, buf16.data(), mWidth * sizeof(uint16_t));
+			}
+			else
+			{
+				SDL_UpdateTexture(tex, nullptr, mScreenImage->GetBits(), mWidth * sizeof(uint32_t));
+			}
+		}
+		// If streaming texture is opaque (BLENDMODE_NONE) and covers the full presentation rect (e.g. 640x480 on Miyoo),
+		// SDL_RenderClear is redundant and wastes a full 1.23 MB DRAM memset per frame (~74 MB/s bandwidth).
+		// Only clear when letterboxed or partially sized.
+		if (texW < 640 || texH < 480)
+		{
+			SDL_RenderClear(ren);
+		}
+		SDL_RenderCopy(ren, tex, nullptr, nullptr);
+
+		// Render virtual cursor overlay for handheld navigation (menus, dialogs, etc.)
+		if (SexyAppBase::sShowVirtualCursor || (mApp && mApp->GetDialogCount() > 0))
+		{
+			int cx = (int)(SexyAppBase::sVirtualCursorX * 640.0f / 800.0f);
+			int cy = (int)(SexyAppBase::sVirtualCursorY * 480.0f / 600.0f);
+
+			if (!sVirtualCursorTex)
+			{
+				SDL_Surface* cursorSurf = SDL_CreateRGBSurfaceWithFormatFrom(
+					(void*)sCursorPixels, sCursorW, sCursorH, 32, sCursorW * sizeof(uint32_t), SDL_PIXELFORMAT_ARGB8888);
+				if (cursorSurf)
+				{
+					sVirtualCursorTex = SDL_CreateTextureFromSurface(ren, cursorSurf);
+					SDL_FreeSurface(cursorSurf);
+				}
+			}
+
+			if (sVirtualCursorTex)
+			{
+				SDL_Rect dstRect;
+				dstRect.x = cx - sCursorHotspotX;
+				dstRect.y = cy - sCursorHotspotY;
+				dstRect.w = sCursorW;
+				dstRect.h = sCursorH;
+				SDL_RenderCopy(ren, sVirtualCursorTex, nullptr, &dstRect);
+			}
+		}
+
+		Rg35xxPresent(ren);
+	}
+#else
+	gNumVertices = 0;
+#ifdef __SWITCH__
+	eglSwapBuffers(mApp->mWindow, mApp->mSurface);
+#else
+	SDL_GL_SwapWindow((SDL_Window*)mApp->mWindow);
+#endif
+#ifndef __EMSCRIPTEN__
+	// Clear back buffer after swap (content undefined)
+	glClear(GL_COLOR_BUFFER_BIT);
+#endif // Emscripten: browser composites after rAF, no clear needed
+#endif
+}
+
+bool GLInterface::CreateImageTexture(MemoryImage *theImage)
+{
+#if !PVZ_ENABLE_GLES
+	return false;
+#else
+	if (theImage->mRenderData == nullptr)
+	{
+		theImage->mRenderData = new TextureData();
+		std::scoped_lock lk(mCritSect);
+		mImageSet.insert(theImage);
+	}
+
+	TextureData *data = theImage->mRenderData;
+	data->CheckCreateTextures(theImage);
+
+	return data->mPixelFormat != PixelFormat_Unknown;
+#endif
+}
+
+bool GLInterface::RecoverBits(MemoryImage* theImage)
+{
+#if !PVZ_ENABLE_GLES
+	return false;
+#else
+	GfxInvalidateTextureCache();
+	if (!theImage->mRenderData) return false;
+
+	TextureData* data = theImage->mRenderData;
+	if (data->mBitsChangedCount != theImage->mBitsChangedCount) return false;
+	if (data->mPixelFormat != PixelFormat_A8R8G8B8 && !theImage->mFilePath.empty()) return false;
+
+	for (int row = 0; row < data->mTexVecHeight; row++)
+	{
+		for (int col = 0; col < data->mTexVecWidth; col++)
+		{
+			TextureDataPiece &piece = data->mTextures[row * data->mTexVecWidth + col];
+			int offx = col * data->mTexPieceWidth;
+			int offy = row * data->mTexPieceHeight;
+			int w = std::min(theImage->mWidth  - offx, piece.mWidth);
+			int h = std::min(theImage->mHeight - offy, piece.mHeight);
+
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, piece.mTexture);
+
+			// FBO readback (ES 2.0 has no glGetTexImage)
+			GLuint fbo;
+			glGenFramebuffers(1, &fbo);
+			glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, piece.mTexture, 0);
+
+			if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+			{
+				glBindFramebuffer(GL_FRAMEBUFFER, 0);
+				glDeleteFramebuffers(1, &fbo);
+				return false;
+			}
+
+			std::vector<uint32_t> buf(w * h);
+			glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, buf.data());
+
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			glDeleteFramebuffers(1, &fbo);
+
+			uint32_t* dst = theImage->GetBits() + offy * theImage->GetWidth() + offx;
+			const uint32_t* src = buf.data();
+			for (int r = 0; r < h; r++)
+			{
+				for (int c = 0; c < w; c++)
+					dst[c] = RgbaToArgb(src[c]);
+				src += w;
+				dst += theImage->GetWidth();
+			}
+		}
+	}
+	return true;
+#endif
+}
+
+void GLInterface::PushTransform(const SexyMatrix3 &theTransform, bool concatenate)
+{
+	if (mTransformStack.empty() || !concatenate)
+		mTransformStack.push_back(theTransform);
+	else
+		mTransformStack.push_back(theTransform * mTransformStack.back());
+}
+
+void GLInterface::PopTransform()
+{
+	if (!mTransformStack.empty())
+		mTransformStack.pop_back();
+}
+
+#if PVZ_ENABLE_GLES
+
+void GLInterface::Blt(Image* theImage, float theX, float theY,
+	const Rect& theSrcRect, const Color& theColor, int theDrawMode, bool linearFilter)
+{
+	if (!mTransformStack.empty())
+	{
+		BltClipF(theImage, theX, theY, theSrcRect, nullptr, theColor, theDrawMode, linearFilter);
+		return;
+	}
+	if (!PreDraw()) return;
+
+	MemoryImage* mem = (MemoryImage*)theImage;
+	if (!CreateImageTexture(mem)) return;
+
+	SetDrawMode(theDrawMode);
+	SetLinearFilter(linearFilter);
+	mem->mRenderData->Blt(theX, theY, theSrcRect, theColor);
+}
+
+void GLInterface::BltClipF(Image* theImage, float theX, float theY,
+	const Rect& theSrcRect, const Rect *theClipRect, const Color& theColor, int theDrawMode, bool linearFilter)
+{
+	SexyTransform2D t;
+	t.Translate(theX, theY);
+	BltTransformed(theImage, theClipRect, theColor, theDrawMode, theSrcRect, t, linearFilter);
+}
+
+void GLInterface::BltMirror(Image* theImage, float theX, float theY,
+	const Rect& theSrcRect, const Color& theColor, int theDrawMode, bool linearFilter)
+{
+	SexyTransform2D t;
+	t.Translate(-theSrcRect.mWidth, 0);
+	t.Scale(-1, 1);
+	t.Translate(theX, theY);
+	BltTransformed(theImage, nullptr, theColor, theDrawMode, theSrcRect, t, linearFilter);
+}
+
+void GLInterface::StretchBlt(Image* theImage, const Rect& theDestRect,
+	const Rect& theSrcRect, const Rect* theClipRect, const Color &theColor,
+	int theDrawMode, bool fastStretch, bool mirror)
+{
+	float xs = (float)theDestRect.mWidth  / theSrcRect.mWidth;
+	float ys = (float)theDestRect.mHeight / theSrcRect.mHeight;
+
+	SexyTransform2D t;
+	if (mirror)
+	{
+		t.Translate(-theSrcRect.mWidth, 0);
+		t.Scale(-xs, ys);
+	}
+	else
+		t.Scale(xs, ys);
+
+	t.Translate(theDestRect.mX, theDestRect.mY);
+	BltTransformed(theImage, theClipRect, theColor, theDrawMode, theSrcRect, t, !fastStretch);
+}
+
+void GLInterface::BltRotated(Image* theImage, float theX, float theY,
+	const Rect* theClipRect, const Color& theColor, int theDrawMode,
+	double theRot, float theRotCenterX, float theRotCenterY, const Rect& theSrcRect)
+{
+	SexyTransform2D t;
+	t.Translate(-theRotCenterX, -theRotCenterY);
+	t.RotateRad(theRot);
+	t.Translate(theX + theRotCenterX, theY + theRotCenterY);
+	BltTransformed(theImage, theClipRect, theColor, theDrawMode, theSrcRect, t, true);
+}
+
+void GLInterface::BltTransformed(Image* theImage, const Rect* theClipRect,
+	const Color& theColor, int theDrawMode, const Rect &theSrcRect,
+	const SexyMatrix3 &theTransform, bool linearFilter, float theX, float theY, bool center)
+{
+	if (!PreDraw()) return;
+
+	MemoryImage* mem = (MemoryImage*)theImage;
+	if (!CreateImageTexture(mem)) return;
+
+	SetDrawMode(theDrawMode);
+	SetLinearFilter(linearFilter);
+	TextureData *data = mem->mRenderData;
+
+	if (!mTransformStack.empty())
+	{
+		if (theX != 0 || theY != 0)
+		{
+			SexyTransform2D t;
+			if (center) t.Translate(-theSrcRect.mWidth / 2.0f, -theSrcRect.mHeight / 2.0f);
+			t = theTransform * t;
+			t.Translate(theX, theY);
+			t = mTransformStack.back() * t;
+			data->BltTransformed(t, theSrcRect, theColor, theClipRect);
+		}
+		else
+		{
+			SexyTransform2D t = mTransformStack.back() * theTransform;
+			data->BltTransformed(t, theSrcRect, theColor, theClipRect, theX, theY, center);
+		}
+	}
+	else
+	{
+		data->BltTransformed(theTransform, theSrcRect, theColor, theClipRect, theX, theY, center);
+	}
+}
+
+void GLInterface::DrawLine(double x1, double y1, double x2, double y2,
+	const Color& theColor, int theDrawMode)
+{
+	if (!PreDraw()) return;
+	SetDrawMode(theDrawMode);
+
+	float fx1 = x1, fy1 = y1, fx2 = x2, fy2 = y2;
+	if (!mTransformStack.empty())
+	{
+		SexyVector2 p1(x1, y1), p2(x2, y2);
+		p1 = mTransformStack.back() * p1;
+		p2 = mTransformStack.back() * p2;
+		fx1 = p1.x; fy1 = p1.y; fx2 = p2.x; fy2 = p2.y;
+	}
+
+	glUniform1i(gUfUseTexture, 0);
+	uint32_t c = theColor.ToGLColor();
+	GLVertex v[3] = {
+		{ fx1, fy1, 0, c, 0, 0 },
+		{ fx2, fy2, 0, c, 0, 0 },
+		{ fx2 + 0.5f, fy2 + 0.5f, 0, c, 0, 0 },
+	};
+	GfxBegin(GL_LINE_STRIP);
+	GfxAddVertices(v, 3);
+	GfxEnd();
+}
+
+void GLInterface::FillRect(const Rect& theRect, const Color& theColor, int theDrawMode)
+{
+	if (!PreDraw()) return;
+	SetDrawMode(theDrawMode);
+
+	float x = theRect.mX, y = theRect.mY;
+	float w = theRect.mWidth,     h = theRect.mHeight;
+	uint32_t c = theColor.ToGLColor();
+
+	GLVertex v[4] = {
+		{ x,     y,     0, c, 0, 0 },
+		{ x,     y + h, 0, c, 0, 0 },
+		{ x + w, y,     0, c, 0, 0 },
+		{ x + w, y + h, 0, c, 0, 0 },
+	};
+
+	if (!mTransformStack.empty())
+	{
+		SexyVector2 p[4] = { {x, y}, {x, y+h}, {x+w, y}, {x+w, y+h} };
+		for (int i = 0; i < 4; i++)
+		{
+			p[i] = mTransformStack.back() * p[i];
+			v[i].sx = p[i].x;
+			v[i].sy = p[i].y;
+		}
+	}
+
+	glUniform1i(gUfUseTexture, 0);
+	GfxBegin(GL_TRIANGLE_STRIP);
+	GfxAddVertices(v, 4);
+	GfxEnd();
+}
+
+void GLInterface::DrawTriangle(const TriVertex &p1, const TriVertex &p2, const TriVertex &p3,
+	const Color &theColor, int theDrawMode)
+{
+	if (!PreDraw()) return;
+	SetDrawMode(theDrawMode);
+
+	uint32_t c = theColor.ToGLColor();
+	glUniform1i(gUfUseTexture, 0);
+
+	GLVertex v[3] = {
+		{ p1.x, p1.y, 0, GetColorFromTriVertex(p1, c), 0, 0 },
+		{ p2.x, p2.y, 0, GetColorFromTriVertex(p2, c), 0, 0 },
+		{ p3.x, p3.y, 0, GetColorFromTriVertex(p3, c), 0, 0 },
+	};
+	GfxBegin(GL_TRIANGLE_STRIP);
+	GfxAddVertices(v, 3);
+	GfxEnd();
+}
+
+void GLInterface::DrawTriangleTex(const TriVertex &p1, const TriVertex &p2, const TriVertex &p3,
+	const Color &theColor, int theDrawMode, Image *theTexture, bool blend)
+{
+	TriVertex arr[1][3] = { {p1, p2, p3} };
+	DrawTrianglesTex(arr, 1, theColor, theDrawMode, theTexture, blend);
+}
+
+void GLInterface::DrawTrianglesTex(const TriVertex theVertices[][3], int theNumTriangles,
+	const Color &theColor, int theDrawMode, Image *theTexture, float tx, float ty, bool blend)
+{
+	if (!PreDraw()) return;
+
+	MemoryImage* mem = (MemoryImage*)theTexture;
+	if (!CreateImageTexture(mem)) return;
+
+	SetDrawMode(theDrawMode);
+	SetLinearFilter(blend);
+
+	uint32_t c = theColor.ToGLColor();
+	bool clampUv = (mem->mRenderFlags & RenderImageFlag_Repeat) == 0;
+	mem->mRenderData->BltTriangles(theVertices, theNumTriangles, c, tx, ty, clampUv);
+}
+
+void GLInterface::DrawTrianglesTexMixed(const TriVertex theVertices[][3], int theNumTriangles,
+	const Color &theColor, Image *theTexture, const uint8_t* theDrawModes, float tx, float ty, bool blend)
+{
+	if (!PreDraw()) return;
+
+	MemoryImage* mem = (MemoryImage*)theTexture;
+	if (!CreateImageTexture(mem)) return;
+
+	SetMixedBlendMode(true);
+	SetBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+	SetLinearFilter(blend);
+
+	uint32_t c = theColor.ToGLColor();
+	bool clampUv = (mem->mRenderFlags & RenderImageFlag_Repeat) == 0;
+	mem->mRenderData->BltTriangles(theVertices, theNumTriangles, c, tx, ty, clampUv, theDrawModes);
+
+	SetMixedBlendMode(false);
+	SetBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+}
+
+void GLInterface::DrawTrianglesTexStrip(const TriVertex theVertices[], int theNumTriangles,
+	const Color &theColor, int theDrawMode, Image *theTexture, float tx, float ty, bool blend)
+{
+	TriVertex batch[100][3];
+	int done = 0;
+	while (done < theNumTriangles)
+	{
+		int n = std::min(100, theNumTriangles - done);
+		for (int i = 0; i < n; i++)
+		{
+			batch[i][0] = theVertices[done];
+			batch[i][1] = theVertices[done + 1];
+			batch[i][2] = theVertices[done + 2];
+			done++;
+		}
+		DrawTrianglesTex(batch, n, theColor, theDrawMode, theTexture, tx, ty, blend);
+	}
+}
+
+void GLInterface::FillPoly(const Point theVertices[], int theNumVertices,
+	const Rect *theClipRect, const Color &theColor, int theDrawMode, int tx, int ty)
+{
+	if (theNumVertices < 3) return;
+	if (!PreDraw()) return;
+	SetDrawMode(theDrawMode);
+
+	uint32_t c = theColor.ToGLColor();
+	glUniform1i(gUfUseTexture, 0);
+
+	VertexList vl;
+	for (int i = 0; i < theNumVertices; i++)
+	{
+		GLVertex v = { theVertices[i].mX + (float)tx, theVertices[i].mY + (float)ty, 0, c, 0, 0 };
+		if (!mTransformStack.empty())
+		{
+			SexyVector2 p(v.sx, v.sy);
+			p = mTransformStack.back() * p;
+			v.sx = p.x; v.sy = p.y;
+		}
+		vl.push_back(v);
+	}
+
+	if (theClipRect)
+		DrawPolyClipped(theClipRect, vl);
+	else
+	{
+		GfxBegin(GL_TRIANGLE_FAN);
+		GfxAddVertices(vl);
+		GfxEnd();
+	}
+}
+
+#else // !PVZ_ENABLE_GLES
+
+void GLInterface::Blt(Image*, float, float, const Rect&, const Color&, int, bool) {}
+void GLInterface::BltClipF(Image*, float, float, const Rect&, const Rect *, const Color&, int, bool) {}
+void GLInterface::BltMirror(Image*, float, float, const Rect&, const Color&, int, bool) {}
+void GLInterface::StretchBlt(Image*, const Rect&, const Rect&, const Rect*, const Color &, int, bool, bool) {}
+void GLInterface::BltRotated(Image*, float, float, const Rect*, const Color&, int, double, float, float, const Rect&) {}
+void GLInterface::BltTransformed(Image*, const Rect*, const Color&, int, const Rect &, const SexyMatrix3 &, bool, float, float, bool) {}
+void GLInterface::DrawLine(double, double, double, double, const Color&, int) {}
+void GLInterface::FillRect(const Rect&, const Color&, int) {}
+void GLInterface::DrawTriangle(const TriVertex &, const TriVertex &, const TriVertex &, const Color &, int) {}
+void GLInterface::DrawTriangleTex(const TriVertex &, const TriVertex &, const TriVertex &, const Color &, int, Image *, bool) {}
+void GLInterface::DrawTrianglesTex(const TriVertex [][3], int, const Color &, int, Image *, float, float, bool) {}
+void GLInterface::DrawTrianglesTexMixed(const TriVertex [][3], int, const Color &, Image *, const uint8_t*, float, float, bool) {}
+void GLInterface::DrawTrianglesTexStrip(const TriVertex [], int, const Color &, int, Image *, float, float, bool) {}
+void GLInterface::FillPoly(const Point [], int, const Rect *, const Color &, int, int, int) {}
+
+#endif // !PVZ_ENABLE_GLES

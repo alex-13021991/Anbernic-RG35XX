@@ -1,0 +1,75 @@
+PASS: upstream snapshot + patches equals full release source
+PASS: launcher default 640, all five supported widths, CRLF, invalid and missing configuration
+link exit 0
+=== test_input_mapping ===
+==================================================
+ Running PvZ Handheld Input Mapping Tests
+==================================================
+[TEST] Running test_menu_key_translation...
+  -> PASS: Physical Menu keys (SDLK_HOME / SDLK_RALT) map to KEYCODE_ESCAPE and trigger escape callback
+[TEST] Running test_lawn_grid_snapping...
+  -> PASS: 9x5 Lawn Grid increments discretely cell-by-cell within (0..8, 0..4)
+[TEST] Running test_sun_coin_hover_auto_collect...
+  -> PASS: Cursor hover overlap auto-collects suns and coins without button presses (including stationary real-time Update)
+[TEST] Running test_seed_packet_cycling_and_actions...
+  -> PASS: L/R cycles seed packets cyclically, A plants, B cancels, X toggles shovel
+[TEST] Running test_crazy_dave_shop_navigation...
+  -> PASS: Crazy Dave Shop list navigation (Up/Down/Left/Right/A/B) verified
+[TEST] Running test_contextual_smooth_cursor_and_velocity_curves...
+  -> PASS: Virtual cursor progressive acceleration curve, velocity, and reversal verified
+[TEST] Running test_sdl_event_handling_integration...
+  -> PASS: SDL_Event integration handles Miyoo physical mapping and PopCap translation
+==================================================
+ ALL HANDHELD INPUT TESTS PASSED!
+==================================================
+=== test_viewport_scale ===
+==================================================
+ Running PvZ Viewport Scaling & Software Rasterizer Tests
+==================================================
+[TEST] Running test_quad_coordinate_mapping (400, 300, 100, 100)...
+  -> PASS: Logical (400, 300, 100, 100) exactly maps to Physical (320, 240, 80, 80)
+[TEST] Running test_point_transformations...
+  -> PASS: Forward and inverse point transformations verified
+[TEST] Running test_bounding_rectangles_and_clipping...
+  -> PASS: Bounding rectangle visibility and screen boundary clipping verified
+[TEST] Running test_affine_matrix_multiplication...
+  -> PASS: Affine matrix composition matches Reanim bone hierarchy under 0.8x projection
+[TEST] Running test_neon_and_scalar_blitting...
+  Hardware NEON available: YES
+  -> PASS: Alpha blend and additive saturation verified across 8-pixel SIMD vectors
+[TEST] Running test_dma_texture_pool...
+  -> PASS: DMA Texture Pool successfully manages 16 MB with 64-byte cache alignment
+[TEST] Running test_software_renderer_e2e...
+  -> PASS: End-to-end software renderer renders accurately onto 640x480 surface
+==================================================
+ ALL VIEWPORT SCALING & RASTERIZER TESTS PASSED!
+==================================================
+=== test_setup_conversion ===
+==================================================
+ Running PvZ Setup Conversion Unit Tests
+==================================================
+[TEST] Running test_image_downscale_png...
+  -> PASS: 100x100 downscaled to 80x80
+[TEST] Running test_audio_downsample_wav...
+  -> PASS: 44.1kHz stereo converted to 22.05kHz mono
+[TEST] Running test_pak_streaming_conversion_and_peak_memory...
+  Peak conversion memory: 47 KB
+  -> PASS: Streaming PAK converted successfully within RAM budget
+[TEST] Running test_finalize_transaction...
+  -> PASS: Transactional swap and marker touched successfully
+[TEST] Running test_fb_progress_console_fallback...
+[SETUP] Notice: /dev/fb0 unavailable (using console output mode)
+[Miyoo Setup  25%] Testing 25%[Miyoo Setup  75%] Testing 75%[Miyoo Setup 100%] Testing Done
+  -> PASS: Framebuffer fallback works cleanly
+==================================================
+ ALL UNIT TESTS PASSED SUCCESSFULLY!
+==================================================
+=== test-lowres ===
+construct app
+construct screen
+base ready
+screen ready
+source
+matrix
+rotated
+PASS: low-resolution logical bounds, raster bounds, rectangles, sprites, mirrors, matrix, rotation and clearing

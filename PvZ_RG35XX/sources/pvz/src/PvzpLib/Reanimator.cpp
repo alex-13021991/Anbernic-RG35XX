@@ -1,0 +1,2033 @@
+/*
+ * Copyright (C) 2026 Zhou Qiankang <wszqkzqk@qq.com>
+ *
+ * SPDX-License-Identifier: LGPL-3.0-or-later
+ *
+ * This file is part of PvZ-Portable.
+ *
+ * PvZ-Portable is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * PvZ-Portable is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with PvZ-Portable. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+#include "PvzpDebug.h"
+#include "PvzpCommon.h"
+#include "Definition.h"
+#include "Reanimator.h"
+#include "ReanimRigEvaluator.h"
+#include "Attachment.h"
+#include "SexyAppBase.h"
+#include "../LawnApp.h"
+#include "../Lawn/Board.h"
+#include "ReanimAtlas.h"
+#include "EffectSystem.h"
+#include "../GameConstants.h"
+#include "graphics/Font.h"
+#include "misc/PerfTimer.h"
+#include "graphics/MemoryImage.h"
+#include <algorithm>
+#include <format>
+
+constexpr const int NO_BASE_POSE = -2;
+
+unsigned int gReanimatorDefCount;
+std::unique_ptr<ReanimatorDefinition[]> gReanimatorDefArray;
+unsigned int gReanimationParamArraySize;
+const ReanimationParams* gReanimationParamArray;
+
+constinit const ReanimationParams gLawnReanimationArray[ReanimationType::NUM_REANIMS] = {
+	{ .mReanimationType = ReanimationType::REANIM_LOADBAR_SPROUT, .mReanimFileName = "reanim/LoadBar_sprout.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_LOADBAR_ZOMBIEHEAD, .mReanimFileName = "reanim/LoadBar_Zombiehead.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_SODROLL, .mReanimFileName = "reanim/SodRoll.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_FINAL_WAVE, .mReanimFileName = "reanim/FinalWave.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_PEASHOOTER, .mReanimFileName = "reanim/PeaShooterSingle.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_WALLNUT, .mReanimFileName = "reanim/Wallnut.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_LILYPAD, .mReanimFileName = "reanim/Lilypad.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_SUNFLOWER, .mReanimFileName = "reanim/SunFlower.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_LAWNMOWER, .mReanimFileName = "reanim/LawnMower.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_READYSETPLANT, .mReanimFileName = "reanim/StartReadySetPlant.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_CHERRYBOMB, .mReanimFileName = "reanim/CherryBomb.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_SQUASH, .mReanimFileName = "reanim/Squash.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_DOOMSHROOM, .mReanimFileName = "reanim/DoomShroom.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_SNOWPEA, .mReanimFileName = "reanim/SnowPea.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_REPEATER, .mReanimFileName = "reanim/PeaShooter.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_SUNSHROOM, .mReanimFileName = "reanim/SunShroom.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_TALLNUT, .mReanimFileName = "reanim/Tallnut.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_FUMESHROOM, .mReanimFileName = "reanim/Fumeshroom.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_PUFFSHROOM, .mReanimFileName = "reanim/Puffshroom.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_HYPNOSHROOM, .mReanimFileName = "reanim/Hypnoshroom.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_CHOMPER, .mReanimFileName = "reanim/Chomper.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_ZOMBIE, .mReanimFileName = "reanim/Zombie.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_SUN, .mReanimFileName = "reanim/Sun.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_POTATOMINE, .mReanimFileName = "reanim/PotatoMine.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_SPIKEWEED, .mReanimFileName = "reanim/Caltrop.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_SPIKEROCK, .mReanimFileName = "reanim/SpikeRock.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_THREEPEATER, .mReanimFileName = "reanim/ThreePeater.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_MARIGOLD, .mReanimFileName = "reanim/Marigold.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_ICESHROOM, .mReanimFileName = "reanim/IceShroom.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_ZOMBIE_FOOTBALL, .mReanimFileName = "reanim/Zombie_football.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_ZOMBIE_NEWSPAPER, .mReanimFileName = "reanim/Zombie_paper.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_ZOMBIE_ZAMBONI, .mReanimFileName = "reanim/Zombie_zamboni.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_SPLASH, .mReanimFileName = "reanim/splash.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_JALAPENO, .mReanimFileName = "reanim/Jalapeno.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_JALAPENO_FIRE, .mReanimFileName = "reanim/fire.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_COIN_SILVER, .mReanimFileName = "reanim/Coin_silver.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_ZOMBIE_CHARRED, .mReanimFileName = "reanim/Zombie_charred.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_ZOMBIE_CHARRED_IMP, .mReanimFileName = "reanim/Zombie_charred_imp.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_ZOMBIE_CHARRED_DIGGER, .mReanimFileName = "reanim/Zombie_charred_digger.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_ZOMBIE_CHARRED_ZAMBONI, .mReanimFileName = "reanim/Zombie_charred_zamboni.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_ZOMBIE_CHARRED_CATAPULT, .mReanimFileName = "reanim/Zombie_charred_catapult.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_ZOMBIE_CHARRED_GARGANTUAR, .mReanimFileName = "reanim/Zombie_charred_gargantuar.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_SCRAREYSHROOM, .mReanimFileName = "reanim/ScaredyShroom.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_PUMPKIN, .mReanimFileName = "reanim/Pumpkin.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_PLANTERN, .mReanimFileName = "reanim/Plantern.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_TORCHWOOD, .mReanimFileName = "reanim/Torchwood.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_SPLITPEA, .mReanimFileName = "reanim/SplitPea.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_SEASHROOM, .mReanimFileName = "reanim/SeaShroom.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_BLOVER, .mReanimFileName = "reanim/Blover.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_FLOWER_POT, .mReanimFileName = "reanim/Pot.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_CACTUS, .mReanimFileName = "reanim/Cactus.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_DANCER, .mReanimFileName = "reanim/Zombie_disco.reanim", .mReanimParamFlags = 0 }, // GOTY uses a different reanim file name
+	{ .mReanimationType = ReanimationType::REANIM_TANGLEKELP, .mReanimFileName = "reanim/Tanglekelp.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_STARFRUIT, .mReanimFileName = "reanim/Starfruit.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_POLEVAULTER, .mReanimFileName = "reanim/Zombie_polevaulter.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_BALLOON, .mReanimFileName = "reanim/Zombie_balloon.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_GARGANTUAR, .mReanimFileName = "reanim/Zombie_gargantuar.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_IMP, .mReanimFileName = "reanim/Zombie_imp.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_DIGGER, .mReanimFileName = "reanim/Zombie_digger.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_DIGGER_DIRT, .mReanimFileName = "reanim/Digger_rising_dirt.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_ZOMBIE_DOLPHINRIDER, .mReanimFileName = "reanim/Zombie_dolphinrider.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_POGO, .mReanimFileName = "reanim/Zombie_pogo.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_BACKUP_DANCER, .mReanimFileName = "reanim/Zombie_backup.reanim", .mReanimParamFlags = 0 }, // GOTY uses a different reanim file name
+	{ .mReanimationType = ReanimationType::REANIM_BOBSLED, .mReanimFileName = "reanim/Zombie_bobsled.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_JACKINTHEBOX, .mReanimFileName = "reanim/Zombie_jackbox.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_SNORKEL, .mReanimFileName = "reanim/Zombie_snorkle.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_BUNGEE, .mReanimFileName = "reanim/Zombie_bungi.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_CATAPULT, .mReanimFileName = "reanim/Zombie_catapult.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_LADDER, .mReanimFileName = "reanim/Zombie_ladder.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_PUFF, .mReanimFileName = "reanim/Puff.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_SLEEPING, .mReanimFileName = "reanim/Z.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_GRAVE_BUSTER, .mReanimFileName = "reanim/Gravebuster.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_ZOMBIES_WON, .mReanimFileName = "reanim/ZombiesWon.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_MAGNETSHROOM, .mReanimFileName = "reanim/Magnetshroom.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_BOSS, .mReanimFileName = "reanim/Zombie_boss.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_CABBAGEPULT, .mReanimFileName = "reanim/Cabbagepult.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_KERNELPULT, .mReanimFileName = "reanim/Cornpult.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_MELONPULT, .mReanimFileName = "reanim/Melonpult.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_COFFEEBEAN, .mReanimFileName = "reanim/Coffeebean.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_UMBRELLALEAF, .mReanimFileName = "reanim/Umbrellaleaf.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_GATLINGPEA, .mReanimFileName = "reanim/GatlingPea.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_CATTAIL, .mReanimFileName = "reanim/Cattail.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_GLOOMSHROOM, .mReanimFileName = "reanim/GloomShroom.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_BOSS_ICEBALL, .mReanimFileName = "reanim/Zombie_boss_iceball.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_BOSS_FIREBALL, .mReanimFileName = "reanim/Zombie_boss_fireball.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_COBCANNON, .mReanimFileName = "reanim/CobCannon.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_GARLIC, .mReanimFileName = "reanim/Garlic.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_GOLD_MAGNET, .mReanimFileName = "reanim/GoldMagnet.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_WINTER_MELON, .mReanimFileName = "reanim/WinterMelon.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_TWIN_SUNFLOWER, .mReanimFileName = "reanim/TwinSunflower.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_POOL_CLEANER, .mReanimFileName = "reanim/PoolCleaner.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_ROOF_CLEANER, .mReanimFileName = "reanim/RoofCleaner.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_FIRE_PEA, .mReanimFileName = "reanim/FirePea.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_IMITATER, .mReanimFileName = "reanim/Imitater.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_YETI, .mReanimFileName = "reanim/Zombie_yeti.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_BOSS_DRIVER, .mReanimFileName = "reanim/Zombie_Boss_driver.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_LAWN_MOWERED_ZOMBIE, .mReanimFileName = "reanim/LawnMoweredZombie.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_CRAZY_DAVE, .mReanimFileName = "reanim/CrazyDave.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_TEXT_FADE_ON, .mReanimFileName = "reanim/TextFadeOn.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_HAMMER, .mReanimFileName = "reanim/Hammer.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_SLOT_MACHINE_HANDLE, .mReanimFileName = "reanim/SlotMachine.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_CREDITS_FOOTBALL, .mReanimFileName = "reanim/Credits_Football.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_CREDITS_JACKBOX, .mReanimFileName = "reanim/Credits_Jackbox.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_SELECTOR_SCREEN, .mReanimFileName = "reanim/SelectorScreen.reanim", .mReanimParamFlags = 3 },
+	{ .mReanimationType = ReanimationType::REANIM_PORTAL_CIRCLE, .mReanimFileName = "reanim/Portal_Circle.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_PORTAL_SQUARE, .mReanimFileName = "reanim/Portal_Square.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_ZENGARDEN_SPROUT, .mReanimFileName = "reanim/ZenGarden_sprout.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_ZENGARDEN_WATERINGCAN, .mReanimFileName = "reanim/ZenGarden_wateringcan.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_ZENGARDEN_FERTILIZER, .mReanimFileName = "reanim/ZenGarden_fertilizer.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_ZENGARDEN_BUGSPRAY, .mReanimFileName = "reanim/ZenGarden_bugspray.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_ZENGARDEN_PHONOGRAPH, .mReanimFileName = "reanim/ZenGarden_phonograph.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_DIAMOND, .mReanimFileName = "reanim/Diamond.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_ZOMBIE_HAND, .mReanimFileName = "reanim/Zombie_hand.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_STINKY, .mReanimFileName = "reanim/Stinky.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_RAKE, .mReanimFileName = "reanim/Rake.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_RAIN_CIRCLE, .mReanimFileName = "reanim/Rain_circle.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_RAIN_SPLASH, .mReanimFileName = "reanim/Rain_splash.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_ZOMBIE_SURPRISE, .mReanimFileName = "reanim/Zombie_surprise.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_COIN_GOLD, .mReanimFileName = "reanim/Coin_gold.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_TREEOFWISDOM, .mReanimFileName = "reanim/TreeOfWisdom.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_TREEOFWISDOM_CLOUDS, .mReanimFileName = "reanim/TreeOfWisdomClouds.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_TREEOFWISDOM_TREEFOOD, .mReanimFileName = "reanim/TreeFood.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_CREDITS_MAIN, .mReanimFileName = "reanim/Credits_Main.reanim", .mReanimParamFlags = 3 },
+	{ .mReanimationType = ReanimationType::REANIM_CREDITS_MAIN2, .mReanimFileName = "reanim/Credits_Main2.reanim", .mReanimParamFlags = 3 },
+	{ .mReanimationType = ReanimationType::REANIM_CREDITS_MAIN3, .mReanimFileName = "reanim/Credits_Main3.reanim", .mReanimParamFlags = 3 },
+	{ .mReanimationType = ReanimationType::REANIM_ZOMBIE_CREDITS_DANCE, .mReanimFileName = "reanim/Zombie_credits_dance.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_CREDITS_STAGE, .mReanimFileName = "reanim/Credits_stage.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_CREDITS_BIGBRAIN, .mReanimFileName = "reanim/Credits_BigBrain.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_CREDITS_FLOWER_PETALS, .mReanimFileName = "reanim/Credits_Flower_petals.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_CREDITS_INFANTRY, .mReanimFileName = "reanim/Credits_Infantry.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_CREDITS_THROAT, .mReanimFileName = "reanim/Credits_Throat.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_CREDITS_CRAZYDAVE, .mReanimFileName = "reanim/Credits_CrazyDave.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_CREDITS_BOSSDANCE, .mReanimFileName = "reanim/Credits_Bossdance.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_ZOMBIE_CREDITS_SCREEN_DOOR, .mReanimFileName = "reanim/Zombie_Credits_Screendoor.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_ZOMBIE_CREDITS_CONEHEAD, .mReanimFileName = "reanim/Zombie_Credits_Conehead.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_CREDITS_ZOMBIEARMY1, .mReanimFileName = "reanim/Credits_ZombieArmy1.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_CREDITS_ZOMBIEARMY2, .mReanimFileName = "reanim/Credits_ZombieArmy2.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_CREDITS_TOMBSTONES, .mReanimFileName = "reanim/Credits_Tombstones.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_CREDITS_SOLARPOWER, .mReanimFileName = "reanim/Credits_SolarPower.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_CREDITS_ANYHOUR, .mReanimFileName = "reanim/Credits_Anyhour.reanim", .mReanimParamFlags = 3 },
+	{ .mReanimationType = ReanimationType::REANIM_CREDITS_WEARETHEUNDEAD, .mReanimFileName = "reanim/Credits_WeAreTheUndead.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_CREDITS_DISCOLIGHTS, .mReanimFileName = "reanim/Credits_DiscoLights.reanim", .mReanimParamFlags = 1 },
+	{ .mReanimationType = ReanimationType::REANIM_FLAG, .mReanimFileName = "reanim/Zombie_FlagPole.reanim", .mReanimParamFlags = 0 },
+	{ .mReanimationType = ReanimationType::REANIM_ZOMBATAR_HEAD, .mReanimFileName = "reanim/zombatar_zombie_head.reanim", .mReanimParamFlags = 1 },
+};
+
+ReanimatorTransform::ReanimatorTransform() :
+	mTransX(DEFAULT_FIELD_PLACEHOLDER),
+	mTransY(DEFAULT_FIELD_PLACEHOLDER),
+	mSkewX(DEFAULT_FIELD_PLACEHOLDER),
+	mSkewY(DEFAULT_FIELD_PLACEHOLDER),
+	mScaleX(DEFAULT_FIELD_PLACEHOLDER),
+	mScaleY(DEFAULT_FIELD_PLACEHOLDER),
+	mFrame(DEFAULT_FIELD_PLACEHOLDER),
+	mAlpha(DEFAULT_FIELD_PLACEHOLDER),
+	mImage(nullptr),
+	mFont(nullptr),
+	mText("") { }
+
+inline void ReanimationFillInMissingData(float& thePrev, float& theValue)
+{
+	if (theValue == DEFAULT_FIELD_PLACEHOLDER)
+		theValue = thePrev;  // unset: inherit the previous frame's value
+	else
+		thePrev = theValue;  // otherwise record the current value as the previous one
+}
+
+inline void ReanimationFillInMissingData(void*& thePrev, void*& theValue)
+{
+	if (theValue == nullptr)
+		theValue = thePrev;
+	else
+		thePrev = theValue;
+}
+
+bool ReanimationLoadDefinition(const std::string& theFileName, ReanimatorDefinition* theDefinition)
+{
+	if (!DefinitionLoadXML(theFileName, &gReanimatorDefMap, theDefinition))
+		return false;
+
+	for (int aTrackIndex = 0; aTrackIndex < theDefinition->mTracks.count; aTrackIndex++)
+	{
+		ReanimatorTrack* aTrack = &theDefinition->mTracks.tracks[aTrackIndex];
+		aTrack->mIsAttacher = (aTrack->mName != nullptr && strncasecmp(aTrack->mName, "attacher__", 10) == 0);
+		float aPrevTransX = 0.0f;
+		float aPrevTransY = 0.0f;
+		float aPrevSkewX = 0.0f;
+		float aPrevSkewY = 0.0f;
+		float aPrevScaleX = 1.0f;
+		float aPrevScaleY = 1.0f;
+		float aPrevFrame = 0.0f;
+		float aPrevAlpha = 1.0f;
+		Image* aPrevImage = nullptr;
+		_Font* aPrevFont = nullptr;
+		const char* aPrevText = "";
+
+		// fill each frame's unset fields from the previous frame
+		for (int i = 0; i < aTrack->mTransforms.count; i++)
+		{
+			ReanimatorTransform& aTransform = aTrack->mTransforms.mTransforms[i];
+			ReanimationFillInMissingData(aPrevTransX, aTransform.mTransX);
+			ReanimationFillInMissingData(aPrevTransY, aTransform.mTransY);
+			ReanimationFillInMissingData(aPrevSkewX, aTransform.mSkewX);
+			ReanimationFillInMissingData(aPrevSkewY, aTransform.mSkewY);
+			ReanimationFillInMissingData(aPrevScaleX, aTransform.mScaleX);
+			ReanimationFillInMissingData(aPrevScaleY, aTransform.mScaleY);
+			ReanimationFillInMissingData(aPrevFrame, aTransform.mFrame);
+			ReanimationFillInMissingData(aPrevAlpha, aTransform.mAlpha);
+			ReanimationFillInMissingData((void*&)aPrevImage, (void*&)aTransform.mImage);
+			ReanimationFillInMissingData((void*&)aPrevFont, (void*&)aTransform.mFont);
+			if (aTransform.mText == nullptr || *aTransform.mText == '\0')
+				aTransform.mText = aPrevText;
+			else
+				aPrevText = aTransform.mText;
+		}
+	}
+	return true;
+}
+
+void ReanimationFreeDefinition(ReanimatorDefinition* theDefinition)
+{
+	if (theDefinition == nullptr || theDefinition->mTracks.tracks == nullptr)
+		return;
+
+	// free the atlas
+	if (theDefinition->mReanimAtlas != nullptr)
+	{
+		if (theDefinition->mReanimAtlas->mMemoryImage)
+		{
+			FilterEffectRemoveImage(theDefinition->mReanimAtlas->mMemoryImage.get());
+		}
+		delete theDefinition->mReanimAtlas;
+		theDefinition->mReanimAtlas = nullptr;
+	}
+
+	// collect unique images in this definition and restore text
+	std::vector<Image*> aDefImages;
+	for (int aTrackIndex = 0; aTrackIndex < theDefinition->mTracks.count; aTrackIndex++)
+	{
+		ReanimatorTrack* aTrack = &theDefinition->mTracks.tracks[aTrackIndex];
+		const char* aPrevText = nullptr;
+		for (int i = 0; i < aTrack->mTransforms.count; i++)
+		{
+			ReanimatorTransform& aTransform = aTrack->mTransforms.mTransforms[i];
+			if (aTransform.mImage != nullptr && !IsAtlasEncodedHandle(aTransform.mImage) && IsValidMemoryPointer(aTransform.mImage))
+			{
+				bool aFound = false;
+				for (Image* anExisting : aDefImages)
+				{
+					if (anExisting == aTransform.mImage)
+					{
+						aFound = true;
+						break;
+					}
+				}
+				if (!aFound)
+					aDefImages.push_back(aTransform.mImage);
+			}
+
+			if (aTransform.mText != nullptr && IsValidMemoryPointer(aTransform.mText) && *aTransform.mText != '\0' && aTransform.mText == aPrevText)
+				aTransform.mText = "";
+			else
+				aPrevText = aTransform.mText;
+		}
+	}
+
+	// For each image, check if any other active loaded definition is still using it
+	if (gSexyAppBase && gSexyAppBase->mResourceManager)
+	{
+		PvzpResourceManager* aResMgr = static_cast<PvzpResourceManager*>(gSexyAppBase->mResourceManager.get());
+		for (Image* anImage : aDefImages)
+		{
+			bool aUsedElsewhere = false;
+			for (unsigned int j = 0; j < gReanimatorDefCount; ++j)
+			{
+				ReanimatorDefinition* aOtherDef = &gReanimatorDefArray[j];
+				if (aOtherDef == theDefinition || aOtherDef->mTracks.tracks == nullptr)
+					continue;
+
+				for (int t = 0; t < aOtherDef->mTracks.count && !aUsedElsewhere; ++t)
+				{
+					ReanimatorTrack* aOtherTrack = &aOtherDef->mTracks.tracks[t];
+					for (int f = 0; f < aOtherTrack->mTransforms.count; ++f)
+					{
+						if (aOtherTrack->mTransforms.mTransforms[f].mImage == anImage)
+						{
+							aUsedElsewhere = true;
+							break;
+						}
+					}
+				}
+				if (aUsedElsewhere)
+					break;
+			}
+
+			if (!aUsedElsewhere)
+			{
+				aResMgr->RemoveDynamicImage(anImage);
+			}
+		}
+	}
+
+	// free the definition
+	DefinitionFreeMap(&gReanimatorDefMap, theDefinition);
+	theDefinition->mTracks.tracks = nullptr;
+	theDefinition->mTracks.count = 0;
+}
+
+ReanimatorTrackInstance::ReanimatorTrackInstance()
+{
+	mBlendCounter = 0;
+	mBlendTime = 0;
+	mShakeOverride = 0.0f;
+	mShakeX = 0.0f;
+	mShakeY = 0.0f;
+	mAttachmentID = AttachmentID::ATTACHMENTID_NULL;
+	mRenderGroup = RENDER_GROUP_NORMAL;
+	mIgnoreClipRect = false;
+	mImageOverride = nullptr;
+	mTruncateDisappearingFrames = true;
+	mTrackColor = Color::White;
+	mIgnoreColorOverride = false;
+	mIgnoreExtraAdditiveColor = false;
+}
+
+Reanimation::Reanimation()
+{
+	mAnimTime = 0;
+	mAnimRate = 12.0f;
+	mDefinition = nullptr;
+	mLoopType = ReanimLoopType::REANIM_PLAY_ONCE;
+	mLastFrameTime = -1.0f;
+	mDead = false;
+	mFrameStart = 0;
+	mFrameCount = 0;
+	mFrameBasePose = -1;
+	mOverlayMatrix.LoadIdentity();
+	mHasOverlayMatrix = false;
+	mColorOverride = Color::White;
+	mExtraAdditiveColor = Color::White;
+	mEnableExtraAdditiveDraw = false;
+	mExtraOverlayColor = Color::White;
+	mEnableExtraOverlayDraw = false;
+	mLoopCount = 0;
+	mIsAttachment = false;
+	mRenderOrder = 0;
+	mReanimationHolder = nullptr;
+	mTrackInstances = nullptr;
+	mFilterEffect = FilterEffect::FILTER_EFFECT_NONE;
+	mReanimationType = ReanimationType::REANIM_NONE;
+	mCacheIndex = -1;
+}
+
+Reanimation::~Reanimation()
+{
+	ReanimationDie();
+	ReanimationDelete();
+}
+
+void Reanimation::ReanimationDelete()
+{
+	PVZP_ASSERT(mDead);
+	if (mTrackInstances != nullptr)
+	{
+		int aItemSize = mDefinition->mTracks.count * sizeof(ReanimatorTrackInstance);
+		FindGlobalAllocator(aItemSize)->Free(mTrackInstances, aItemSize);
+		mTrackInstances = nullptr;
+	}
+}
+
+void Reanimation::ReanimationInitializeType(float theX, float theY, ReanimationType theReanimType)
+{
+	PVZP_ASSERT(theReanimType >= 0 && theReanimType < gReanimatorDefCount);
+	ReanimatorEnsureDefinitionLoaded(theReanimType, false);
+	mReanimationType = theReanimType;
+	ReanimationInitialize(theX, theY, &gReanimatorDefArray[theReanimType]);
+}
+
+void ReanimationCreateAtlas(ReanimatorDefinition* theDefinition, ReanimationType theReanimationType)
+{
+	const ReanimationParams& aParam = gReanimationParamArray[theReanimationType];
+	if (theDefinition->mReanimAtlas != nullptr || TestBit(aParam.mReanimParamFlags, ReanimFlags::REANIM_NO_ATLAS))
+		return;
+
+	PerfTimer aTimer;
+	aTimer.Start();
+	ReanimAtlas* aAtlas = new ReanimAtlas();
+	theDefinition->mReanimAtlas = aAtlas;
+	aAtlas->ReanimAtlasCreate(theDefinition);
+
+#ifdef LOW_MEMORY
+	for (ReanimAtlasImage& aImage : aAtlas->mImageArray)
+	{
+		if (!aImage.mOriginalImage->mFilePath.empty())
+			static_cast<MemoryImage*>(aImage.mOriginalImage)->mBits.reset();
+	}
+#endif
+
+	int aDuration = std::max(aTimer.GetDuration(), 0.0);
+	if (aDuration > 20 && theReanimationType != ReanimationType::REANIM_NONE)  // report slow atlas creation
+		PvzpLogLn("LOADING:Long atlas '{}' {} ms on {}", aParam.mReanimFileName, aDuration, LawnGetCurrentLevelName());
+}
+
+void ReanimationPreload(ReanimationType theReanimationType)
+{
+	PVZP_ASSERT(theReanimationType >= 0 && theReanimationType < gReanimatorDefCount);
+
+	ReanimatorDefinition* aReanimDef = &gReanimatorDefArray[theReanimationType];
+	ReanimationCreateAtlas(aReanimDef, theReanimationType);
+	if (aReanimDef->mReanimAtlas)
+	{
+		PvzpSandImageIfNeeded(aReanimDef->mReanimAtlas->mMemoryImage.get());
+	}
+}
+
+void Reanimation::ReanimationInitialize(float theX, float theY, ReanimatorDefinition* theDefinition)
+{
+	PVZP_ASSERT(mTrackInstances == nullptr);
+	ReanimationCreateAtlas(theDefinition, mReanimationType);
+	mDead = false;
+	SetPosition(theX, theY);
+	mDefinition = theDefinition;
+	mAnimRate = theDefinition->mFPS;
+	mLastFrameTime = -1.0f;
+	mCacheIndex = -1;
+
+	if (theDefinition->mTracks.count != 0)
+	{
+		mFrameCount = mDefinition->mTracks.tracks[0].mTransforms.count;
+		int aItemSize = theDefinition->mTracks.count * sizeof(ReanimatorTrackInstance);
+		mTrackInstances = (ReanimatorTrackInstance*)FindGlobalAllocator(aItemSize)->Calloc(aItemSize);
+		for (int aTrackIndex = 0; aTrackIndex < mDefinition->mTracks.count; aTrackIndex++)
+		{
+			ReanimatorTrackInstance* aTrack = &mTrackInstances[aTrackIndex];
+			if (aTrack != nullptr)
+				new (aTrack)ReanimatorTrackInstance();
+		}
+	}
+	else
+		mFrameCount = 0;
+}
+
+static inline bool IsCharredReanimation(ReanimationType theType)
+{
+	return theType == ReanimationType::REANIM_ZOMBIE_CHARRED ||
+	       theType == ReanimationType::REANIM_ZOMBIE_CHARRED_IMP ||
+	       theType == ReanimationType::REANIM_ZOMBIE_CHARRED_DIGGER ||
+	       theType == ReanimationType::REANIM_ZOMBIE_CHARRED_ZAMBONI ||
+	       theType == ReanimationType::REANIM_ZOMBIE_CHARRED_CATAPULT ||
+	       theType == ReanimationType::REANIM_ZOMBIE_CHARRED_GARGANTUAR;
+}
+
+static inline void SafeDecrementCharredCount()
+{
+	if (gLawnApp && gLawnApp->mBoard && gLawnApp->mBoard->mActiveCharredCount > 0)
+	{
+		gLawnApp->mBoard->mActiveCharredCount--;
+	}
+}
+
+void Reanimation::UpdateAnimationTimeOnly()
+{
+	if (mFrameCount == 0 || mDead)
+		return;
+
+	PVZP_ASSERT(std::isfinite(mAnimRate));
+	mLastFrameTime = mAnimTime;  // save the previous loop position
+	mAnimTime += SECONDS_PER_UPDATE * mAnimRate / mFrameCount;  // advance the loop position
+
+	if (mAnimRate > 0)
+	{
+		switch (mLoopType)
+		{
+		case ReanimLoopType::REANIM_LOOP:
+		case ReanimLoopType::REANIM_LOOP_FULL_LAST_FRAME:
+			while (mAnimTime >= 1.0f)
+			{
+				mLoopCount++;
+				mAnimTime -= 1.0f;
+			}
+			break;
+		case ReanimLoopType::REANIM_PLAY_ONCE:
+		case ReanimLoopType::REANIM_PLAY_ONCE_FULL_LAST_FRAME:
+			if (mAnimTime >= 1.0f)
+			{
+				mLoopCount = 1;
+				mAnimTime = 1.0f;
+				ReanimationDie();
+			}
+			break;
+		case ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD:
+		case ReanimLoopType::REANIM_PLAY_ONCE_FULL_LAST_FRAME_AND_HOLD:
+			if (mAnimTime >= 1.0f)
+			{
+				mLoopCount = 1;
+				mAnimTime = 1.0f;
+			}
+			break;
+		default:
+			PVZP_ASSERT(false);
+			break;
+		}
+	}
+	else
+	{
+		switch (mLoopType)
+		{
+		case ReanimLoopType::REANIM_LOOP:
+		case ReanimLoopType::REANIM_LOOP_FULL_LAST_FRAME:
+			while (mAnimTime < 0.0f)
+			{
+				mLoopCount++;
+				mAnimTime += 1.0f;
+			}
+			break;
+		case ReanimLoopType::REANIM_PLAY_ONCE:
+		case ReanimLoopType::REANIM_PLAY_ONCE_FULL_LAST_FRAME:
+			if (mAnimTime < 0.0f)
+			{
+				mLoopCount = 1;
+				mAnimTime = 0.0f;
+				ReanimationDie();
+			}
+			break;
+		case ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD:
+		case ReanimLoopType::REANIM_PLAY_ONCE_FULL_LAST_FRAME_AND_HOLD:
+			if (mAnimTime < 0.0f)
+			{
+				mLoopCount = 1;
+				mAnimTime = 0.0f;
+			}
+			break;
+		default:
+			PVZP_ASSERT(false);
+			break;
+		}
+	}
+}
+
+void Reanimation::Update()
+{
+	UpdateAnimationTimeOnly();
+	if (mDead || mDefinition == nullptr)
+		return;
+
+	for (int aTrackIndex = 0; aTrackIndex < mDefinition->mTracks.count; aTrackIndex++)
+	{
+		ReanimatorTrackInstance* aTrack = &mTrackInstances[aTrackIndex];
+		if (aTrack->mBlendCounter > 0)
+			aTrack->mBlendCounter--;
+
+		if (aTrack->mShakeOverride != 0.0f)
+		{
+			aTrack->mShakeX = RandRangeFloat(-aTrack->mShakeOverride, aTrack->mShakeOverride);
+			aTrack->mShakeY = RandRangeFloat(-aTrack->mShakeOverride, aTrack->mShakeOverride);
+		}
+
+		if (mDefinition->mTracks.tracks[aTrackIndex].mIsAttacher)
+			UpdateAttacherTrack(aTrackIndex);
+
+		if (aTrack->mAttachmentID != AttachmentID::ATTACHMENTID_NULL)
+		{
+			SexyTransform2D aOverlayMatrix;
+			GetAttachmentOverlayMatrix(aTrackIndex, aOverlayMatrix);
+			AttachmentUpdateAndSetMatrix(aTrack->mAttachmentID, aOverlayMatrix);
+		}
+	}
+}
+
+void BlendTransform(ReanimatorTransform* theResult, const ReanimatorTransform& theTransform1, const ReanimatorTransform& theTransform2, float theBlendFactor)
+{
+	theResult->mTransX = FloatLerp(theTransform1.mTransX, theTransform2.mTransX, theBlendFactor);
+	theResult->mTransY = FloatLerp(theTransform1.mTransY, theTransform2.mTransY, theBlendFactor);
+	theResult->mScaleX = FloatLerp(theTransform1.mScaleX, theTransform2.mScaleX, theBlendFactor);
+	theResult->mScaleY = FloatLerp(theTransform1.mScaleY, theTransform2.mScaleY, theBlendFactor);
+	theResult->mAlpha = FloatLerp(theTransform1.mAlpha, theTransform2.mAlpha, theBlendFactor);
+
+	float aSkewX2 = theTransform2.mSkewX;
+	float aSkewY2 = theTransform2.mSkewY;
+	// when the skew differs by more than 180 degrees, theTransform2's skew is ignored
+	while (aSkewX2 > theTransform1.mSkewX + 180.0f)
+		aSkewX2 = theTransform1.mSkewX;  // (aSkewX2 -= 360.0f)
+	while (aSkewX2 < theTransform1.mSkewX - 180.0f)
+		aSkewX2 = theTransform1.mSkewX;  // (aSkewX2 += 360.0f)
+	while (aSkewY2 > theTransform1.mSkewY + 180.0f)
+		aSkewY2 = theTransform1.mSkewY;  // (aSkewY2 -= 360.0f)
+	while (aSkewY2 < theTransform1.mSkewY - 180.0f)
+		aSkewY2 = theTransform1.mSkewY;  // (aSkewY2 += 360.0f)
+
+	theResult->mSkewX = FloatLerp(theTransform1.mSkewX, aSkewX2, theBlendFactor);
+	theResult->mSkewY = FloatLerp(theTransform1.mSkewY, aSkewY2, theBlendFactor);
+	theResult->mFrame = theTransform1.mFrame;
+	theResult->mFont = theTransform1.mFont;
+	theResult->mText = theTransform1.mText;
+	theResult->mImage = theTransform1.mImage;
+}
+
+bool Reanimation::GetCurrentTransform(int theTrackIndex, ReanimatorTransform* theTransformCurrent, ReanimatorFrameTime* theFrameTime)
+{
+	if (theTrackIndex < 0 || !mDefinition || !mTrackInstances || theTrackIndex >= mDefinition->mTracks.count)
+	{
+		if (theTransformCurrent)
+		{
+			*theTransformCurrent = ReanimatorTransform();
+		}
+		return false;
+	}
+
+	ReanimatorFrameTime aFrameTime;
+	if (theFrameTime == nullptr)
+	{
+		GetFrameTime(&aFrameTime);
+		theFrameTime = &aFrameTime;
+	}
+	bool aVisible = GetTransformAtTime(theTrackIndex, theTransformCurrent, theFrameTime);  // base transform interpolated between the two frames
+
+	ReanimatorTrackInstance* aTrack = &mTrackInstances[theTrackIndex];
+	if (aTrack->mImageOverride != nullptr)
+	{
+		aVisible = true;
+	}
+
+	if (FloatRoundToInt(theTransformCurrent->mFrame) >= 0 && aTrack->mBlendCounter > 0)  // not a blank frame and a blend is in progress
+	{
+		float aBlendFactor = aTrack->mBlendCounter / static_cast<float>(aTrack->mBlendTime);
+		BlendTransform(theTransformCurrent, *theTransformCurrent, aTrack->mBlendTransform, aBlendFactor);  // blend with the recorded source transform
+		if (theTransformCurrent->mAlpha <= 0.005f)
+		{
+			aVisible = false;
+		}
+	}
+
+	return aVisible;
+}
+
+bool Reanimation::GetTransformAtTime(int theTrackIndex, ReanimatorTransform* theTransform, ReanimatorFrameTime* theFrameTime)
+{
+	PVZP_ASSERT(theTrackIndex >= 0 && theTrackIndex < mDefinition->mTracks.count);
+	if (mDefinition == nullptr || theTrackIndex < 0 || theTrackIndex >= mDefinition->mTracks.count)
+	{
+		if (theTransform) *theTransform = ReanimatorTransform();
+		return false;
+	}
+
+	ReanimatorTrack* aTrack = &mDefinition->mTracks.tracks[theTrackIndex];
+	PVZP_ASSERT(aTrack->mTransforms.count == mDefinition->mTracks.tracks[0].mTransforms.count);
+	if (aTrack->mTransforms.count <= 0 || aTrack->mTransforms.mTransforms == nullptr)
+	{
+		if (theTransform) *theTransform = ReanimatorTransform();
+		return false;
+	}
+
+	int aMaxIndex = aTrack->mTransforms.count - 1;
+	int aBeforeIndex = std::clamp(theFrameTime->mAnimFrameBeforeInt, 0, aMaxIndex);
+	int aAfterIndex = std::clamp(theFrameTime->mAnimFrameAfterInt, 0, aMaxIndex);
+
+	ReanimatorTransform& aTransBefore = aTrack->mTransforms.mTransforms[aBeforeIndex];  // previous frame's transform definition
+	ReanimatorTransform& aTransAfter = aTrack->mTransforms.mTransforms[aAfterIndex];  // next frame's transform definition
+
+	if (aTransBefore.mFrame == -1.0f && aTransAfter.mFrame == -1.0f && aTransBefore.mImage == nullptr && aTransBefore.mFont == nullptr)
+	{
+		theTransform->mTransX = aTransBefore.mTransX;
+		theTransform->mTransY = aTransBefore.mTransY;
+		theTransform->mSkewX = 0.0f;
+		theTransform->mSkewY = 0.0f;
+		theTransform->mScaleX = 1.0f;
+		theTransform->mScaleY = 1.0f;
+		theTransform->mAlpha = 0.0f;
+		theTransform->mImage = nullptr;
+		theTransform->mFont = nullptr;
+		theTransform->mText = "";
+		theTransform->mFrame = -1.0f;
+		return false;
+	}
+
+	theTransform->mTransX = FloatLerp(aTransBefore.mTransX, aTransAfter.mTransX, theFrameTime->mFraction);
+	theTransform->mTransY = FloatLerp(aTransBefore.mTransY, aTransAfter.mTransY, theFrameTime->mFraction);
+	theTransform->mSkewX = FloatLerp(aTransBefore.mSkewX, aTransAfter.mSkewX, theFrameTime->mFraction);
+	theTransform->mSkewY = FloatLerp(aTransBefore.mSkewY, aTransAfter.mSkewY, theFrameTime->mFraction);
+	theTransform->mScaleX = FloatLerp(aTransBefore.mScaleX, aTransAfter.mScaleX, theFrameTime->mFraction);
+	theTransform->mScaleY = FloatLerp(aTransBefore.mScaleY, aTransAfter.mScaleY, theFrameTime->mFraction);
+	theTransform->mAlpha = FloatLerp(aTransBefore.mAlpha, aTransAfter.mAlpha, theFrameTime->mFraction);
+	theTransform->mImage = aTransBefore.mImage;
+	theTransform->mFont = aTransBefore.mFont;
+	theTransform->mText = aTransBefore.mText;
+
+	if (aTransBefore.mFrame != -1.0f && aTransAfter.mFrame == -1.0f && theFrameTime->mFraction > 0.0f && mTrackInstances[theTrackIndex].mTruncateDisappearingFrames)
+		theTransform->mFrame = -1.0f;  // cut the transition to a blank frame when the track truncates disappearing frames
+	else
+		theTransform->mFrame = aTransBefore.mFrame;
+
+	return (theTransform->mFrame >= 0.0f || theTransform->mImage != nullptr || theTransform->mFont != nullptr) && (theTransform->mAlpha > 0.005f);
+}
+
+struct SinCosEntry {
+	float sinVal;
+	float cosVal;
+};
+
+static SinCosEntry gSinCosLUT[2048];
+static bool gSinCosLUTInit = false;
+
+static void InitSinCosLUT()
+{
+	constexpr float step = (2.0f * 3.14159265358979323846f) / 2048.0f;
+	for (int i = 0; i < 2048; ++i)
+	{
+		float angle = static_cast<float>(i) * step;
+		gSinCosLUT[i].sinVal = sinf(angle);
+		gSinCosLUT[i].cosVal = cosf(angle);
+	}
+	gSinCosLUTInit = true;
+}
+
+static inline void FastSinCos(float rad, float* s, float* c)
+{
+	if (__builtin_expect(!gSinCosLUTInit, 0))
+	{
+		InitSinCosLUT();
+	}
+	constexpr float radToIdx = 2048.0f / (2.0f * 3.14159265358979323846f);
+	int idx = static_cast<int>(std::floor(rad * radToIdx)) & 2047;
+	*s = gSinCosLUT[idx].sinVal;
+	*c = gSinCosLUT[idx].cosVal;
+}
+
+void Reanimation::MatrixFromTransform(const ReanimatorTransform& theTransform, SexyMatrix3& theMatrix)
+{
+	if (theTransform.mSkewX == 0.0f && theTransform.mSkewY == 0.0f)
+	{
+		theMatrix.m00 = theTransform.mScaleX;
+		theMatrix.m10 = 0.0f;
+		theMatrix.m20 = 0.0f;
+		theMatrix.m01 = 0.0f;
+		theMatrix.m11 = theTransform.mScaleY;
+		theMatrix.m21 = 0.0f;
+		theMatrix.m02 = theTransform.mTransX;
+		theMatrix.m12 = theTransform.mTransY;
+		theMatrix.m22 = 1.0f;
+		return;
+	}
+
+	float aSkewX = -DEG_TO_RAD(theTransform.mSkewX);
+	float sinX, cosX, sinY, cosY;
+	FastSinCos(aSkewX, &sinX, &cosX);
+
+	if (theTransform.mSkewX == theTransform.mSkewY)
+	{
+		sinY = sinX;
+		cosY = cosX;
+	}
+	else
+	{
+		float aSkewY = -DEG_TO_RAD(theTransform.mSkewY);
+		FastSinCos(aSkewY, &sinY, &cosY);
+	}
+
+	theMatrix.m00 = cosX * theTransform.mScaleX;
+	theMatrix.m10 = -sinX * theTransform.mScaleX;
+	theMatrix.m20 = 0.0f;
+	theMatrix.m01 = sinY * theTransform.mScaleY;
+	theMatrix.m11 = cosY * theTransform.mScaleY;
+	theMatrix.m21 = 0.0f;
+	theMatrix.m02 = theTransform.mTransX;
+	theMatrix.m12 = theTransform.mTransY;
+	theMatrix.m22 = 1.0f;
+}
+
+inline bool IsValidImagePtr(Image* theImage)
+{
+	if (!IsValidMemoryPointer(theImage) || (reinterpret_cast<uintptr_t>(theImage) % 4 != 0))
+		return false;
+	if (IsAtlasEncodedHandle(theImage))
+		return false;
+	return true;
+}
+
+void Reanimation::ReanimBltMatrix(Graphics* g, Image* theImage, SexyMatrix3& theTransform, const Rect& theClipRect, const Color& theColor, int theDrawMode, const Rect& theSrcRect)
+{
+	if (!IsValidImagePtr(theImage))
+		return;
+
+	if (!gSexyAppBase->Is3DAccelerated() &&
+		std::abs(theTransform.m01) < 1e-3f && std::abs(theTransform.m10) < 1e-3f &&  // no horizontal or vertical skew
+		theTransform.m00 > 0.0f && theTransform.m11 > 0.0f)  // positive horizontal and vertical scale
+	{
+		float aScaleX = theTransform.m00;
+		float aScaleY = theTransform.m11;
+		int aPosX = FloatRoundToInt(theTransform.m02 - g->mTransX - aScaleX * theSrcRect.mWidth * 0.5f);
+		int aPosY = FloatRoundToInt(theTransform.m12 - g->mTransY - aScaleY * theSrcRect.mHeight * 0.5f);
+		int aOldMode = g->GetDrawMode();
+		g->SetDrawMode(theDrawMode);
+		Rect aOldClipRect = g->mClipRect;
+		g->mClipRect = theClipRect;
+
+		Color aOldColor = g->GetColor();
+		bool aOldColorize = g->GetColorizeImages();
+		if (theColor != Color::White)
+		{
+			g->SetColor(theColor);
+			g->SetColorizeImages(true);
+		}
+
+		bool aOldFastStretch = g->GetFastStretch();
+		g->SetFastStretch(true);
+
+		if (FloatApproxEqual(aScaleX, 1.0f) && FloatApproxEqual(aScaleY, 1.0f))  // no scaling
+			g->DrawImage(theImage, aPosX, aPosY, theSrcRect);
+		else
+		{
+			int aWidth = FloatRoundToInt(aScaleX * theSrcRect.mWidth);
+			int aHeight = FloatRoundToInt(aScaleY * theSrcRect.mHeight);
+			Rect aDestRect(aPosX, aPosY, aWidth, aHeight);
+			g->DrawImage(theImage, aDestRect, theSrcRect);
+		}
+
+		g->SetFastStretch(aOldFastStretch);
+
+		if (theColor != Color::White)
+		{
+			g->SetColor(aOldColor);
+			g->SetColorizeImages(aOldColorize);
+		}
+
+		g->SetDrawMode(aOldMode);
+		g->mClipRect = aOldClipRect;
+	}
+	else
+		PvzpBltMatrix(g, theImage, theTransform, theClipRect, theColor, theDrawMode, theSrcRect);
+}
+
+bool Reanimation::DrawTrack(Graphics* g, int theTrackIndex, [[maybe_unused]] int theRenderGroup, PvzpTriangleGroup* theTriangleGroup, ReanimatorFrameTime* theFrameTime)
+{
+	ReanimatorTransform aTransform;
+	ReanimatorTrackInstance* aTrackInstance = &mTrackInstances[theTrackIndex];
+	if (!GetCurrentTransform(theTrackIndex, &aTransform, theFrameTime))
+		return false;
+	int aImageFrame = FloatRoundToInt(aTransform.mFrame);  // cel index within the image
+	if (aImageFrame < 0 || aTransform.mAlpha <= 0.005f)  // no image to draw or fully transparent
+		return false;
+
+	Color aColor = aTrackInstance->mTrackColor;
+	if (!aTrackInstance->mIgnoreColorOverride)
+	{
+		aColor = ColorsMultiply(aColor, mColorOverride);
+	}
+	if (g->GetColorizeImages())
+	{
+		aColor = ColorsMultiply(aColor, g->GetColor());
+	}
+	int aImageAlpha = std::clamp(FloatRoundToInt(aTransform.mAlpha * aColor.mAlpha), 0, 255);
+	if (aImageAlpha <= 0)
+	{
+		return false;
+	}
+	aColor.mAlpha = aImageAlpha;
+
+	Color aExtraAdditiveColor;
+	if (mEnableExtraAdditiveDraw)
+	{
+		aExtraAdditiveColor = mExtraAdditiveColor;
+		aExtraAdditiveColor.mAlpha = ColorComponentMultiply(mExtraAdditiveColor.mAlpha, aImageAlpha);
+	}
+	Color aExtraOverlayColor;
+	if (mEnableExtraOverlayDraw)
+	{
+		aExtraOverlayColor = mExtraOverlayColor;
+		aExtraOverlayColor.mAlpha = ColorComponentMultiply(mExtraOverlayColor.mAlpha, aImageAlpha);
+	}
+
+	Rect aClipRect = g->mClipRect;
+	if (aTrackInstance->mIgnoreClipRect)
+	{
+		aClipRect = Rect(0, 0, BOARD_WIDTH, BOARD_HEIGHT);
+	}
+	if (g->mDestImage != nullptr)
+	{
+		aClipRect = aClipRect.Intersection(Rect(0, 0, g->mDestImage->mWidth, g->mDestImage->mHeight));
+	}
+
+	Image* aImage = aTransform.mImage;
+	ReanimAtlasImage* aAtlasImage = nullptr;
+	// Extract pivot info from the original track image before any override / cleanup logic.
+	Image* aPivotImage = aImage;
+	ReanimAtlasImage* aPivotAtlasImage = nullptr;
+	if (mDefinition->mReanimAtlas != nullptr && aPivotImage != nullptr)
+	{
+		aPivotAtlasImage = mDefinition->mReanimAtlas->GetEncodedReanimAtlas(aPivotImage);
+		if (aPivotAtlasImage == nullptr && reinterpret_cast<uintptr_t>(aPivotImage) <= 1000)
+			aPivotImage = nullptr;  // Invalid encoded handle.
+	}
+	else if (IsAtlasEncodedHandle(aPivotImage))
+	{
+		aPivotImage = nullptr;
+	}
+
+	if (mDefinition->mReanimAtlas != nullptr && aImage != nullptr)
+	{
+		aAtlasImage = mDefinition->mReanimAtlas->GetEncodedReanimAtlas(aImage);  // Decode atlas handle from transform image.
+		if (aTrackInstance->mImageOverride != nullptr)
+		{
+			aImage = aTrackInstance->mImageOverride;
+			aAtlasImage = nullptr;
+		}
+		else if (aAtlasImage == nullptr && reinterpret_cast<uintptr_t>(aImage) <= 1000)
+		{
+			aImage = nullptr;  // Invalid encoded handle; never treat it as a raw Image*.
+		}
+	}
+	else if (IsAtlasEncodedHandle(aImage))
+	{
+		aImage = nullptr;
+	}
+	if (aTrackInstance->mImageOverride != nullptr)
+	{
+		if (IsValidImagePtr(aTrackInstance->mImageOverride))
+		{
+			aImage = aTrackInstance->mImageOverride;
+			aAtlasImage = nullptr;
+		}
+		else
+		{
+			aTrackInstance->mImageOverride = nullptr;
+		}
+	}
+
+	if (aPivotAtlasImage == nullptr && !IsValidImagePtr(aPivotImage))
+		aPivotImage = nullptr;
+	if (aAtlasImage == nullptr && !IsValidImagePtr(aImage))
+		aImage = nullptr;
+
+	SexyMatrix3 aMatrix;
+	bool aFullScreen = false;
+	float aPivotX = 0.0f;
+	float aPivotY = 0.0f;
+	if (aPivotAtlasImage != nullptr)
+	{
+		aPivotX = aPivotAtlasImage->mWidth * 0.5f;
+		aPivotY = aPivotAtlasImage->mHeight * 0.5f;
+	}
+	else if (aPivotImage != nullptr)
+	{
+		int aCelWidth = aPivotImage->GetCelWidth();
+		int aCelHeight = aPivotImage->GetCelHeight();
+		aPivotX = aCelWidth * 0.5f;
+		aPivotY = aCelHeight * 0.5f;
+	}
+	else if (aImage != nullptr)
+	{
+		int aCelWidth = aImage->GetCelWidth();
+		int aCelHeight = aImage->GetCelHeight();
+		aPivotX = aCelWidth * 0.5f;
+		aPivotY = aCelHeight * 0.5f;
+	}
+	else if (IsValidMemoryPointer(aTransform.mFont) && IsValidMemoryPointer(aTransform.mText) && *aTransform.mText != '\0')
+	{
+		int aWidth = aTransform.mFont->StringWidth(aTransform.mText);
+		aPivotX = -aWidth * 0.5f;
+		aPivotY = aTransform.mFont->mAscent;
+	}
+	else
+	{
+		if (strcasecmp(mDefinition->mTracks.tracks[theTrackIndex].mName, "fullscreen"))  // no image and no text, and not the fullscreen track
+			return false;  // nothing to draw
+		aFullScreen = true;  // a screen-sized rect is filled later
+	}
+
+	if (mDefinition->mReanimAtlas != nullptr && aAtlasImage == nullptr)  // atlas exists but this track does not use it
+		theTriangleGroup->DrawGroup(g);  // flush the accumulated triangles first
+
+#if defined(PVZ_ENABLE_DUALCORE)
+	if (mCacheIndex >= 0 && mCacheIndex < MAX_ACTIVE_RIGS && theTrackIndex < MAX_TRACKS_PER_RIG)
+	{
+		const TrackTransform& transform = gTransformCache[mCacheIndex][theTrackIndex];
+
+		SexyMatrix3 renderMatrix;
+		renderMatrix.m00 = transform.mMatrix[0][0];
+		renderMatrix.m01 = transform.mMatrix[0][1];
+		renderMatrix.m02 = transform.mMatrix[0][2] + (g->mTransX + aTrackInstance->mShakeX);
+		renderMatrix.m10 = transform.mMatrix[1][0];
+		renderMatrix.m11 = transform.mMatrix[1][1];
+		renderMatrix.m12 = transform.mMatrix[1][2] + (g->mTransY + aTrackInstance->mShakeY);
+		renderMatrix.m20 = 0.0f;
+		renderMatrix.m21 = 0.0f;
+		renderMatrix.m22 = 1.0f;
+		aMatrix = renderMatrix;
+
+		if (aAtlasImage == nullptr && aImage != nullptr && IsValidImagePtr(aImage))
+		{
+			if (mFilterEffect != FilterEffect::FILTER_EFFECT_NONE)
+			{
+				aImage = FilterEffectGetImage(aImage, mFilterEffect);
+			}
+
+			if (aImage != nullptr && IsValidImagePtr(aImage))
+			{
+				while (aImageFrame >= aImage->mNumCols)
+				{
+					aImageFrame -= aImage->mNumCols;
+				}
+
+				int aCelWidth = aImage->GetCelWidth();
+				Rect aSrcRect(aImageFrame * aCelWidth, 0, aCelWidth, aImage->GetCelHeight());
+				PvzpBltMatrix(g, aImage, renderMatrix, aClipRect, aColor, g->mDrawMode, aSrcRect);
+				if (mEnableExtraAdditiveDraw && gSexyAppBase->Is3DAccelerated())
+				{
+					PvzpBltMatrix(g, aImage, renderMatrix, aClipRect, aExtraAdditiveColor, Graphics::DRAWMODE_ADDITIVE, aSrcRect);
+				}
+				if (mEnableExtraOverlayDraw)
+				{
+					Image* aOverlayImage = FilterEffectGetImage(aImage, FilterEffect::FILTER_EFFECT_WHITE);
+					if (IsValidImagePtr(aOverlayImage))
+					{
+						PvzpBltMatrix(g, aOverlayImage, renderMatrix, aClipRect, aExtraOverlayColor, Graphics::DRAWMODE_NORMAL, aSrcRect);
+					}
+				}
+			}
+			return true;
+		}
+	}
+	else
+#endif
+	{
+		MatrixFromTransform(aTransform, aMatrix);
+		if (aPivotX != 0.0f || aPivotY != 0.0f)
+		{
+			aMatrix.m02 += aMatrix.m00 * aPivotX + aMatrix.m01 * aPivotY;
+			aMatrix.m12 += aMatrix.m10 * aPivotX + aMatrix.m11 * aPivotY;
+		}
+		if (__builtin_expect(mHasOverlayMatrix, 0))
+		{
+			SexyMatrix3Multiply(aMatrix, mOverlayMatrix, aMatrix);  // apply the overlay matrix
+		}
+		aMatrix.m02 += aTrackInstance->mShakeX + g->mTransX;  // apply track shake and g's translation
+		aMatrix.m12 += aTrackInstance->mShakeY + g->mTransY;
+	}
+
+	if (aAtlasImage != nullptr)  // atlas exists, the frame has an image, and no override is set
+	{
+		Rect aSrcRect(aAtlasImage->mX, aAtlasImage->mY, aAtlasImage->mWidth, aAtlasImage->mHeight);
+		aImage = mDefinition->mReanimAtlas->mMemoryImage.get();
+		if (mFilterEffect != FilterEffect::FILTER_EFFECT_NONE)
+		{
+			aImage = FilterEffectGetImage(aImage, mFilterEffect);
+		}
+
+		bool isAxisAligned = !gSexyAppBase->Is3DAccelerated() &&
+			std::abs(aMatrix.m01) < 1e-3f && std::abs(aMatrix.m10) < 1e-3f &&
+			aMatrix.m00 > 0.0f && aMatrix.m11 > 0.0f;
+
+		if (isAxisAligned)
+		{
+			theTriangleGroup->DrawGroup(g);
+			ReanimBltMatrix(g, aImage, aMatrix, aClipRect, aColor, g->mDrawMode, aSrcRect);
+			if (mEnableExtraAdditiveDraw && !aTrackInstance->mIgnoreExtraAdditiveColor && gSexyAppBase->Is3DAccelerated())
+			{
+				ReanimBltMatrix(g, aImage, aMatrix, aClipRect, aExtraAdditiveColor, Graphics::DRAWMODE_ADDITIVE, aSrcRect);
+			}
+			if (mEnableExtraOverlayDraw)
+			{
+				Image* aOverlayImage = FilterEffectGetImage(aImage, FilterEffect::FILTER_EFFECT_WHITE);
+				ReanimBltMatrix(g, aOverlayImage, aMatrix, aClipRect, aExtraOverlayColor, Graphics::DRAWMODE_NORMAL, aSrcRect);
+			}
+		}
+		else
+		{
+			theTriangleGroup->AddTriangle(g, aImage, aMatrix, aClipRect, aColor, g->mDrawMode, aSrcRect);
+			if (mEnableExtraAdditiveDraw && !aTrackInstance->mIgnoreExtraAdditiveColor && gSexyAppBase->Is3DAccelerated())
+			{
+				theTriangleGroup->AddTriangle(g, aImage, aMatrix, aClipRect, aExtraAdditiveColor, Graphics::DRAWMODE_ADDITIVE, aSrcRect);
+			}
+			if (mEnableExtraOverlayDraw)
+			{
+				theTriangleGroup->AddTriangle(
+					g, FilterEffectGetImage(aImage, FilterEffect::FILTER_EFFECT_WHITE), aMatrix, aClipRect, aExtraOverlayColor, Graphics::DRAWMODE_NORMAL, aSrcRect);
+			}
+		}
+	}
+	else if (aImage != nullptr)
+	{
+		if (mFilterEffect != FilterEffect::FILTER_EFFECT_NONE)
+		{
+			aImage = FilterEffectGetImage(aImage, mFilterEffect);
+		}
+
+		while (aImageFrame >= aImage->mNumCols)
+		{
+			aImageFrame -= aImage->mNumCols;
+		}
+
+		int aCelWidth = aImage->GetCelWidth();
+		Rect aSrcRect(aImageFrame * aCelWidth, 0, aCelWidth, aImage->GetCelHeight());
+		ReanimBltMatrix(g, aImage, aMatrix, aClipRect, aColor, g->mDrawMode, aSrcRect);
+		if (mEnableExtraAdditiveDraw && gSexyAppBase->Is3DAccelerated())
+		{
+			ReanimBltMatrix(g, aImage, aMatrix, aClipRect, aExtraAdditiveColor, Graphics::DRAWMODE_ADDITIVE, aSrcRect);
+		}
+		if (mEnableExtraOverlayDraw)
+		{
+			Image* aOverlayImage = FilterEffectGetImage(aImage, FilterEffect::FILTER_EFFECT_WHITE);
+			ReanimBltMatrix(g, aOverlayImage, aMatrix, aClipRect, aExtraOverlayColor, Graphics::DRAWMODE_NORMAL, aSrcRect);
+		}
+	}
+	else if (IsValidMemoryPointer(aTransform.mFont) && IsValidMemoryPointer(aTransform.mText) && *aTransform.mText != '\0')
+	{
+		PvzpDrawStringMatrix(g, aTransform.mFont, aMatrix, aTransform.mText, aColor);
+		if (mEnableExtraAdditiveDraw && gSexyAppBase->Is3DAccelerated())
+		{
+			int aOldMode = g->GetDrawMode();
+			g->SetDrawMode(Graphics::DRAWMODE_ADDITIVE);
+			PvzpDrawStringMatrix(g, aTransform.mFont, aMatrix, aTransform.mText, aExtraAdditiveColor);
+			g->SetDrawMode(aOldMode);
+		}
+	}
+	else if (aFullScreen)
+	{
+		Color aOldColor = g->GetColor();
+		g->SetColor(aColor);
+		g->FillRect(-g->mTransX, -g->mTransY, BOARD_WIDTH, BOARD_HEIGHT);
+		g->SetColor(aOldColor);
+	}
+	return true;
+}
+
+Image* Reanimation::GetCurrentTrackImage(const char* theTrackName)
+{
+	int aTrackIndex = FindTrackIndex(theTrackName);
+	ReanimatorTrackInstance* aTrackInstance = &mTrackInstances[aTrackIndex];
+	if (aTrackInstance->mImageOverride != nullptr)
+		return aTrackInstance->mImageOverride;
+
+	ReanimatorTransform aTransform;
+	GetCurrentTransform(aTrackIndex, &aTransform);
+
+	Image* aImage = aTransform.mImage;
+	if (mDefinition->mReanimAtlas != nullptr && aImage != nullptr && mDefinition->mReanimAtlas->GetEncodedReanimAtlas(aImage) != nullptr)
+	{
+		// Encoded atlas handles do not map to stable source-image pointers at runtime.
+		aImage = nullptr;
+	}
+	return aImage;
+}
+
+void Reanimation::GetTrackMatrix(int theTrackIndex, SexyTransform2D& theMatrix)
+{
+	ReanimatorTrackInstance* aTrackInstance = &mTrackInstances[theTrackIndex];
+	ReanimatorTransform aTransform;
+	GetCurrentTransform(theTrackIndex, &aTransform);
+	int aImageFrame = FloatRoundToInt(aTransform.mFrame);
+	Image* aImage = aTransform.mImage;
+	ReanimAtlasImage* aAtlasImage = nullptr;
+	// Extract pivot info from the original track image before any override / cleanup logic.
+	Image* aPivotImage = aImage;
+	ReanimAtlasImage* aPivotAtlasImage = nullptr;
+	if (mDefinition->mReanimAtlas != nullptr && aPivotImage != nullptr)
+	{
+		aPivotAtlasImage = mDefinition->mReanimAtlas->GetEncodedReanimAtlas(aPivotImage);
+		if (aPivotAtlasImage == nullptr && reinterpret_cast<uintptr_t>(aPivotImage) <= 1000)
+			aPivotImage = nullptr;  // Invalid encoded handle.
+	}
+	else if (IsAtlasEncodedHandle(aPivotImage))
+	{
+		aPivotImage = nullptr;
+	}
+
+	if (mDefinition->mReanimAtlas != nullptr && aImage != nullptr)
+	{
+		aAtlasImage = mDefinition->mReanimAtlas->GetEncodedReanimAtlas(aImage);  // Decode atlas handle from transform image.
+		if (aAtlasImage == nullptr && reinterpret_cast<uintptr_t>(aImage) <= 1000)
+			aImage = nullptr;  // Invalid encoded handle; keep non-atlas path safe.
+	}
+	else if (IsAtlasEncodedHandle(aImage))
+	{
+		aImage = nullptr;
+	}
+	if (aTrackInstance->mImageOverride != nullptr)
+	{
+		aImage = aTrackInstance->mImageOverride;
+		aAtlasImage = nullptr;
+	}
+
+	if (aPivotAtlasImage == nullptr && !IsValidImagePtr(aPivotImage))
+		aPivotImage = nullptr;
+	if (aAtlasImage == nullptr && !IsValidImagePtr(aImage))
+		aImage = nullptr;
+
+	theMatrix.LoadIdentity();
+	if (aPivotAtlasImage != nullptr && aImageFrame >= 0)
+	{
+		SexyMatrix3Translation(theMatrix, aPivotAtlasImage->mWidth * 0.5f, aPivotAtlasImage->mHeight * 0.5f);
+	}
+	else if (aPivotImage != nullptr && aImageFrame >= 0)
+	{
+		int aCelWidth = aPivotImage->GetCelWidth();
+		int aCelHeight = aPivotImage->GetCelHeight();
+		SexyMatrix3Translation(theMatrix, aCelWidth * 0.5f, aCelHeight * 0.5f);
+	}
+	else if (aImage != nullptr && aImageFrame >= 0)
+	{
+		int aCelWidth = aImage->GetCelWidth();
+		int aCelHeight = aImage->GetCelHeight();
+		SexyMatrix3Translation(theMatrix, aCelWidth * 0.5f, aCelHeight * 0.5f);
+	}
+	else if (IsValidMemoryPointer(aTransform.mFont) && IsValidMemoryPointer(aTransform.mText) && *aTransform.mText != '\0')
+		SexyMatrix3Translation(theMatrix, 0.0f, aTransform.mFont->mAscent);
+
+	SexyTransform2D aTransformMatrix;
+	MatrixFromTransform(aTransform, aTransformMatrix);
+	SexyMatrix3Multiply(theMatrix, aTransformMatrix, theMatrix);  // apply the track transform
+	if (mOverlayMatrix.m00 != 1.0f || mOverlayMatrix.m11 != 1.0f ||
+	    mOverlayMatrix.m02 != 0.0f || mOverlayMatrix.m12 != 0.0f ||
+	    mOverlayMatrix.m01 != 0.0f || mOverlayMatrix.m10 != 0.0f)
+	{
+		SexyMatrix3Multiply(theMatrix, mOverlayMatrix, theMatrix);  // apply the overlay matrix
+	}
+	SexyMatrix3Translation(theMatrix, aTrackInstance->mShakeX - 0.5f, aTrackInstance->mShakeY - 0.5f);  // apply track shake
+}
+
+void Reanimation::GetFrameTime(ReanimatorFrameTime* theFrameTime)
+{
+	if (mFrameCount <= 0 || mDefinition == nullptr || mDefinition->mTracks.count == 0 || mDefinition->mTracks.tracks == nullptr)
+	{
+		theFrameTime->mFraction = 0.0f;
+		theFrameTime->mAnimFrameBeforeInt = 0;
+		theFrameTime->mAnimFrameAfterInt = 0;
+		return;
+	}
+
+	int aTotalTransforms = mDefinition->mTracks.tracks[0].mTransforms.count;
+	if (aTotalTransforms <= 0)
+	{
+		theFrameTime->mFraction = 0.0f;
+		theFrameTime->mAnimFrameBeforeInt = 0;
+		theFrameTime->mAnimFrameAfterInt = 0;
+		return;
+	}
+
+	PVZP_ASSERT(mFrameStart + mFrameCount <= aTotalTransforms);
+	int aFrameCount;
+	if (mLoopType == ReanimLoopType::REANIM_PLAY_ONCE_FULL_LAST_FRAME || mLoopType == ReanimLoopType::REANIM_LOOP_FULL_LAST_FRAME ||
+		mLoopType == ReanimLoopType::REANIM_PLAY_ONCE_FULL_LAST_FRAME_AND_HOLD)
+		aFrameCount = mFrameCount;
+	else
+		aFrameCount = std::max(1, mFrameCount - 1);
+	float aAnimPosition = mFrameStart + mAnimTime * aFrameCount;
+	float aAnimFrameBefore = floor(aAnimPosition);
+	theFrameTime->mFraction = aAnimPosition - aAnimFrameBefore;
+	theFrameTime->mAnimFrameBeforeInt = FloatRoundToInt(aAnimFrameBefore);
+	if (theFrameTime->mAnimFrameBeforeInt >= mFrameStart + mFrameCount - 1)  // on the last frame
+	{
+		theFrameTime->mAnimFrameBeforeInt = mFrameStart + mFrameCount - 1;
+		theFrameTime->mAnimFrameAfterInt = theFrameTime->mAnimFrameBeforeInt;
+	}
+	else
+		theFrameTime->mAnimFrameAfterInt = theFrameTime->mAnimFrameBeforeInt + 1;
+
+	theFrameTime->mAnimFrameBeforeInt = std::clamp(theFrameTime->mAnimFrameBeforeInt, 0, aTotalTransforms - 1);
+	theFrameTime->mAnimFrameAfterInt = std::clamp(theFrameTime->mAnimFrameAfterInt, 0, aTotalTransforms - 1);
+	PVZP_ASSERT(theFrameTime->mAnimFrameBeforeInt >= 0 && theFrameTime->mAnimFrameAfterInt < aTotalTransforms);
+}
+
+void Reanimation::DrawRenderGroup(Graphics* g, int theRenderGroup, PvzpTriangleGroup* theTriangleGroup)
+{
+	if (mDead || mDefinition == nullptr || mFrameCount <= 0 || mDefinition->mTracks.count == 0 || mDefinition->mTracks.tracks == nullptr)
+		return;
+
+	mHasOverlayMatrix = (mOverlayMatrix.m00 != 1.0f || mOverlayMatrix.m11 != 1.0f ||
+	                     mOverlayMatrix.m02 != 0.0f || mOverlayMatrix.m12 != 0.0f ||
+	                     mOverlayMatrix.m01 != 0.0f || mOverlayMatrix.m10 != 0.0f);
+
+	PvzpTriangleGroup aLocalGroup;
+	PvzpTriangleGroup* aGroup = theTriangleGroup ? theTriangleGroup : &aLocalGroup;
+
+	ReanimatorFrameTime aFrameTime;
+	GetFrameTime(&aFrameTime);
+	for (int aTrackIndex = 0; aTrackIndex < mDefinition->mTracks.count; aTrackIndex++)
+	{
+		ReanimatorTrackInstance* aTrackInstance = &mTrackInstances[aTrackIndex];
+		if (aTrackInstance->mRenderGroup == theRenderGroup)
+		{
+			bool aTrackDrawn = DrawTrack(g, aTrackIndex, theRenderGroup, aGroup, &aFrameTime);
+			if (aTrackInstance->mAttachmentID != AttachmentID::ATTACHMENTID_NULL)
+			{
+				AttachmentDraw(aTrackInstance->mAttachmentID, g, !aTrackDrawn, aGroup);
+			}
+		}
+	}
+	if (!theTriangleGroup)
+	{
+		aLocalGroup.DrawGroup(g);
+	}
+}
+
+void Reanimation::Draw(Graphics* g)
+{
+	DrawRenderGroup(g, RENDER_GROUP_NORMAL);
+}
+
+void Reanimation::DrawAllRenderGroups(Graphics* g, PvzpTriangleGroup* theTriangleGroup)
+{
+	for (int aRenderGroup = RENDER_GROUP_NORMAL; aRenderGroup <= RENDER_GROUP_MAX; aRenderGroup++)
+		DrawRenderGroup(g, aRenderGroup, theTriangleGroup);
+}
+
+int Reanimation::FindTrackIndex(const char* theTrackName)
+{
+	if (this == nullptr || mDefinition == nullptr || mDefinition->mTracks.tracks == nullptr || mDefinition->mTracks.count <= 0 || theTrackName == nullptr)
+		return -1;
+
+	for (int aTrackIndex = 0; aTrackIndex < mDefinition->mTracks.count; aTrackIndex++)
+	{
+		const char* aName = mDefinition->mTracks.tracks[aTrackIndex].mName;
+		if (aName != nullptr && strcasecmp(aName, theTrackName) == 0)
+			return aTrackIndex;
+	}
+
+	PvzpLogLn("Can't find track '{}'", theTrackName);
+	return -1;
+}
+
+ReanimatorTrackInstance* Reanimation::GetTrackInstanceByName(const char* theTrackName)
+{
+	if (this == nullptr || mDefinition == nullptr || mTrackInstances == nullptr)
+		return nullptr;
+
+	int aTrackIndex = FindTrackIndex(theTrackName);
+	if (aTrackIndex < 0 || aTrackIndex >= mDefinition->mTracks.count)
+		return nullptr;
+
+	return &mTrackInstances[aTrackIndex];
+}
+
+void Reanimation::AttachToAnotherReanimation(Reanimation* theAttachReanim, const char* theTrackName)
+{
+	if (!theAttachReanim || !theAttachReanim->mDefinition || theAttachReanim->mDefinition->mTracks.count <= 0)
+		return;
+
+	if (theAttachReanim->mFrameBasePose == -1)
+		theAttachReanim->mFrameBasePose = theAttachReanim->mFrameStart;  // use the current animation's start frame as the base pose
+	ReanimatorTrackInstance* aTrackInst = theAttachReanim->GetTrackInstanceByName(theTrackName);
+	if (aTrackInst != nullptr)
+	{
+		AttachReanim(aTrackInst->mAttachmentID, this, 0.0f, 0.0f);
+	}
+}
+
+void Reanimation::SetBasePoseFromAnim(const char* theTrackName)
+{
+	int aFrameStart, aFrameCount;
+	GetFramesForLayer(theTrackName, aFrameStart, aFrameCount);
+	mFrameBasePose = aFrameStart;  // use the track animation's start frame as the base pose
+}
+
+void Reanimation::GetTrackBasePoseMatrix(int theTrackIndex, SexyTransform2D& theBasePosMatrix)
+{
+	if (mFrameBasePose == NO_BASE_POSE)
+	{
+		theBasePosMatrix.LoadIdentity();
+		return;
+	}
+
+	int aBasePos = mFrameBasePose == -1 ? mFrameStart : mFrameBasePose;
+	ReanimatorFrameTime aStartTime = { 0.0f, aBasePos, aBasePos + 1 };
+	ReanimatorTransform aTransformStart;
+	GetTransformAtTime(theTrackIndex, &aTransformStart, &aStartTime);
+	MatrixFromTransform(aTransformStart, theBasePosMatrix);
+}
+
+AttachEffect* Reanimation::AttachParticleToTrack(const char* theTrackName, PvzpParticleSystem* theParticleSystem, float thePosX, float thePosY)
+{
+	int aTrackIndex = FindTrackIndex(theTrackName);
+	ReanimatorTrackInstance* aTrackInstance = &mTrackInstances[aTrackIndex];
+	SexyTransform2D aBasePoseMatrix;
+	GetTrackBasePoseMatrix(aTrackIndex, aBasePoseMatrix);
+	SexyVector2 aPosition = aBasePoseMatrix * SexyVector2(thePosX, thePosY);
+	return AttachParticle(aTrackInstance->mAttachmentID, theParticleSystem, aPosition.x, aPosition.y);
+}
+
+void Reanimation::GetAttachmentOverlayMatrix(int theTrackIndex, SexyTransform2D& theOverlayMatrix)
+{
+	ReanimatorTransform aTransform;
+	GetCurrentTransform(theTrackIndex, &aTransform);  // blended transform without overrides
+	SexyTransform2D aTransformMatrix;
+	MatrixFromTransform(aTransform, aTransformMatrix);
+	if (mOverlayMatrix.m00 != 1.0f || mOverlayMatrix.m11 != 1.0f ||
+	    mOverlayMatrix.m02 != 0.0f || mOverlayMatrix.m12 != 0.0f ||
+	    mOverlayMatrix.m01 != 0.0f || mOverlayMatrix.m10 != 0.0f)
+	{
+		SexyMatrix3Multiply(aTransformMatrix, mOverlayMatrix, aTransformMatrix);  // apply the overlay matrix
+	}
+
+	if (mFrameBasePose == NO_BASE_POSE)
+	{
+		theOverlayMatrix = aTransformMatrix;
+		return;
+	}
+
+	ReanimatorTrack* aTrack = (mDefinition && theTrackIndex >= 0 && theTrackIndex < mDefinition->mTracks.count) ?
+		&mDefinition->mTracks.tracks[theTrackIndex] : nullptr;
+
+	if (aTrack && aTrack->mHasBasePoseMatrixInv)
+	{
+		theOverlayMatrix = aTransformMatrix * aTrack->mBasePoseMatrixInv;
+		return;
+	}
+
+	SexyTransform2D aBasePoseMatrix;
+	GetTrackBasePoseMatrix(theTrackIndex, aBasePoseMatrix);
+	SexyTransform2D aBasePoseMatrixInv;
+	SexyMatrix3InverseAffine2D(aBasePoseMatrix, aBasePoseMatrixInv);
+
+	if (aTrack && (mFrameBasePose == 0 || mFrameBasePose == -1))
+	{
+		aTrack->mBasePoseMatrixInv = aBasePoseMatrixInv;
+		aTrack->mHasBasePoseMatrixInv = true;
+	}
+
+	theOverlayMatrix = aTransformMatrix * aBasePoseMatrixInv;
+}
+
+void Reanimation::GetFramesForLayer(const char* theTrackName, int& theFrameStart, int& theFrameCount)
+{
+	theFrameStart = 0;
+	theFrameCount = 0;
+
+	if (mDefinition == nullptr || mDefinition->mTracks.count == 0 || theTrackName == nullptr)
+	{
+		return;
+	}
+
+	int aTrackIndex = FindTrackIndex(theTrackName);
+	if (aTrackIndex < 0 || aTrackIndex >= mDefinition->mTracks.count)
+	{
+		theFrameStart = 0;
+		theFrameCount = (mDefinition->mTracks.tracks != nullptr && mDefinition->mTracks.count > 0)
+			? std::max(1, mDefinition->mTracks.tracks[0].mTransforms.count)
+			: 1;
+		return;
+	}
+
+	ReanimatorTrack* aTrack = &mDefinition->mTracks.tracks[aTrackIndex];
+	theFrameCount = 1;
+	for (int i = 0; i < aTrack->mTransforms.count; i++)
+		if (aTrack->mTransforms.mTransforms[i].mFrame >= 0.0f)
+		{
+			theFrameStart = i;  // first non-blank frame
+			break;
+		}
+	for (int j = theFrameStart; j < aTrack->mTransforms.count; j++)
+		if (aTrack->mTransforms.mTransforms[j].mFrame >= 0.0f)
+			theFrameCount = j - theFrameStart + 1;  // span from start to the last non-blank frame
+}
+
+void Reanimation::SetFramesForLayer(const char* theTrackName)
+{
+	if (mAnimRate >= 0)
+		mAnimTime = 0.0f;
+	else
+		mAnimTime = 0.9999999f;
+	mLastFrameTime = -1.0f;
+	GetFramesForLayer(theTrackName, mFrameStart, mFrameCount);
+}
+
+bool Reanimation::TrackExists(const char* theTrackName)
+{
+	if (mDefinition == nullptr || mDefinition->mTracks.tracks == nullptr || mDefinition->mTracks.count <= 0 || theTrackName == nullptr)
+		return false;
+
+	for (int aTrackIndex = 0; aTrackIndex < mDefinition->mTracks.count; aTrackIndex++)
+	{
+		const char* aName = mDefinition->mTracks.tracks[aTrackIndex].mName;
+		if (aName != nullptr && strcasecmp(aName, theTrackName) == 0)
+			return true;
+	}
+	return false;
+}
+
+void Reanimation::StartBlend(int theBlendTime)
+{
+	for (int aTrackIndex = 0; aTrackIndex < mDefinition->mTracks.count; aTrackIndex++)
+	{
+		ReanimatorTransform aTransform;
+		GetCurrentTransform(aTrackIndex, &aTransform);
+		if (FloatRoundToInt(aTransform.mFrame) >= 0)  // not on a blank frame
+		{
+			ReanimatorTrackInstance* aTrackInstance = &mTrackInstances[aTrackIndex];
+			aTrackInstance->mBlendTransform = aTransform;  // record the current transform as the blend source
+			aTrackInstance->mBlendTime = theBlendTime;
+			aTrackInstance->mBlendCounter = theBlendTime;
+			aTrackInstance->mBlendTransform.mFont = nullptr;
+			aTrackInstance->mBlendTransform.mText = "";
+			aTrackInstance->mBlendTransform.mImage = nullptr;
+		}
+	}
+}
+
+void Reanimation::ReanimationDie()
+{
+	if (!mDead)
+	{
+		mDead = true;
+		if (IsCharredReanimation(mReanimationType))
+		{
+			SafeDecrementCharredCount();
+		}
+		if (mDefinition == nullptr || mTrackInstances == nullptr)
+			return;
+		for (int aTrackIndex = 0; aTrackIndex < mDefinition->mTracks.count; aTrackIndex++)
+		{
+			AttachmentID anAttachID = mTrackInstances[aTrackIndex].mAttachmentID;
+			mTrackInstances[aTrackIndex].mAttachmentID = AttachmentID::ATTACHMENTID_NULL;
+			AttachmentDie(anAttachID);
+		}
+	}
+}
+
+void Reanimation::SetShakeOverride(const char* theTrackName, float theShakeAmount)
+{
+	ReanimatorTrackInstance* aTrack = GetTrackInstanceByName(theTrackName);
+	if (aTrack)
+	{
+		aTrack->mShakeOverride = theShakeAmount;
+	}
+}
+
+void Reanimation::SetPosition(float theX, float theY)
+{
+	mOverlayMatrix.m02 = theX;
+	mOverlayMatrix.m12 = theY;
+	mHasOverlayMatrix = (theX != 0.0f || theY != 0.0f || mOverlayMatrix.m00 != 1.0f || mOverlayMatrix.m11 != 1.0f);
+}
+
+void Reanimation::OverrideScale(float theScaleX, float theScaleY)
+{
+	mOverlayMatrix.m00 = theScaleX;
+	mOverlayMatrix.m11 = theScaleY;
+	mHasOverlayMatrix = (theScaleX != 1.0f || theScaleY != 1.0f || mOverlayMatrix.m02 != 0.0f || mOverlayMatrix.m12 != 0.0f);
+}
+
+Image* Reanimation::GetImageOverride(const char* theTrackName)
+{
+	ReanimatorTrackInstance* aTrack = GetTrackInstanceByName(theTrackName);
+	return aTrack ? aTrack->mImageOverride : nullptr;
+}
+
+void Reanimation::SetImageOverride(const char* theTrackName, Image* theImage)
+{
+	ReanimatorTrackInstance* aTrack = GetTrackInstanceByName(theTrackName);
+	if (aTrack)
+	{
+		if (theImage != nullptr && !IsValidImagePtr(theImage))
+		{
+			theImage = nullptr;
+		}
+		aTrack->mImageOverride = theImage;
+	}
+}
+
+void Reanimation::SetTruncateDisappearingFrames(const char* theTrackName, bool theTruncateDisappearingFrames)
+{
+	if (theTrackName == nullptr)
+	{
+		if (mDefinition && mTrackInstances)
+		{
+			for (int aTrackIndex = 0; aTrackIndex < mDefinition->mTracks.count; aTrackIndex++)
+				mTrackInstances[aTrackIndex].mTruncateDisappearingFrames = theTruncateDisappearingFrames;
+		}
+	}
+	else
+	{
+		ReanimatorTrackInstance* aTrack = GetTrackInstanceByName(theTrackName);
+		if (aTrack)
+		{
+			aTrack->mTruncateDisappearingFrames = theTruncateDisappearingFrames;
+		}
+	}
+}
+
+void ReanimationHolder::DisposeHolder()
+{
+	mReanimations.DataArrayDispose();
+}
+
+ReanimationHolder::~ReanimationHolder()
+{
+	DisposeHolder();
+}
+
+void ReanimationHolder::InitializeHolder()
+{
+	mReanimations.DataArrayInitialize(1024U, "reanims");
+}
+
+Reanimation* ReanimationHolder::AllocReanimation(float theX, float theY, int theRenderOrder, ReanimationType theReanimationType)
+{
+	PVZP_ASSERT(mReanimations.mSize != mReanimations.mMaxSize);
+	Reanimation* aReanim = mReanimations.DataArrayAlloc();
+	aReanim->mRenderOrder = theRenderOrder;
+	aReanim->mReanimationHolder = this;
+	aReanim->ReanimationInitializeType(theX, theY, theReanimationType);
+	return aReanim;
+}
+
+void ReanimatorEnsureDefinitionLoaded(ReanimationType theReanimType, bool theIsPreloading)
+{
+	if (theReanimType < 0 || static_cast<unsigned int>(theReanimType) >= gReanimatorDefCount || !gReanimatorDefArray || !gReanimationParamArray)
+	{
+		return;
+	}
+	PVZP_ASSERT(theReanimType >= 0 && theReanimType < gReanimatorDefCount);
+	ReanimatorDefinition* aReanimDef = &gReanimatorDefArray[theReanimType];
+	if (aReanimDef->mTracks.tracks != nullptr)  // non-null tracks means the definition is already loaded
+	{
+		if (theIsPreloading && aReanimDef->mReanimAtlas == nullptr)
+		{
+			ReanimationCreateAtlas(aReanimDef, theReanimType);
+		}
+		return;
+	}
+	const ReanimationParams* aReanimParams = &gReanimationParamArray[theReanimType];
+	PvzpLogLn("'{}'", aReanimParams->mReanimFileName);
+	if (theIsPreloading)
+	{
+		if (gSexyAppBase->mShutdown || LawnGetCloseRequest())  // abort preloading when the app is shutting down
+			return;
+	}
+	else
+	{
+		if (LawnHasUsedCheatKeys())
+			PvzpLogLn("Cheater failed to preload '{}' on {}", aReanimParams->mReanimFileName, LawnGetCurrentLevelName());
+		else
+			PvzpLogLn("Non-cheater failed to preload '{}' on {}", aReanimParams->mReanimFileName, LawnGetCurrentLevelName());
+	}
+
+	PerfTimer aTimer;
+	aTimer.Start();
+	PvzpHesitationBracket aHesitation("Load Reanim '{}'", aReanimParams->mReanimFileName);
+	if (!ReanimationLoadDefinition(aReanimParams->mReanimFileName, aReanimDef))
+	{
+		PvzpLogLn("Warning: Failed to load reanim '{}'", aReanimParams->mReanimFileName);
+	}
+	if (theIsPreloading && aReanimDef->mReanimAtlas == nullptr)
+	{
+		ReanimationCreateAtlas(aReanimDef, theReanimType);
+	}
+	int aDuration = aTimer.GetDuration();
+	if (aDuration > 100)  // report slow reanim loading
+		PvzpLogLn("LOADING:Long reanim '{}' {} ms on {}", aReanimParams->mReanimFileName, aDuration, LawnGetCurrentLevelName());
+}
+
+void ReanimatorLoadDefinitions(const ReanimationParams* theReanimationParamArray, int theReanimationParamArraySize)
+{
+	PvzpHesitationBracket aHesitation("ReanimatorLoadDefinitions");
+	PVZP_ASSERT(!gReanimationParamArray && !gReanimatorDefArray);
+	gReanimationParamArraySize = theReanimationParamArraySize;
+	gReanimationParamArray = theReanimationParamArray;
+	gReanimatorDefCount = theReanimationParamArraySize;
+	gReanimatorDefArray = std::make_unique<ReanimatorDefinition[]>(theReanimationParamArraySize);
+
+#ifndef LOW_MEMORY
+	for (unsigned int i = 0; i < gReanimationParamArraySize; i++)
+	{
+		const ReanimationParams* aReanimationParams = &theReanimationParamArray[i];
+		PVZP_ASSERT(aReanimationParams->mReanimationType == i);
+		if (DefinitionIsCompiled(aReanimationParams->mReanimFileName))
+			ReanimatorEnsureDefinitionLoaded(aReanimationParams->mReanimationType, true);
+	}
+#endif
+}
+
+void ReanimatorFreeDefinitions()
+{
+	for (unsigned int i = 0; i < gReanimatorDefCount; i++)
+		ReanimationFreeDefinition(&gReanimatorDefArray[i]);
+
+	gReanimatorDefArray.reset();
+	gReanimatorDefCount = 0;
+	gReanimationParamArray = nullptr;
+	gReanimationParamArraySize = 0;
+}
+
+float Reanimation::GetTrackVelocity(const char* theTrackName)
+{
+	if (this == nullptr || mDefinition == nullptr || theTrackName == nullptr)
+		return 0.0f;
+
+	ReanimatorFrameTime aFrameTime;
+	GetFrameTime(&aFrameTime);
+	int aTrackIndex = FindTrackIndex(theTrackName);
+	if (aTrackIndex < 0 || aTrackIndex >= mDefinition->mTracks.count)
+		return 0.0f;
+
+	ReanimatorTrack* aTrack = &mDefinition->mTracks.tracks[aTrackIndex];
+	float aDis = aTrack->mTransforms.mTransforms[aFrameTime.mAnimFrameAfterInt].mTransX - aTrack->mTransforms.mTransforms[aFrameTime.mAnimFrameBeforeInt].mTransX;
+	return aDis * SECONDS_PER_UPDATE * mAnimRate;  // velocity = x displacement between frames * frame duration * anim rate
+}
+
+bool Reanimation::IsTrackShowing(const char* theTrackName)
+{
+	if (this == nullptr || mDefinition == nullptr || theTrackName == nullptr)
+		return false;
+
+	ReanimatorFrameTime aFrameTime;
+	GetFrameTime(&aFrameTime);
+	int aTrackIndex = FindTrackIndex(theTrackName);
+	if (aTrackIndex < 0 || aTrackIndex >= mDefinition->mTracks.count)
+		return false;
+
+	return mDefinition->mTracks.tracks[aTrackIndex].mTransforms.mTransforms[aFrameTime.mAnimFrameAfterInt].mFrame >= 0.0f;  // whether the next integer frame has an image
+}
+
+void Reanimation::ShowOnlyTrack(const char* theTrackName)
+{
+	if (this == nullptr || mDefinition == nullptr || mDefinition->mTracks.tracks == nullptr || mTrackInstances == nullptr || theTrackName == nullptr)
+		return;
+
+	for (int i = 0; i < mDefinition->mTracks.count; i++)
+	{
+		const char* aName = mDefinition->mTracks.tracks[i].mName;
+		if (aName != nullptr)
+			mTrackInstances[i].mRenderGroup = strcasecmp(aName, theTrackName) == 0 ? RENDER_GROUP_NORMAL : RENDER_GROUP_HIDDEN;
+	}
+}
+
+void Reanimation::AssignRenderGroupToTrack(const char* theTrackName, int theRenderGroup)
+{
+	if (this == nullptr || mDefinition == nullptr || mDefinition->mTracks.tracks == nullptr || mTrackInstances == nullptr || theTrackName == nullptr)
+		return;
+
+	for (int i = 0; i < mDefinition->mTracks.count; i++)
+	{
+		const char* aName = mDefinition->mTracks.tracks[i].mName;
+		if (aName != nullptr && strcasecmp(aName, theTrackName) == 0)
+		{
+			mTrackInstances[i].mRenderGroup = theRenderGroup;  // only the first exact match
+			return;
+		}
+	}
+}
+
+void Reanimation::AssignRenderGroupToPrefix(const char* theTrackName, int theRenderGroup)
+{
+	if (this == nullptr || mDefinition == nullptr || mDefinition->mTracks.tracks == nullptr || mTrackInstances == nullptr || theTrackName == nullptr)
+		return;
+
+	size_t aPrifixLength = strlen(theTrackName);
+	for (int i = 0; i < mDefinition->mTracks.count; i++)
+	{
+		const char* const aTrackName = mDefinition->mTracks.tracks[i].mName;
+		if (aTrackName != nullptr && strlen(aTrackName) >= aPrifixLength && !strncasecmp(aTrackName, theTrackName, aPrifixLength))  // the name must be at least as long as the prefix
+			mTrackInstances[i].mRenderGroup = theRenderGroup;
+	}
+}
+
+void Reanimation::PropogateColorToAttachments()
+{
+	if (this == nullptr || mDefinition == nullptr || mTrackInstances == nullptr)
+		return;
+
+	for (int i = 0; i < mDefinition->mTracks.count; i++)
+		AttachmentPropogateColor(
+			mTrackInstances[i].mAttachmentID, mColorOverride, mEnableExtraAdditiveDraw, mExtraAdditiveColor, mEnableExtraOverlayDraw, mExtraOverlayColor
+		);
+}
+
+bool Reanimation::ShouldTriggerTimedEvent(float theEventTime)
+{
+	PVZP_ASSERT(theEventTime >= 0.0f && theEventTime <= 1.0f);
+	if (mFrameCount == 0 || mLastFrameTime <= 0.0f || mAnimRate <= 0.0f)  // no animation, reverse playback, or not playing
+		return false;
+
+	if (mAnimTime >= mLastFrameTime)  // normal case: trigger range is [mLastFrameTime, mAnimTime]
+		return theEventTime >= mLastFrameTime && theEventTime < mAnimTime;
+	else  // wrapped into the next loop: trigger range is [0, mAnimTime] ∪ [mLastFrameTime, 1]
+		return theEventTime >= mLastFrameTime || theEventTime < mAnimTime;
+}
+void Reanimation::PlayReanim(const char* theTrackName, ReanimLoopType theLoopType, int theBlendTime, float theAnimRate)
+{
+	if (theBlendTime > 0)
+		StartBlend(theBlendTime);
+	if (theAnimRate != 0.0f)  // a rate of 0 keeps the current anim rate
+		mAnimRate = theAnimRate;
+
+	mLoopType = theLoopType;
+	mLoopCount = 0;
+	SetFramesForLayer(theTrackName);
+}
+
+void Reanimation::ParseAttacherTrack(const ReanimatorTransform& theTransform, AttacherInfo& theAttacherInfo)
+{
+	theAttacherInfo.mReanimName = "";
+	theAttacherInfo.mTrackName = "";
+	theAttacherInfo.mAnimRate = 12.0f;
+	theAttacherInfo.mLoopType = ReanimLoopType::REANIM_LOOP;
+	if (theTransform.mFrame == -1.0f || !IsValidMemoryPointer(theTransform.mText))  // blank frame or invalid text pointer
+		return;
+
+	// attacher track name format: attacher__REANIMNAME__TRACKNAME[TAG1][TAG2]...
+
+	const char* aReanimName = strstr(theTransform.mText, "__");  // the "__" before the reanim name
+	if (aReanimName == nullptr)
+		return;
+	const char* aTags = strstr(aReanimName + 2, "[");  // the "[" starting the tags, after the reanim name
+	const char* aTrackName = strstr(aReanimName + 2, "__");  // the "__" before the track name, after the reanim name
+	if (aTags && aTrackName && ((uintptr_t)aTags < (uintptr_t)aTrackName))  // a "__" after "[" makes the string invalid
+		return;
+
+	if (aTrackName)  // track name defined
+	{
+		theAttacherInfo.mReanimName.assign(aReanimName + 2, aTrackName - aReanimName - 2);  // between the two "__" (REANIMNAME)
+		if (aTags)  // tags defined
+			theAttacherInfo.mTrackName.assign(aTrackName + 2, aTags - aTrackName - 2);  // up to the "["
+		else
+			theAttacherInfo.mTrackName.assign(aTrackName + 2);  // to the end of the string
+	}
+	else if (aTags)  // no track name, but tags defined
+		theAttacherInfo.mReanimName.assign(aReanimName + 2, aTags - aReanimName - 2);  // between "__" and "["
+	else  // only the reanim name is defined
+		theAttacherInfo.mReanimName.assign(aReanimName + 2);  // from after "__" to the end of the string
+
+	while (aTags)  // read each tag
+	{
+		const char* aTagEnds = strstr(aTags + 1, "]");
+		if (aTagEnds == nullptr)  // no closing "]"
+			break;
+
+		std::string aCode(aTags + 1, aTagEnds - aTags - 1);  // text inside the brackets
+		if (sscanf(aCode.c_str(), "%f", &theAttacherInfo.mAnimRate) != 1)  // if the text parses as a float, it is the anim rate
+		{
+			if (aCode.compare("hold") == 0)
+				theAttacherInfo.mLoopType = ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD;
+			else if (aCode.compare("once") == 0)
+				theAttacherInfo.mLoopType = ReanimLoopType::REANIM_PLAY_ONCE;
+		}
+
+		aTags = strstr(aTagEnds + 1, "[");  // find the next tag's "["
+	}
+}
+
+void Reanimation::AttacherSynchWalkSpeed(int theTrackIndex, Reanimation* theAttachReanim, [[maybe_unused]] AttacherInfo& theAttacherInfo)
+{
+	ReanimatorTrack* aTrack = &mDefinition->mTracks.tracks[theTrackIndex];
+	ReanimatorFrameTime aFrameTime;
+	GetFrameTime(&aFrameTime);
+
+	int aPlaceHolderFrameStart = aFrameTime.mAnimFrameBeforeInt;
+	while (aPlaceHolderFrameStart > mFrameStart && aTrack->mTransforms.mTransforms[aPlaceHolderFrameStart - 1].mText == aTrack->mTransforms.mTransforms[aPlaceHolderFrameStart].mText)
+		aPlaceHolderFrameStart--;  // first frame of the current segment
+	int aPlaceHolderFrameEnd = aFrameTime.mAnimFrameBeforeInt;
+	while (aPlaceHolderFrameEnd < mFrameStart + mFrameCount - 1 && aTrack->mTransforms.mTransforms[aPlaceHolderFrameEnd + 1].mText == aTrack->mTransforms.mTransforms[aPlaceHolderFrameEnd].mText)
+		aPlaceHolderFrameEnd++;  // last frame of the current segment
+	int aPlaceHolderFrameCount = aPlaceHolderFrameEnd - aPlaceHolderFrameStart;
+	ReanimatorTransform& aPlaceHolderStartTrans = aTrack->mTransforms.mTransforms[aPlaceHolderFrameStart];
+	ReanimatorTransform& aPlaceHolderEndTrans = aTrack->mTransforms.mTransforms[aPlaceHolderFrameEnd];
+	if (FloatApproxEqual(mAnimRate, 0.0f))
+	{
+		theAttachReanim->mAnimRate = 0.0f;
+		return;
+	}
+	float aPlaceHolderDistance = -(aPlaceHolderEndTrans.mTransX - aPlaceHolderStartTrans.mTransX);  // placeholder track's displacement in this segment
+	float aPlaceHolderSeconds = aPlaceHolderFrameCount / mAnimRate;  // placeholder track's duration in this segment
+	if (FloatApproxEqual(aPlaceHolderSeconds, 0.0f))  // the segment has no frames
+	{
+		theAttachReanim->mAnimRate = 0.0f;
+		return;
+	}
+
+	int aGroundTrackIndex = theAttachReanim->FindTrackIndex("_ground");
+	ReanimatorTrack* aGroundTrack = &theAttachReanim->mDefinition->mTracks.tracks[aGroundTrackIndex];
+	ReanimatorTransform& aTransformGuyStart = aGroundTrack->mTransforms.mTransforms[theAttachReanim->mFrameStart];
+	ReanimatorTransform& aTransformGuyEnd = aGroundTrack->mTransforms.mTransforms[theAttachReanim->mFrameStart + theAttachReanim->mFrameCount - 1];
+	float aGuyDistance = aTransformGuyEnd.mTransX - aTransformGuyStart.mTransX;  // attached anim's displacement over one full cycle
+	if (aGuyDistance < FLT_EPSILON || aPlaceHolderDistance < FLT_EPSILON)  // zero displacement: the attached anim cannot move
+	{
+		theAttachReanim->mAnimRate = 0.0f;
+		return;
+	}
+
+	float aLoops = aPlaceHolderDistance / aGuyDistance;  // cycles needed = placeholder displacement / cycle displacement
+	ReanimatorTransform aTransformGuyCurrent;
+	theAttachReanim->GetCurrentTransform(aGroundTrackIndex, &aTransformGuyCurrent);
+	AttachEffect* aAttachEffect = FindFirstAttachment(mTrackInstances[theTrackIndex].mAttachmentID);
+	if (aAttachEffect != nullptr)
+	{
+		float aGuyCurrentDistance = aTransformGuyCurrent.mTransX - aTransformGuyStart.mTransX;  // attached anim's current displacement within its cycle
+		float aGuyExpectedDistance = aGuyDistance * theAttachReanim->mAnimTime;  // expected displacement from the uniformly moving placeholder
+		aAttachEffect->mOffset.m02 = aGuyExpectedDistance - aGuyCurrentDistance;  // correct the x offset to keep the attached anim in sync with the placeholder
+	}
+	theAttachReanim->mAnimRate = aLoops * theAttachReanim->mFrameCount / aPlaceHolderSeconds;  // rate = frames to play / available time
+}
+
+void Reanimation::UpdateAttacherTrack(int theTrackIndex)
+{
+	ReanimatorTrackInstance* aTrackInstance = &mTrackInstances[theTrackIndex];
+	ReanimatorTransform aTransform;
+	GetCurrentTransform(theTrackIndex, &aTransform);
+	AttacherInfo aAttacherInfo;
+	ParseAttacherTrack(aTransform, aAttacherInfo);
+
+	ReanimationType aReanimationType = ReanimationType::REANIM_NONE;
+	if (aAttacherInfo.mReanimName.size() != 0)
+	{
+		std::string aReanimFileName = std::format("reanim/{}.reanim", aAttacherInfo.mReanimName);
+		for (unsigned int i = 0; i < gReanimationParamArraySize; i++)  // find the reanim type for this file name
+		{
+			const ReanimationParams* aParams = &gReanimationParamArray[i];
+			if (strcasecmp(aReanimFileName.c_str(), aParams->mReanimFileName) == 0)
+			{
+				aReanimationType = aParams->mReanimationType;
+				break;
+			}
+		}
+	}
+	if (aReanimationType == ReanimationType::REANIM_NONE)  // no name set or no matching reanim found
+	{
+		AttachmentDie(aTrackInstance->mAttachmentID);
+		return;
+	}
+
+	Reanimation* aAttachReanim = FindReanimAttachment(aTrackInstance->mAttachmentID);
+	if (aAttachReanim == nullptr || aAttachReanim->mReanimationType != aReanimationType)
+	{
+		AttachmentDie(aTrackInstance->mAttachmentID);
+		aAttachReanim = gEffectSystem->mReanimationHolder->AllocReanimation(0.0f, 0.0f, 0, aReanimationType);
+		aAttachReanim->mLoopType = aAttacherInfo.mLoopType;
+		aAttachReanim->mAnimRate = aAttacherInfo.mAnimRate;
+		AttachReanim(aTrackInstance->mAttachmentID, aAttachReanim, 0.0f, 0.0f);
+		mFrameBasePose = NO_BASE_POSE;  // with an attachment set, this reanim has no base pose frame
+	}
+
+	if (aAttacherInfo.mTrackName.size() != 0)
+	{
+		int aAnimFrameStart, aAnimFrameCount;
+		aAttachReanim->GetFramesForLayer(aAttacherInfo.mTrackName.c_str(), aAnimFrameStart, aAnimFrameCount);
+		if (aAttachReanim->mFrameStart != aAnimFrameStart || aAttachReanim->mFrameCount != aAnimFrameCount)  // if (!aAttachReanim->IsAnimPlaying(……))
+		{
+			aAttachReanim->StartBlend(20);
+			aAttachReanim->SetFramesForLayer(aAttacherInfo.mTrackName.c_str());
+		}
+
+		if (aAttachReanim->mAnimRate == 12.0f && aAttacherInfo.mTrackName.compare("anim_walk") == 0 && aAttachReanim->TrackExists("_ground"))
+			AttacherSynchWalkSpeed(theTrackIndex, aAttachReanim, aAttacherInfo);
+		else
+			aAttachReanim->mAnimRate = aAttacherInfo.mAnimRate;
+		aAttachReanim->mLoopType = aAttacherInfo.mLoopType;
+	}
+
+	Color aColor = ColorsMultiply(mColorOverride, aTrackInstance->mTrackColor);
+	aColor.mAlpha = std::clamp(FloatRoundToInt(aTransform.mAlpha * aColor.mAlpha), 0, 255);
+	AttachmentPropogateColor(aTrackInstance->mAttachmentID, aColor, mEnableExtraAdditiveDraw, mExtraAdditiveColor, mEnableExtraOverlayDraw, mExtraOverlayColor);
+}
+
+bool Reanimation::IsAnimPlaying(const char* theTrackName)
+{
+	if (mDefinition == nullptr || theTrackName == nullptr)
+		return false;
+
+	if (!TrackExists(theTrackName))
+		return false;
+
+	int aFrameStart = 0, aFrameCount = 0;
+	GetFramesForLayer(theTrackName, aFrameStart, aFrameCount);
+	if (aFrameCount == 0)
+		return false;
+
+	return mFrameStart == aFrameStart && mFrameCount == aFrameCount;
+}
+
+Reanimation* Reanimation::FindSubReanim(ReanimationType theReanimType)
+{
+	if (mReanimationType == theReanimType)
+		return this;
+
+	for (int i = 0; i < mDefinition->mTracks.count; i++)
+	{
+		Reanimation* aReanimation = FindReanimAttachment(mTrackInstances[i].mAttachmentID);
+		if (aReanimation != nullptr)
+		{
+			Reanimation* aSubReanim = aReanimation->FindSubReanim(theReanimType);
+			if (aSubReanim != nullptr)
+				return aSubReanim;
+		}
+	}
+
+	return nullptr;
+}

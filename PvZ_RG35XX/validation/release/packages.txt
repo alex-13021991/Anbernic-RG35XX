@@ -1,0 +1,2 @@
+PASS: PvZ_RG35XX_v1.0.1.zip: CRC, SHA256, default 640, assets policy, no saves/logs/Windows executables
+PASS: PvZ_RG35XX_v1.0.1_ready-to-play.zip: CRC, SHA256, default 640, assets policy, no saves/logs/Windows executables

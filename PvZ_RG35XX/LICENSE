@@ -1,0 +1,5 @@
+Этот комплект содержит компоненты под разными лицензиями; общей перелицензии нет.
+Новые части платформы, основанные на Jazz² Resurrection, распространяются по GPL-3.0-or-later. Сохраняйте авторские уведомления в файлах.
+Игровой движок и библиотеки сохраняют исходные лицензии. См. LICENSES/, docs/DEPENDENCIES.md и файлы внутри sources/pvz.
+Коммерческие данные Plants vs. Zombies не входят в публичный исходный комплект. Права на торговые марки и ресурсы остаются у их владельцев.
+This product includes portions of the PopCap Games Framework, © 2005-2009 PopCap Games, Inc. All rights reserved. (http://popcapframework.sourceforge.net/).

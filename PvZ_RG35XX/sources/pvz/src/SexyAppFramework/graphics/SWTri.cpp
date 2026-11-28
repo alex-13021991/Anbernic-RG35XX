@@ -1,0 +1,856 @@
+/*
+ * Portions of this file are based on the PopCap Games Framework
+ * Copyright (C) 2005-2009 PopCap Games, Inc.
+ *
+ * Copyright (C) 2026 Zhou Qiankang <wszqkzqk@qq.com>
+ *
+ * SPDX-License-Identifier: LGPL-3.0-or-later AND LicenseRef-PopCap
+ *
+ * This file is part of PvZ-Portable.
+ *
+ * PvZ-Portable is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * PvZ-Portable is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with PvZ-Portable. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+#include "SWTri.h"
+#include "TriVertex.h"
+#include "misc/Debug.h"
+#include <algorithm>
+
+using namespace Sexy;
+
+// Precalculated reciprocal table: gInvAlphaTable[a] = round(65536.0 / a)
+// Eliminates 32-bit hardware divide stalls inside the inner pixel loop of transformed triangles.
+extern const uint32_t gInvAlphaTable[256] = {
+	0,
+	65536, 32768, 21845, 16384, 13107, 10923, 9362, 8192, 7282, 6554, 5958, 5461, 5041, 4681, 4369,
+	4096, 3855, 3641, 3449, 3277, 3121, 2979, 2849, 2731, 2621, 2521, 2427, 2341, 2260, 2185, 2114,
+	2048, 1986, 1928, 1872, 1820, 1771, 1725, 1680, 1638, 1598, 1560, 1524, 1489, 1456, 1425, 1394,
+	1365, 1337, 1311, 1285, 1260, 1237, 1214, 1192, 1170, 1150, 1130, 1111, 1092, 1074, 1057, 1040,
+	1024, 1008, 993, 978, 964, 950, 936, 923, 910, 898, 886, 874, 862, 851, 840, 830,
+	819, 809, 799, 790, 780, 771, 762, 753, 745, 736, 728, 720, 712, 705, 697, 690,
+	683, 676, 669, 662, 655, 649, 642, 636, 630, 624, 618, 612, 607, 601, 596, 590,
+	585, 580, 575, 570, 565, 560, 555, 551, 546, 542, 537, 533, 529, 524, 520, 516,
+	512, 508, 504, 500, 496, 493, 489, 485, 482, 478, 475, 471, 468, 465, 461, 458,
+	455, 452, 449, 446, 443, 440, 437, 434, 431, 428, 426, 423, 420, 417, 415, 412,
+	410, 407, 405, 402, 400, 397, 395, 392, 390, 388, 385, 383, 381, 379, 377, 374,
+	372, 370, 368, 366, 364, 362, 360, 358, 356, 354, 352, 350, 349, 347, 345, 343,
+	341, 340, 338, 336, 334, 333, 331, 329, 328, 326, 324, 323, 321, 320, 318, 317,
+	315, 314, 312, 311, 309, 308, 306, 305, 303, 302, 301, 299, 298, 297, 295, 294,
+	293, 291, 290, 289, 287, 286, 285, 284, 282, 281, 280, 279, 278, 276, 275, 274,
+	273, 272, 271, 270, 269, 267, 266, 265, 264, 263, 262, 261, 260, 259, 258, 257
+};
+
+thread_local SWHelper::XYZStruct	vertexReservoir[128];
+thread_local unsigned int			vertexReservoirUsed = 0;
+
+static int FixedFloor(int x)
+{
+	if (x>0)
+		return x&0xFFFF0000;
+	else
+		return (x&0xFFFF0000)-0x10000;
+}
+
+// Begin clipping stuff
+static inline void lClip(SWHelper::XYZStruct & dst, const SWHelper::XYZStruct & on, const SWHelper::XYZStruct & off, const float edge)
+{
+   float	delta = (edge - off.mX) / (on.mX - off.mX);
+   dst.mX = off.mX + (on.mX - off.mX) * delta;
+   dst.mY = off.mY + (on.mY - off.mY) * delta;
+   dst.mU = off.mU + (on.mU - off.mU) * delta;
+   dst.mV = off.mV + (on.mV - off.mV) * delta;
+   dst.mDiffuse =	((int) ((((off.mDiffuse >> 24)&0xff) + (((on.mDiffuse >> 24)&0xff) - ((off.mDiffuse >> 24)&0xff)) * delta))<<24) |
+			((int) ((((off.mDiffuse >> 16)&0xff) + (((on.mDiffuse >> 16)&0xff) - ((off.mDiffuse >> 16)&0xff)) * delta))<<16) |
+			((int) ((((off.mDiffuse >>  8)&0xff) + (((on.mDiffuse >>  8)&0xff) - ((off.mDiffuse >>  8)&0xff)) * delta))<<8 ) |
+			((int) ((((off.mDiffuse >>  0)&0xff) + (((on.mDiffuse >>  0)&0xff) - ((off.mDiffuse >>  0)&0xff)) * delta))    );
+}
+
+static inline void rClip(SWHelper::XYZStruct & dst, const SWHelper::XYZStruct & on, const SWHelper::XYZStruct & off, const float edge)
+{
+   float	delta = (edge - off.mX) / (on.mX - off.mX);
+   dst.mX = off.mX + (on.mX - off.mX) * delta;
+   dst.mY = off.mY + (on.mY - off.mY) * delta;
+   dst.mU = off.mU + (on.mU - off.mU) * delta;
+   dst.mV = off.mV + (on.mV - off.mV) * delta;
+   dst.mDiffuse =	((int) ((((off.mDiffuse >> 24)&0xff) + (((on.mDiffuse >> 24)&0xff) - ((off.mDiffuse >> 24)&0xff)) * delta))<<24) |
+			((int) ((((off.mDiffuse >> 16)&0xff) + (((on.mDiffuse >> 16)&0xff) - ((off.mDiffuse >> 16)&0xff)) * delta))<<16) |
+			((int) ((((off.mDiffuse >>  8)&0xff) + (((on.mDiffuse >>  8)&0xff) - ((off.mDiffuse >>  8)&0xff)) * delta))<<8 ) |
+			((int) ((((off.mDiffuse >>  0)&0xff) + (((on.mDiffuse >>  0)&0xff) - ((off.mDiffuse >>  0)&0xff)) * delta))    );
+}
+
+static inline void tClip(SWHelper::XYZStruct & dst, const SWHelper::XYZStruct & on, const SWHelper::XYZStruct & off, const float edge)
+{
+   float	delta = (edge - off.mY) / (on.mY - off.mY);
+   dst.mX = off.mX + (on.mX - off.mX) * delta;
+   dst.mY = off.mY + (on.mY - off.mY) * delta;
+   dst.mU = off.mU + (on.mU - off.mU) * delta;
+   dst.mV = off.mV + (on.mV - off.mV) * delta;
+   dst.mDiffuse =	((int) ((((off.mDiffuse >> 24)&0xff) + (((on.mDiffuse >> 24)&0xff) - ((off.mDiffuse >> 24)&0xff)) * delta))<<24) |
+			((int) ((((off.mDiffuse >> 16)&0xff) + (((on.mDiffuse >> 16)&0xff) - ((off.mDiffuse >> 16)&0xff)) * delta))<<16) |
+			((int) ((((off.mDiffuse >>  8)&0xff) + (((on.mDiffuse >>  8)&0xff) - ((off.mDiffuse >>  8)&0xff)) * delta))<<8 ) |
+			((int) ((((off.mDiffuse >>  0)&0xff) + (((on.mDiffuse >>  0)&0xff) - ((off.mDiffuse >>  0)&0xff)) * delta))    );
+}
+
+static inline void bClip(SWHelper::XYZStruct & dst, const SWHelper::XYZStruct & on, const SWHelper::XYZStruct & off, const float edge)
+{
+   float	delta = (edge - off.mY) / (on.mY - off.mY);
+   dst.mX = off.mX + (on.mX - off.mX) * delta;
+   dst.mY = off.mY + (on.mY - off.mY) * delta;
+   dst.mU = off.mU + (on.mU - off.mU) * delta;
+   dst.mV = off.mV + (on.mV - off.mV) * delta;
+   dst.mDiffuse =	((int) ((((off.mDiffuse >> 24)&0xff) + (((on.mDiffuse >> 24)&0xff) - ((off.mDiffuse >> 24)&0xff)) * delta))<<24) |
+			((int) ((((off.mDiffuse >> 16)&0xff) + (((on.mDiffuse >> 16)&0xff) - ((off.mDiffuse >> 16)&0xff)) * delta))<<16) |
+			((int) ((((off.mDiffuse >>  8)&0xff) + (((on.mDiffuse >>  8)&0xff) - ((off.mDiffuse >>  8)&0xff)) * delta))<<8 ) |
+			((int) ((((off.mDiffuse >>  0)&0xff) + (((on.mDiffuse >>  0)&0xff) - ((off.mDiffuse >>  0)&0xff)) * delta))    );
+}
+
+static inline unsigned int leClip(SWHelper::XYZStruct ** src, SWHelper::XYZStruct ** dst, const float edge)
+{
+   SWHelper::XYZStruct ** _dst = dst;
+
+   for (SWHelper::XYZStruct **  v = src; *v; ++v)
+   {
+	  SWHelper::XYZStruct *  cur = *v;
+	  SWHelper::XYZStruct *  nex = *(v+1) ? *(v+1):*src;
+
+	  switch((cur->mX < edge ? 1:0)|(nex->mX < edge ? 2:0))
+	  {
+		 case 0:
+			*dst = *v;
+			++dst;
+			break;
+		 case 1:
+		 {
+			if (__builtin_expect(vertexReservoirUsed >= 126, 0)) break;
+			SWHelper::XYZStruct &  tmp = vertexReservoir[vertexReservoirUsed++];
+			lClip(tmp, *nex, *cur, edge);
+			*dst = &tmp;
+			++dst;
+			break;
+		 }
+		 case 2:
+		 {
+			*dst = *v;
+			++dst;
+			if (__builtin_expect(vertexReservoirUsed >= 126, 0)) break;
+			SWHelper::XYZStruct &  tmp = vertexReservoir[vertexReservoirUsed++];
+			lClip(tmp, *cur, *nex, edge);
+			*dst = &tmp;
+			++dst;
+			break;
+		 }
+	  }
+   }
+   *dst = 0;
+   return static_cast<int>(dst - _dst);
+}
+
+static inline unsigned int reClip(SWHelper::XYZStruct ** src, SWHelper::XYZStruct ** dst, const float edge)
+{
+   SWHelper::XYZStruct ** _dst = dst;
+
+   for (SWHelper::XYZStruct ** v = src; *v; ++v)
+   {
+	  SWHelper::XYZStruct *  cur = *v;
+	  SWHelper::XYZStruct *  nex = *(v+1) ? *(v+1):*src;
+
+	  switch((cur->mX > edge ? 1:0)|(nex->mX > edge ? 2:0))
+	  {
+		 case 0:
+			*dst = *v;
+			++dst;
+			break;
+		 case 1:
+		 {
+			if (__builtin_expect(vertexReservoirUsed >= 126, 0)) break;
+			SWHelper::XYZStruct &  tmp = vertexReservoir[vertexReservoirUsed++];
+			rClip(tmp, *nex, *cur, edge);
+			*dst = &tmp;
+			++dst;
+			break;
+		 }
+		 case 2:
+		 {
+			*dst = *v;
+			++dst;
+			if (__builtin_expect(vertexReservoirUsed >= 126, 0)) break;
+			SWHelper::XYZStruct &  tmp = vertexReservoir[vertexReservoirUsed++];
+			rClip(tmp, *cur, *nex, edge);
+			*dst = &tmp;
+			++dst;
+			break;
+		 }
+	  }
+   }
+   *dst = 0;
+   return static_cast<int>(dst - _dst);
+}
+
+static inline unsigned int teClip(SWHelper::XYZStruct ** src, SWHelper::XYZStruct ** dst, const float edge)
+{
+   SWHelper::XYZStruct ** _dst = dst;
+
+   for (SWHelper::XYZStruct **  v = src; *v; ++v)
+   {
+	  SWHelper::XYZStruct *  cur = *v;
+	  SWHelper::XYZStruct *  nex = *(v+1) ? *(v+1):*src;
+
+	  switch((cur->mY < edge ? 1:0)|(nex->mY < edge ? 2:0))
+	  {
+		 case 0:
+			*dst = *v;
+			++dst;
+			break;
+		 case 1:
+		 {
+			if (__builtin_expect(vertexReservoirUsed >= 126, 0)) break;
+			SWHelper::XYZStruct &  tmp = vertexReservoir[vertexReservoirUsed++];
+			tClip(tmp, *nex, *cur, edge);
+			*dst = &tmp;
+			++dst;
+			break;
+		 }
+		 case 2:
+		 {
+			*dst = *v;
+			++dst;
+			if (__builtin_expect(vertexReservoirUsed >= 126, 0)) break;
+			SWHelper::XYZStruct &  tmp = vertexReservoir[vertexReservoirUsed++];
+			tClip(tmp, *cur, *nex, edge);
+			*dst = &tmp;
+			++dst;
+			break;
+		 }
+	  }
+   }
+   *dst = 0;
+   return static_cast<int>(dst - _dst);
+}
+
+static inline unsigned int beClip(SWHelper::XYZStruct ** src, SWHelper::XYZStruct ** dst, const float edge)
+{
+   SWHelper::XYZStruct ** _dst = dst;
+
+   for (SWHelper::XYZStruct ** v = src; *v; ++v)
+   {
+	  SWHelper::XYZStruct *  cur = *v;
+	  SWHelper::XYZStruct *  nex = *(v+1) ? *(v+1):*src;
+
+	  switch((cur->mY > edge ? 1:0)|(nex->mY > edge ? 2:0))
+	  {
+		 case 0:
+			*dst = *v;
+			++dst;
+			break;
+		 case 1:
+		 {
+			if (__builtin_expect(vertexReservoirUsed >= 126, 0)) break;
+			SWHelper::XYZStruct &  tmp = vertexReservoir[vertexReservoirUsed++];
+			bClip(tmp, *nex, *cur, edge);
+			*dst = &tmp;
+			++dst;
+			break;
+		 }
+		 case 2:
+		 {
+			*dst = *v;
+			++dst;
+			if (__builtin_expect(vertexReservoirUsed >= 126, 0)) break;
+			SWHelper::XYZStruct &  tmp = vertexReservoir[vertexReservoirUsed++];
+			bClip(tmp, *cur, *nex, edge);
+			*dst = &tmp;
+			++dst;
+			break;
+		 }
+	  }
+   }
+   *dst = 0;
+   return static_cast<int>(dst - _dst);
+}
+
+static inline int	clipShape(SWHelper::XYZStruct ** dst, SWHelper::XYZStruct ** src, const float left, const float right, const float top, const float bottom)
+{
+   vertexReservoirUsed = 0;
+
+   SWHelper::XYZStruct *  buf[64];
+   SWHelper::XYZStruct *  ptr[4];
+   ptr[0] = src[0];
+   ptr[1] = src[1];
+   ptr[2] = src[2];
+   ptr[3] = 0;
+   if (leClip(ptr, buf, left) < 3) return 0;
+   if (reClip(buf, dst, right) < 3) return 0;
+   if (teClip(dst, buf, top) < 3) return 0;
+   return beClip(buf, dst, bottom);
+}
+
+// End clipping stuff
+
+
+void SWHelper::SWDrawShape(XYZStruct *theVerts, int theNumVerts, MemoryImage *theImage, const Color &theColor, [[maybe_unused]] int theDrawMode, const Rect &theClipRect, void *theSurface, int thePitch, int thePixelFormat, bool blend, bool vertexColor)
+{
+	if (theClipRect.mWidth <= 0 || theClipRect.mHeight <= 0 || theSurface == nullptr)
+		return;
+
+	float	tclx0 = std::max(0.0f, (float)theClipRect.mX);
+	float	tcly0 = std::max(0.0f, (float)theClipRect.mY);
+	float	tclx1 = (float)(theClipRect.mX + theClipRect.mWidth - 1);
+	float	tcly1 = (float)(theClipRect.mY + theClipRect.mHeight - 1);
+
+	if (thePitch > 0)
+	{
+		int bytesPerPixel = (thePixelFormat == 0x565 || thePixelFormat == 0x555) ? 2 : 4;
+		float max_x = (float)((thePitch / bytesPerPixel) - 1);
+		if (tclx1 > max_x)
+			tclx1 = max_x;
+	}
+
+	if (tclx0 > tclx1 || tcly0 > tcly1)
+		return;
+
+	//
+	// Okay, now we're gonna render.  We have the vertex list.
+	// mSWRenderPtr is a char* pointer to the upper left
+	// bit of the of render array.
+	//
+	struct XYZStruct *aTVertPtr=theVerts;
+
+	//
+	// Some notes:
+	//
+	// If mSWTexture==nullptr, no texture is selected and pure white can be substituted (clipped to
+	// the current material color).
+	//
+	// If mAlphaMode!=mAlphaModeOn, then there's no need to do any alpha rendering, period.
+	// All alpha, even in textures with it, should be ignored.  Otherwise, Alpha basically
+	// boils down to: texture pixel alpha * mClippedMaterial.diffuse.a
+	//
+	// The current material is stored in mClippedMaterial.  You only need to ref the
+	// diffuse color:
+	//					mClippedMaterial.diffuse.a
+	//					mClippedMaterial.diffuse.r
+	//					mClippedMaterial.diffuse.g
+	//					mClippedMaterial.diffuse.b
+	//
+	// The triangle cull can one one of three things:
+	// mCullMode=mCullModeNone (cull no triangles)
+	// mCullMode=mCullModeCW (cull CW triangles)
+	// mCullMode=mCullModeCCW (cull CCW triangles)
+	//
+	// Texture clamping
+	// For this implementation, all uv coordinates will be between 0-1.  However, in DirectX, it
+	// is sometimes necessary to clamp textures in order to prevent pixel bleed.  So, though you
+	// won't need to implement any texture clamping, please put a few notes in for us so that we
+	// can later flesh it out if we decide the software renderer is fast enough to handle something
+	// like Hamsterball.
+	//
+	// Clipping
+	// There is a RECT structure defined called mClipArea.  Rect is x,y,width,height -- it's NOT in
+	// x1,y1,x2,y2 format.  Anything outside of that rect should just not be clipped.  If you decide
+	// it's easier to clip against clip planes using a transform, then please scroll up to look at
+	// the Clip() functions-- they translate the coordinates into clip planes.
+	// SPECIAL NOTE: The clipping is in "absolute" coordinates.  It is not in a 640x480 capable
+	// format.  Our framework allows us to specify a 'real' resolution to use, and conforms everything
+	// down to whatever the screen is displaying.  So, we usually use 800x600 for absolute resolution in
+	// game.
+	//
+	// So, to turn the clip rectangle into the "screen resolution" from "page resolution" (page is what
+	// we work in, screen is what displays), multiply the rectangle member variables by mPageWidthAdjust
+	// and mPageHeightAdjust.
+	//
+	// "Game" coordinates to "Screen" coordinates:
+	// int aLeft=mClipArea.mX*mPageWidthAdjust;
+	// int aTop=mClipArea.mY*mPageHeightAdjust;
+	// int aRight=(mClipArea.mX+mClipArea.mSWTexture->mTextureInfo.dwWidth)*mPageWidthAdjust;
+	// int aBottom=(mClipArea.mY+mClipArea.mSWTexture->mTextureInfo.dwHeight)*mPageHeightAdjust;
+	//
+	// Another note: it *is* possible for the clip area to be bigger than the screen (for various
+	// reasons).  So, a final clip to 0,0-mSWTexture->mTextureInfo.dwWidth,mSWTexture->mTextureInfo.dwHeight is necessary when translating vertices.
+	//
+
+	//
+	// Render the actual triangle strip.
+	//
+	int aTriCounter=0;
+	bool aOddTriangle=false;
+
+	// Our global diffuse value
+
+	SWDiffuse	globalDiffuse;
+	{
+		globalDiffuse.a  = theColor.mAlpha;
+		globalDiffuse.r  = theColor.mRed;
+		globalDiffuse.g  = theColor.mGreen;
+		globalDiffuse.b  = theColor.mBlue;
+	}
+
+	// rendering flags
+
+	bool	globalargb = theColor!=Color::White;
+
+	if (theImage)
+		theImage->CommitBits();
+
+	bool	textured = theImage!=nullptr;
+	bool	talpha = (textured && (theImage->mHasAlpha || theImage->mHasTrans || blend));
+
+	for (;;)
+	{
+		//
+		// Triangle strips... vertices go:
+		// 1-2-3 2-4-3 3-4-5 4-6-5 ... every other triangle
+		// swaps #2 & #3 vertices for draw to maintain clockwise order.
+		//
+		if (aTriCounter+3>theNumVerts) break;
+
+		//
+		// Picking triangle direction for culling...
+		//
+		struct XYZStruct *aTriRef[64];
+		if (!aOddTriangle)
+		{
+			aTriRef[0]=aTVertPtr;
+			aTriRef[1]=aTVertPtr+1;
+			aTriRef[2]=aTVertPtr+2;
+		}
+		else
+		{
+			aTriRef[0]=aTVertPtr;
+			aTriRef[1]=aTVertPtr+2;
+			aTriRef[2]=aTVertPtr+1;
+		}
+		aTriRef[3] = 0;
+
+		// Clip
+		float		clipX0 = tclx0;
+		float		clipY0 = tcly0;
+		float		clipX1 = tclx1;
+		float		clipY1 = tcly1;
+
+		float x0 = aTriRef[0]->mX;
+		float y0 = aTriRef[0]->mY;
+		float x1 = aTriRef[1]->mX;
+		float y1 = aTriRef[1]->mY;
+		float x2 = aTriRef[2]->mX;
+		float y2 = aTriRef[2]->mY;
+
+		float minX = std::min(x0, std::min(x1, x2));
+		float maxX = std::max(x0, std::max(x1, x2));
+		float minY = std::min(y0, std::min(y1, y2));
+		float maxY = std::max(y0, std::max(y1, y2));
+
+		if (maxX < clipX0 || minX > clipX1 || maxY < clipY0 || minY > clipY1)
+		{
+			// Triangle is completely outside clipping rectangle: early out
+			aTVertPtr++;
+			aTriCounter++;
+			aOddTriangle = !aOddTriangle;
+			continue;
+		}
+
+		XYZStruct *	clipped[64];
+		unsigned int	vCount = 0;
+
+		if (minX >= clipX0 && maxX <= clipX1 && minY >= clipY0 && maxY <= clipY1)
+		{
+			// Triangle is completely inside clipping rectangle: bypass Sutherland-Hodgman clipping entirely
+			clipped[0] = aTriRef[0];
+			clipped[1] = aTriRef[1];
+			clipped[2] = aTriRef[2];
+			vCount = 3;
+		}
+		else
+		{
+			vCount = clipShape(clipped, aTriRef, clipX0, clipX1, clipY0, clipY1);
+		}
+
+		if (vCount)
+		{
+			unsigned int *	pFrameBuffer = reinterpret_cast<unsigned int *>(theSurface);
+			SWVertex	pVerts[64];
+			SWTextureInfo	textureInfo;
+
+			for (unsigned int i = 0; i < vCount; ++i)
+			{
+				pVerts[i].x = static_cast<int>(clipped[i]->mX * 65536.0f);
+				pVerts[i].y = static_cast<int>(clipped[i]->mY * 65536.0f);
+			}
+
+			if (textured)
+			{
+				float aTexWidthFixed = static_cast<float>(theImage->mWidth) * 65536.0f;
+				float aTexHeightFixed = static_cast<float>(theImage->mHeight) * 65536.0f;
+				for (unsigned int i = 0; i < vCount; ++i)
+				{
+					pVerts[i].u = static_cast<int>(clipped[i]->mU * aTexWidthFixed);
+					pVerts[i].v = static_cast<int>(clipped[i]->mV * aTexHeightFixed);
+				}
+
+				unsigned int* pBits = reinterpret_cast<unsigned int *>(theImage->GetBits());
+				textureInfo.pTexture = pBits;
+				textureInfo.pitch = theImage->mWidth;
+				textureInfo.endpos = pBits ? (theImage->mWidth * theImage->mHeight) : 0;
+				textureInfo.is_tiled = theImage ? theImage->mTiled8x8 : false;
+				textureInfo.format = theImage ? theImage->mPixelFormat : 0;
+			}
+
+			if (vertexColor)
+			{
+				for (unsigned int i = 0; i < vCount; ++i)
+				{
+					pVerts[i].a = ((unsigned int)clipped[i]->mDiffuse >>  8) & 0xff0000;
+					pVerts[i].r = ((unsigned int)clipped[i]->mDiffuse >>  0) & 0xff0000;
+					pVerts[i].g = ((unsigned int)clipped[i]->mDiffuse <<  8) & 0xff0000;
+					pVerts[i].b = ((unsigned int)clipped[i]->mDiffuse << 16) & 0xff0000;
+				}
+			}
+
+			SWDrawTriangle(textured, talpha, vertexColor, globalargb, pVerts, pFrameBuffer, thePitch, &textureInfo, globalDiffuse, thePixelFormat, blend);
+
+			if (vCount > 3)
+			{
+				for (unsigned int extraVert = 2; extraVert < vCount-1; ++extraVert)
+				{
+					pVerts[1] = pVerts[extraVert];
+					pVerts[2] = pVerts[extraVert+1];
+					SWDrawTriangle(textured, talpha, vertexColor, globalargb, pVerts, pFrameBuffer, thePitch, &textureInfo, globalDiffuse, thePixelFormat, blend);
+				}
+			}
+		}
+
+		aTVertPtr++;
+		aTriCounter++;
+		aOddTriangle=!aOddTriangle;
+	}
+}
+
+void SWHelper::SWDrawTriangleBatchDirect(
+	const TriVertex theVertices[][3],
+	int theNumTriangles,
+	MemoryImage *theImage,
+	const Color &theColor,
+	[[maybe_unused]] int theDrawMode,
+	const Rect &theClipRect,
+	void *theSurface,
+	int thePitch,
+	int thePixelFormat,
+	float tx,
+	float ty,
+	bool blend)
+{
+	if (theClipRect.mWidth <= 0 || theClipRect.mHeight <= 0 || theSurface == nullptr || theNumTriangles <= 0)
+		return;
+
+	float tclx0 = std::max(0.0f, (float)theClipRect.mX);
+	float tcly0 = std::max(0.0f, (float)theClipRect.mY);
+	float tclx1 = (float)(theClipRect.mX + theClipRect.mWidth - 1);
+	float tcly1 = (float)(theClipRect.mY + theClipRect.mHeight - 1);
+
+	if (thePitch > 0)
+	{
+		int bytesPerPixel = (thePixelFormat == 0x565 || thePixelFormat == 0x555) ? 2 : 4;
+		float max_x = (float)((thePitch / bytesPerPixel) - 1);
+		if (tclx1 > max_x)
+			tclx1 = max_x;
+	}
+
+	if (tclx0 > tclx1 || tcly0 > tcly1)
+		return;
+
+	SWDiffuse globalDiffuse;
+	globalDiffuse.a = theColor.mAlpha;
+	globalDiffuse.r = theColor.mRed;
+	globalDiffuse.g = theColor.mGreen;
+	globalDiffuse.b = theColor.mBlue;
+
+	bool globalargb = theColor != Color::White;
+
+	if (theImage)
+		theImage->CommitBits();
+
+	bool textured = theImage != nullptr;
+	bool talpha = (textured && (theImage->mHasAlpha || theImage->mHasTrans || blend));
+
+	SWTextureInfo textureInfo;
+	float aTexWidthFixed = 0.0f;
+	float aTexHeightFixed = 0.0f;
+	if (textured)
+	{
+		unsigned int* pBits = reinterpret_cast<unsigned int *>(theImage->GetBits());
+		textureInfo.pTexture = pBits;
+		textureInfo.pitch = theImage->mWidth;
+		textureInfo.endpos = pBits ? (theImage->mWidth * theImage->mHeight) : 0;
+		textureInfo.is_tiled = theImage ? theImage->mTiled8x8 : false;
+		textureInfo.format = theImage ? theImage->mPixelFormat : 0;
+		aTexWidthFixed = static_cast<float>(theImage->mWidth) * 65536.0f;
+		aTexHeightFixed = static_cast<float>(theImage->mHeight) * 65536.0f;
+	}
+
+	unsigned int *pFrameBuffer = reinterpret_cast<unsigned int *>(theSurface);
+
+	for (int i = 0; i < theNumTriangles; i++)
+	{
+		float x0 = theVertices[i][0].x + tx;
+		float y0 = theVertices[i][0].y + ty;
+		float x1 = theVertices[i][1].x + tx;
+		float y1 = theVertices[i][1].y + ty;
+		float x2 = theVertices[i][2].x + tx;
+		float y2 = theVertices[i][2].y + ty;
+
+		float minX = std::min(x0, std::min(x1, x2));
+		float maxX = std::max(x0, std::max(x1, x2));
+		float minY = std::min(y0, std::min(y1, y2));
+		float maxY = std::max(y0, std::max(y1, y2));
+
+		if (maxX < tclx0 || minX > tclx1 || maxY < tcly0 || minY > tcly1)
+			continue;
+
+		if (minX >= tclx0 && maxX <= tclx1 && minY >= tcly0 && maxY <= tcly1)
+		{
+			// Triangle is completely inside the clipping rectangle:
+			// Direct float-to-fixed point conversion bypassing Sutherland-Hodgman clipping and struct reallocations
+			SWVertex pVerts[3];
+			pVerts[0].x = static_cast<int>(x0 * 65536.0f);
+			pVerts[0].y = static_cast<int>(y0 * 65536.0f);
+			pVerts[1].x = static_cast<int>(x1 * 65536.0f);
+			pVerts[1].y = static_cast<int>(y1 * 65536.0f);
+			pVerts[2].x = static_cast<int>(x2 * 65536.0f);
+			pVerts[2].y = static_cast<int>(y2 * 65536.0f);
+
+			if (textured)
+			{
+				pVerts[0].u = static_cast<int>(theVertices[i][0].u * aTexWidthFixed);
+				pVerts[0].v = static_cast<int>(theVertices[i][0].v * aTexHeightFixed);
+				pVerts[1].u = static_cast<int>(theVertices[i][1].u * aTexWidthFixed);
+				pVerts[1].v = static_cast<int>(theVertices[i][1].v * aTexHeightFixed);
+				pVerts[2].u = static_cast<int>(theVertices[i][2].u * aTexWidthFixed);
+				pVerts[2].v = static_cast<int>(theVertices[i][2].v * aTexHeightFixed);
+			}
+
+			bool vertexColor = false;
+			uint32_t c0 = theVertices[i][0].color;
+			uint32_t c1 = theVertices[i][1].color;
+			uint32_t c2 = theVertices[i][2].color;
+			if (c0 != 0 || c1 != 0 || c2 != 0)
+			{
+				vertexColor = true;
+				pVerts[0].a = ((unsigned int)c0 >>  8) & 0xff0000;
+				pVerts[0].r = ((unsigned int)c0 >>  0) & 0xff0000;
+				pVerts[0].g = ((unsigned int)c0 <<  8) & 0xff0000;
+				pVerts[0].b = ((unsigned int)c0 << 16) & 0xff0000;
+
+				pVerts[1].a = ((unsigned int)c1 >>  8) & 0xff0000;
+				pVerts[1].r = ((unsigned int)c1 >>  0) & 0xff0000;
+				pVerts[1].g = ((unsigned int)c1 <<  8) & 0xff0000;
+				pVerts[1].b = ((unsigned int)c1 << 16) & 0xff0000;
+
+				pVerts[2].a = ((unsigned int)c2 >>  8) & 0xff0000;
+				pVerts[2].r = ((unsigned int)c2 >>  0) & 0xff0000;
+				pVerts[2].g = ((unsigned int)c2 <<  8) & 0xff0000;
+				pVerts[2].b = ((unsigned int)c2 << 16) & 0xff0000;
+			}
+
+			SWDrawTriangle(textured, talpha, vertexColor, globalargb,
+				pVerts, pFrameBuffer, thePitch,
+				textured ? &textureInfo : nullptr, globalDiffuse,
+				thePixelFormat, blend);
+		}
+		else
+		{
+			// Defensive fallback: triangle partially crosses sub-clip bounds
+			XYZStruct aVerts[3];
+			for (int j = 0; j < 3; j++)
+			{
+				aVerts[j].mX = theVertices[i][j].x + tx;
+				aVerts[j].mY = theVertices[i][j].y + ty;
+				aVerts[j].mU = theVertices[i][j].u;
+				aVerts[j].mV = theVertices[i][j].v;
+				aVerts[j].mDiffuse = theVertices[i][j].color;
+			}
+			bool vertexColor = (aVerts[0].mDiffuse != 0 || aVerts[1].mDiffuse != 0 || aVerts[2].mDiffuse != 0);
+			SWDrawShape(aVerts, 3, theImage, theColor, theDrawMode, theClipRect, theSurface, thePitch, thePixelFormat, blend, vertexColor);
+		}
+	}
+}
+
+
+static DrawTriFunc gDrawTriFunc[128] = {0};
+void Sexy::SWTri_AddDrawTriFunc(bool textured, bool talpha, bool mod_argb, bool global_argb, int thePixelFormat, bool blend, DrawTriFunc theFunc)
+{
+	int aType = (blend?1:0) | (global_argb?2:0) | (mod_argb?4:0) | (talpha?8:0) | (textured?16:0);
+	switch (thePixelFormat)
+	{
+		case 0x8888: aType |= 0<<5; break;
+		case 0x888: aType |= 1<<5; break;
+		case 0x565: aType |= 2<<5; break;
+		case 0x555: aType |= 3<<5; break;
+	}
+	gDrawTriFunc[aType] = theFunc;
+}
+
+void Sexy::SWTri_AddAllDrawTriFuncs()
+{
+	gDrawTriFunc[0] = DrawTriangle_8888_TEX0_TALPHA0_MOD0_GLOB0_BLEND0;
+	gDrawTriFunc[1] = DrawTriangle_8888_TEX0_TALPHA0_MOD0_GLOB0_BLEND1;
+	gDrawTriFunc[2] = DrawTriangle_8888_TEX0_TALPHA0_MOD0_GLOB1_BLEND0;
+	gDrawTriFunc[3] = DrawTriangle_8888_TEX0_TALPHA0_MOD0_GLOB1_BLEND1;
+	gDrawTriFunc[4] = DrawTriangle_8888_TEX0_TALPHA0_MOD1_GLOB0_BLEND0;
+	gDrawTriFunc[5] = DrawTriangle_8888_TEX0_TALPHA0_MOD1_GLOB0_BLEND1;
+	gDrawTriFunc[6] = DrawTriangle_8888_TEX0_TALPHA0_MOD1_GLOB1_BLEND0;
+	gDrawTriFunc[7] = DrawTriangle_8888_TEX0_TALPHA0_MOD1_GLOB1_BLEND1;
+	gDrawTriFunc[8] = DrawTriangle_8888_TEX0_TALPHA1_MOD0_GLOB0_BLEND0;
+	gDrawTriFunc[9] = DrawTriangle_8888_TEX0_TALPHA1_MOD0_GLOB0_BLEND1;
+	gDrawTriFunc[10] = DrawTriangle_8888_TEX0_TALPHA1_MOD0_GLOB1_BLEND0;
+	gDrawTriFunc[11] = DrawTriangle_8888_TEX0_TALPHA1_MOD0_GLOB1_BLEND1;
+	gDrawTriFunc[12] = DrawTriangle_8888_TEX0_TALPHA1_MOD1_GLOB0_BLEND0;
+	gDrawTriFunc[13] = DrawTriangle_8888_TEX0_TALPHA1_MOD1_GLOB0_BLEND1;
+	gDrawTriFunc[14] = DrawTriangle_8888_TEX0_TALPHA1_MOD1_GLOB1_BLEND0;
+	gDrawTriFunc[15] = DrawTriangle_8888_TEX0_TALPHA1_MOD1_GLOB1_BLEND1;
+	gDrawTriFunc[16] = DrawTriangle_8888_TEX1_TALPHA0_MOD0_GLOB0_BLEND0;
+	gDrawTriFunc[17] = DrawTriangle_8888_TEX1_TALPHA0_MOD0_GLOB0_BLEND1;
+	gDrawTriFunc[18] = DrawTriangle_8888_TEX1_TALPHA0_MOD0_GLOB1_BLEND0;
+	gDrawTriFunc[19] = DrawTriangle_8888_TEX1_TALPHA0_MOD0_GLOB1_BLEND1;
+	gDrawTriFunc[20] = DrawTriangle_8888_TEX1_TALPHA0_MOD1_GLOB0_BLEND0;
+	gDrawTriFunc[21] = DrawTriangle_8888_TEX1_TALPHA0_MOD1_GLOB0_BLEND1;
+	gDrawTriFunc[22] = DrawTriangle_8888_TEX1_TALPHA0_MOD1_GLOB1_BLEND0;
+	gDrawTriFunc[23] = DrawTriangle_8888_TEX1_TALPHA0_MOD1_GLOB1_BLEND1;
+	gDrawTriFunc[24] = DrawTriangle_8888_TEX1_TALPHA1_MOD0_GLOB0_BLEND0;
+	gDrawTriFunc[25] = DrawTriangle_8888_TEX1_TALPHA1_MOD0_GLOB0_BLEND1;
+	gDrawTriFunc[26] = DrawTriangle_8888_TEX1_TALPHA1_MOD0_GLOB1_BLEND0;
+	gDrawTriFunc[27] = DrawTriangle_8888_TEX1_TALPHA1_MOD0_GLOB1_BLEND1;
+	gDrawTriFunc[28] = DrawTriangle_8888_TEX1_TALPHA1_MOD1_GLOB0_BLEND0;
+	gDrawTriFunc[29] = DrawTriangle_8888_TEX1_TALPHA1_MOD1_GLOB0_BLEND1;
+	gDrawTriFunc[30] = DrawTriangle_8888_TEX1_TALPHA1_MOD1_GLOB1_BLEND0;
+	gDrawTriFunc[31] = DrawTriangle_8888_TEX1_TALPHA1_MOD1_GLOB1_BLEND1;
+	gDrawTriFunc[32] = DrawTriangle_0888_TEX0_TALPHA0_MOD0_GLOB0_BLEND0;
+	gDrawTriFunc[33] = DrawTriangle_0888_TEX0_TALPHA0_MOD0_GLOB0_BLEND1;
+	gDrawTriFunc[34] = DrawTriangle_0888_TEX0_TALPHA0_MOD0_GLOB1_BLEND0;
+	gDrawTriFunc[35] = DrawTriangle_0888_TEX0_TALPHA0_MOD0_GLOB1_BLEND1;
+	gDrawTriFunc[36] = DrawTriangle_0888_TEX0_TALPHA0_MOD1_GLOB0_BLEND0;
+	gDrawTriFunc[37] = DrawTriangle_0888_TEX0_TALPHA0_MOD1_GLOB0_BLEND1;
+	gDrawTriFunc[38] = DrawTriangle_0888_TEX0_TALPHA0_MOD1_GLOB1_BLEND0;
+	gDrawTriFunc[39] = DrawTriangle_0888_TEX0_TALPHA0_MOD1_GLOB1_BLEND1;
+	gDrawTriFunc[40] = DrawTriangle_0888_TEX0_TALPHA1_MOD0_GLOB0_BLEND0;
+	gDrawTriFunc[41] = DrawTriangle_0888_TEX0_TALPHA1_MOD0_GLOB0_BLEND1;
+	gDrawTriFunc[42] = DrawTriangle_0888_TEX0_TALPHA1_MOD0_GLOB1_BLEND0;
+	gDrawTriFunc[43] = DrawTriangle_0888_TEX0_TALPHA1_MOD0_GLOB1_BLEND1;
+	gDrawTriFunc[44] = DrawTriangle_0888_TEX0_TALPHA1_MOD1_GLOB0_BLEND0;
+	gDrawTriFunc[45] = DrawTriangle_0888_TEX0_TALPHA1_MOD1_GLOB0_BLEND1;
+	gDrawTriFunc[46] = DrawTriangle_0888_TEX0_TALPHA1_MOD1_GLOB1_BLEND0;
+	gDrawTriFunc[47] = DrawTriangle_0888_TEX0_TALPHA1_MOD1_GLOB1_BLEND1;
+	gDrawTriFunc[48] = DrawTriangle_0888_TEX1_TALPHA0_MOD0_GLOB0_BLEND0;
+	gDrawTriFunc[49] = DrawTriangle_0888_TEX1_TALPHA0_MOD0_GLOB0_BLEND1;
+	gDrawTriFunc[50] = DrawTriangle_0888_TEX1_TALPHA0_MOD0_GLOB1_BLEND0;
+	gDrawTriFunc[51] = DrawTriangle_0888_TEX1_TALPHA0_MOD0_GLOB1_BLEND1;
+	gDrawTriFunc[52] = DrawTriangle_0888_TEX1_TALPHA0_MOD1_GLOB0_BLEND0;
+	gDrawTriFunc[53] = DrawTriangle_0888_TEX1_TALPHA0_MOD1_GLOB0_BLEND1;
+	gDrawTriFunc[54] = DrawTriangle_0888_TEX1_TALPHA0_MOD1_GLOB1_BLEND0;
+	gDrawTriFunc[55] = DrawTriangle_0888_TEX1_TALPHA0_MOD1_GLOB1_BLEND1;
+	gDrawTriFunc[56] = DrawTriangle_0888_TEX1_TALPHA1_MOD0_GLOB0_BLEND0;
+	gDrawTriFunc[57] = DrawTriangle_0888_TEX1_TALPHA1_MOD0_GLOB0_BLEND1;
+	gDrawTriFunc[58] = DrawTriangle_0888_TEX1_TALPHA1_MOD0_GLOB1_BLEND0;
+	gDrawTriFunc[59] = DrawTriangle_0888_TEX1_TALPHA1_MOD0_GLOB1_BLEND1;
+	gDrawTriFunc[60] = DrawTriangle_0888_TEX1_TALPHA1_MOD1_GLOB0_BLEND0;
+	gDrawTriFunc[61] = DrawTriangle_0888_TEX1_TALPHA1_MOD1_GLOB0_BLEND1;
+	gDrawTriFunc[62] = DrawTriangle_0888_TEX1_TALPHA1_MOD1_GLOB1_BLEND0;
+	gDrawTriFunc[63] = DrawTriangle_0888_TEX1_TALPHA1_MOD1_GLOB1_BLEND1;
+	gDrawTriFunc[64] = DrawTriangle_0565_TEX0_TALPHA0_MOD0_GLOB0_BLEND0;
+	gDrawTriFunc[65] = DrawTriangle_0565_TEX0_TALPHA0_MOD0_GLOB0_BLEND1;
+	gDrawTriFunc[66] = DrawTriangle_0565_TEX0_TALPHA0_MOD0_GLOB1_BLEND0;
+	gDrawTriFunc[67] = DrawTriangle_0565_TEX0_TALPHA0_MOD0_GLOB1_BLEND1;
+	gDrawTriFunc[68] = DrawTriangle_0565_TEX0_TALPHA0_MOD1_GLOB0_BLEND0;
+	gDrawTriFunc[69] = DrawTriangle_0565_TEX0_TALPHA0_MOD1_GLOB0_BLEND1;
+	gDrawTriFunc[70] = DrawTriangle_0565_TEX0_TALPHA0_MOD1_GLOB1_BLEND0;
+	gDrawTriFunc[71] = DrawTriangle_0565_TEX0_TALPHA0_MOD1_GLOB1_BLEND1;
+	gDrawTriFunc[72] = DrawTriangle_0565_TEX0_TALPHA1_MOD0_GLOB0_BLEND0;
+	gDrawTriFunc[73] = DrawTriangle_0565_TEX0_TALPHA1_MOD0_GLOB0_BLEND1;
+	gDrawTriFunc[74] = DrawTriangle_0565_TEX0_TALPHA1_MOD0_GLOB1_BLEND0;
+	gDrawTriFunc[75] = DrawTriangle_0565_TEX0_TALPHA1_MOD0_GLOB1_BLEND1;
+	gDrawTriFunc[76] = DrawTriangle_0565_TEX0_TALPHA1_MOD1_GLOB0_BLEND0;
+	gDrawTriFunc[77] = DrawTriangle_0565_TEX0_TALPHA1_MOD1_GLOB0_BLEND1;
+	gDrawTriFunc[78] = DrawTriangle_0565_TEX0_TALPHA1_MOD1_GLOB1_BLEND0;
+	gDrawTriFunc[79] = DrawTriangle_0565_TEX0_TALPHA1_MOD1_GLOB1_BLEND1;
+	gDrawTriFunc[80] = DrawTriangle_0565_TEX1_TALPHA0_MOD0_GLOB0_BLEND0;
+	gDrawTriFunc[81] = DrawTriangle_0565_TEX1_TALPHA0_MOD0_GLOB0_BLEND1;
+	gDrawTriFunc[82] = DrawTriangle_0565_TEX1_TALPHA0_MOD0_GLOB1_BLEND0;
+	gDrawTriFunc[83] = DrawTriangle_0565_TEX1_TALPHA0_MOD0_GLOB1_BLEND1;
+	gDrawTriFunc[84] = DrawTriangle_0565_TEX1_TALPHA0_MOD1_GLOB0_BLEND0;
+	gDrawTriFunc[85] = DrawTriangle_0565_TEX1_TALPHA0_MOD1_GLOB0_BLEND1;
+	gDrawTriFunc[86] = DrawTriangle_0565_TEX1_TALPHA0_MOD1_GLOB1_BLEND0;
+	gDrawTriFunc[87] = DrawTriangle_0565_TEX1_TALPHA0_MOD1_GLOB1_BLEND1;
+	gDrawTriFunc[88] = DrawTriangle_0565_TEX1_TALPHA1_MOD0_GLOB0_BLEND0;
+	gDrawTriFunc[89] = DrawTriangle_0565_TEX1_TALPHA1_MOD0_GLOB0_BLEND1;
+	gDrawTriFunc[90] = DrawTriangle_0565_TEX1_TALPHA1_MOD0_GLOB1_BLEND0;
+	gDrawTriFunc[91] = DrawTriangle_0565_TEX1_TALPHA1_MOD0_GLOB1_BLEND1;
+	gDrawTriFunc[92] = DrawTriangle_0565_TEX1_TALPHA1_MOD1_GLOB0_BLEND0;
+	gDrawTriFunc[93] = DrawTriangle_0565_TEX1_TALPHA1_MOD1_GLOB0_BLEND1;
+	gDrawTriFunc[94] = DrawTriangle_0565_TEX1_TALPHA1_MOD1_GLOB1_BLEND0;
+	gDrawTriFunc[95] = DrawTriangle_0565_TEX1_TALPHA1_MOD1_GLOB1_BLEND1;
+	gDrawTriFunc[96] = DrawTriangle_0555_TEX0_TALPHA0_MOD0_GLOB0_BLEND0;
+	gDrawTriFunc[97] = DrawTriangle_0555_TEX0_TALPHA0_MOD0_GLOB0_BLEND1;
+	gDrawTriFunc[98] = DrawTriangle_0555_TEX0_TALPHA0_MOD0_GLOB1_BLEND0;
+	gDrawTriFunc[99] = DrawTriangle_0555_TEX0_TALPHA0_MOD0_GLOB1_BLEND1;
+	gDrawTriFunc[100] = DrawTriangle_0555_TEX0_TALPHA0_MOD1_GLOB0_BLEND0;
+	gDrawTriFunc[101] = DrawTriangle_0555_TEX0_TALPHA0_MOD1_GLOB0_BLEND1;
+	gDrawTriFunc[102] = DrawTriangle_0555_TEX0_TALPHA0_MOD1_GLOB1_BLEND0;
+	gDrawTriFunc[103] = DrawTriangle_0555_TEX0_TALPHA0_MOD1_GLOB1_BLEND1;
+	gDrawTriFunc[104] = DrawTriangle_0555_TEX0_TALPHA1_MOD0_GLOB0_BLEND0;
+	gDrawTriFunc[105] = DrawTriangle_0555_TEX0_TALPHA1_MOD0_GLOB0_BLEND1;
+	gDrawTriFunc[106] = DrawTriangle_0555_TEX0_TALPHA1_MOD0_GLOB1_BLEND0;
+	gDrawTriFunc[107] = DrawTriangle_0555_TEX0_TALPHA1_MOD0_GLOB1_BLEND1;
+	gDrawTriFunc[108] = DrawTriangle_0555_TEX0_TALPHA1_MOD1_GLOB0_BLEND0;
+	gDrawTriFunc[109] = DrawTriangle_0555_TEX0_TALPHA1_MOD1_GLOB0_BLEND1;
+	gDrawTriFunc[110] = DrawTriangle_0555_TEX0_TALPHA1_MOD1_GLOB1_BLEND0;
+	gDrawTriFunc[111] = DrawTriangle_0555_TEX0_TALPHA1_MOD1_GLOB1_BLEND1;
+	gDrawTriFunc[112] = DrawTriangle_0555_TEX1_TALPHA0_MOD0_GLOB0_BLEND0;
+	gDrawTriFunc[113] = DrawTriangle_0555_TEX1_TALPHA0_MOD0_GLOB0_BLEND1;
+	gDrawTriFunc[114] = DrawTriangle_0555_TEX1_TALPHA0_MOD0_GLOB1_BLEND0;
+	gDrawTriFunc[115] = DrawTriangle_0555_TEX1_TALPHA0_MOD0_GLOB1_BLEND1;
+	gDrawTriFunc[116] = DrawTriangle_0555_TEX1_TALPHA0_MOD1_GLOB0_BLEND0;
+	gDrawTriFunc[117] = DrawTriangle_0555_TEX1_TALPHA0_MOD1_GLOB0_BLEND1;
+	gDrawTriFunc[118] = DrawTriangle_0555_TEX1_TALPHA0_MOD1_GLOB1_BLEND0;
+	gDrawTriFunc[119] = DrawTriangle_0555_TEX1_TALPHA0_MOD1_GLOB1_BLEND1;
+	gDrawTriFunc[120] = DrawTriangle_0555_TEX1_TALPHA1_MOD0_GLOB0_BLEND0;
+	gDrawTriFunc[121] = DrawTriangle_0555_TEX1_TALPHA1_MOD0_GLOB0_BLEND1;
+	gDrawTriFunc[122] = DrawTriangle_0555_TEX1_TALPHA1_MOD0_GLOB1_BLEND0;
+	gDrawTriFunc[123] = DrawTriangle_0555_TEX1_TALPHA1_MOD0_GLOB1_BLEND1;
+	gDrawTriFunc[124] = DrawTriangle_0555_TEX1_TALPHA1_MOD1_GLOB0_BLEND0;
+	gDrawTriFunc[125] = DrawTriangle_0555_TEX1_TALPHA1_MOD1_GLOB0_BLEND1;
+	gDrawTriFunc[126] = DrawTriangle_0555_TEX1_TALPHA1_MOD1_GLOB1_BLEND0;
+	gDrawTriFunc[127] = DrawTriangle_0555_TEX1_TALPHA1_MOD1_GLOB1_BLEND1;
+}
+
+#include "SWTri/SWTri_DrawTriangleInc1.inc"
+
+void	SWHelper::SWDrawTriangle(bool textured, bool talpha, bool mod_argb, bool global_argb, SWVertex * pVerts, unsigned int * pFrameBuffer, const unsigned int bytepitch, const SWTextureInfo * textureInfo, SWDiffuse & globalDiffuse, int thePixelFormat, bool blend)
+{
+#if !PVZ_ENABLE_GLES
+	blend = false; // Pure software rasterizer: 4-tap bilinear filtering causes massive CPU stalls on Cortex-A7
+#endif
+	int aType = (blend?1:0) | (global_argb?2:0) | (mod_argb?4:0) | (talpha?8:0) | (textured?16:0);
+	switch (thePixelFormat)
+	{
+		case 0x8888: aType |= 0<<5; break;
+		case 0x888: aType |= 1<<5; break;
+		case 0x565: aType |= 2<<5; break;
+		case 0x555: aType |= 3<<5; break;
+	}
+	DrawTriFunc aFunc = gDrawTriFunc[aType];
+	if (aFunc==nullptr)
+	{
+		DBG_ASSERT("You need to call SWTri_AddDrawTriFunc or SWTri_AddAllDrawTriFuncs"==nullptr);
+	}
+	else
+		aFunc(pVerts, pFrameBuffer, bytepitch, textureInfo, globalDiffuse);
+}

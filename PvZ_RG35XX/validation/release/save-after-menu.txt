@@ -1,0 +1,4 @@
+QEMU test save only (never distributed in installer).
+After held MENU: game1_0.v4 43835 bytes; SHA256 1988eeb099bb259a039f98ca49123f37726fc166b74aebf2eb231e535d33f348
+Process exit code: 0
+Before test: 39223 bytes; after test: 43835 bytes.

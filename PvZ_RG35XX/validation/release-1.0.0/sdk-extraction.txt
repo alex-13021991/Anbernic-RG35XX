@@ -1,0 +1,23 @@
+
+7-Zip 23.01 (x64) : Copyright (c) 1999-2023 Igor Pavlov : 2023-06-20
+ 64-bit locale=ru_RU.UTF-8 Threads:12 OPEN_MAX:1024
+
+Scanning the drive for archives:
+1 file, 128828510 bytes (123 MiB)
+
+Extracting archive: /home/alex/RG35XX/Work/pvz-release/clean-build/sdk/env_toolchain.7z
+--
+Path = /home/alex/RG35XX/Work/pvz-release/clean-build/sdk/env_toolchain.7z
+Type = 7z
+Physical Size = 128828510
+Headers Size = 402237
+Method = Delta LZMA2:24 BCJ ARM
+Solid = +
+Blocks = 4
+
+Everything is Ok
+
+Folders: 2510
+Files: 41555
+Size:       831484770
+Compressed: 128828510

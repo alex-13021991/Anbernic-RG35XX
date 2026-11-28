@@ -1,0 +1,390 @@
+vendor/garlicos-1.4.9-sysroot.tar.gz: OK
+vendor/libopenmpt-0.5.34.tar.gz: OK
+vendor/pvz-miyoo-2b3c06c-source.tar.gz: OK
+-- The C compiler identification is GNU 7.3.0
+-- The CXX compiler identification is GNU 7.3.0
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /home/alex/RG35XX/Work/pvz-release/clean-build/sdk/miyoo/bin/arm-linux-gcc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /home/alex/RG35XX/Work/pvz-release/clean-build/sdk/miyoo/bin/arm-linux-g++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Found PkgConfig: /usr/bin/pkg-config (found version "1.8.1") 
+-- Performing Test HAVE_NO_UNDEFINED
+-- Performing Test HAVE_NO_UNDEFINED - Success
+AudioCodecs will NOT be used. Libraries will be recognized in the system.
+C++ Library: stdc++ [TRUE], c++abi [FALSE]
+== using STB-Vorbis (BSD 3-Clause) ==
+WavPack: [FALSE] WavPack_INCLUDE_DIR-NOTFOUND WavPack_LIBRARY-NOTFOUND
+-- skipping WavPack --
+== using DRMP3 (public domain or MIT-0) ==
+-- Found OpenMPT: /home/alex/RG35XX/Work/pvz-release/clean-build/sysroot/usr/lib/libopenmpt.so  
+OpenMPT: [TRUE] /home/alex/RG35XX/Work/pvz-release/clean-build/sysroot/usr/include /home/alex/RG35XX/Work/pvz-release/clean-build/sysroot/usr/lib/libopenmpt.so
+== using libopenmpt ==
+== using CMD Music (ZLib) ==
+-- Looking for fork
+-- Looking for fork - found
+== !!! MIDI SUPORT HAS BEEN DISABLED !!! ==
+-- Found SDL2: /home/alex/RG35XX/Work/pvz-release/clean-build/sysroot/usr/lib/libSDL2.so  
+== SDL2: /home/alex/RG35XX/Work/pvz-release/clean-build/sysroot/usr/include/SDL2 SDL2::SDL2;SDL2::SDL2main ==
+==== SDL Mixer X modules ====
+  stb_vorbis found:
+  -- <built-in>
+  OPUS is disabled
+  -- <disabled>
+  DRFLAC is disabled
+  -- <disabled>
+  FLAC is disabled
+  -- <disabled>
+  DRMP3 found:
+  -- <built-in>
+  MPG123 is disabled
+  -- <disabled>
+  WavPack is missing, will be disabled
+  -- <missing>
+  OpenMPT found:
+  -- /home/alex/RG35XX/Work/pvz-release/clean-build/sysroot/usr/lib/libopenmpt.so
+  ModPlug is disabled
+  -- <disabled>
+  libXMP is disabled
+  -- <disabled>
+  GME is disabled because it's LGPLv2.1-licensed component
+  -- <disabled>
+  FFMPEG is disabled
+  -- <disabled>
+  PXTONE is disabled
+  -- <disabled>
+  libADLMIDI is disabled
+  -- <disabled>
+  libOPNMIDI is disabled
+  -- <disabled>
+  libEDMIDI is disabled
+  -- <disabled>
+  FluidSynth is disabled
+  -- <disabled>
+  FluidLite is disabled
+  -- <disabled>
+  Timidity-SDL is disabled
+  -- <disabled>
+===============================================================================
+Enabled audio file formats:
+-------------------------------------------------------------------------------
+PCM-based formats (7):
+    AIFF(Music), AIFF(SFX), MP3, OGG Voribs, VOC(SFX), WAV(Music), WAV(SFX)
+-------------------------------------------------------------------------------
+Tracker formats (54):
+    667, 669, AMF, AMS, C67, CBA, DBM, DIGI, DMF, DSM, DSYM, DTM, ETX, FAR,
+    FMT, FTM, GDM, GMC, GT2, ICE, IMF, IMS, IT, ITP, J2B, KRIS, MDL, MED, MID,
+    MO3, MOD, MT2, MTM, OKT, PLM, PP20, PSM, PT36, PTM, PUMA, RTM, S3M, SFX,
+    STK, STM, STP, SYMMOD, UAX, ULT, UMX, WAV, XM, XMF, XPK
+-------------------------------------------------------------------------------
+Other music (1):
+    CMD Music
+-------------------------------------------------------------------------------
+All formats (61):
+    667, 669, AIFF(Music), AIFF(SFX), AMF, AMS, C67, CBA, DBM, DIGI, DMF, DSM,
+    DSYM, DTM, ETX, FAR, FMT, FTM, GDM, GMC, GT2, ICE, IMF, IMS, IT, ITP, J2B,
+    KRIS, MDL, MED, MID, MO3, MOD, MP3, MT2, MTM, OGG Voribs, OKT, PLM, PP20,
+    PSM, PT36, PTM, PUMA, RTM, S3M, SFX, STK, STM, STP, SYMMOD, UAX, ULT, UMX,
+    VOC(SFX), WAV, WAV(Music), WAV(SFX), XM, XMF, XPK
+-------------------------------------------------------------------------------
+===============================================================================
+                  License for this library build is ZLib.
+===============================================================================
+LGPL-licensed components are DISABLED. If you want to enable them, set the -DMIXERX_ENABLE_LGPL=ON option
+GPL-licensed components are DISABLED. If you want to enable them, set the -DMIXERX_ENABLE_GPL=ON option
+===============================================================================
+-- Configuring done (37.5s)
+-- Generating done (0.0s)
+CMake Warning:
+  Manually-specified variables were not used by the project:
+
+    FETCHCONTENT_FULLY_DISCONNECTED
+
+
+-- Build files have been written to: /home/alex/RG35XX/Work/pvz-release/clean-build/build
+[0/2] Re-checking globbed directories...
+[1/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jcapistd.c.o
+[2/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jcapimin.c.o
+[3/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jcinit.c.o
+[4/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jccolor.c.o
+[5/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jcmainct.c.o
+[6/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jccoefct.c.o
+[7/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jcdctmgr.c.o
+[8/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jcomapi.c.o
+[9/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jchuff.c.o
+[10/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jcmaster.c.o
+[11/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jcprepct.c.o
+[12/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jcmarker.c.o
+[13/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jcparam.c.o
+[14/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jctrans.c.o
+[15/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jcsample.c.o
+[16/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jcphuff.c.o
+[17/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jdapimin.c.o
+[18/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jdatadst.c.o
+[19/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jdatasrc.c.o
+[20/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jdapistd.c.o
+[21/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jddctmgr.c.o
+[22/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jdinput.c.o
+[23/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jdcolor.c.o
+[24/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jdcoefct.c.o
+[25/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jdmainct.c.o
+[26/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jdhuff.c.o
+[27/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jdmaster.c.o
+[28/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jdmerge.c.o
+[29/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jdpostct.c.o
+[30/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jdtrans.c.o
+[31/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jerror.c.o
+[32/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jfdctflt.c.o
+[33/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jdphuff.c.o
+[34/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jidctflt.c.o
+[35/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jfdctfst.c.o
+[36/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jdmarker.c.o
+[37/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jdsample.c.o
+[38/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jidctfst.c.o
+[39/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jfdctint.c.o
+[40/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jidctint.c.o
+[41/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jidctred.c.o
+[42/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jutils.c.o
+[43/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jmemansi.c.o
+[44/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jquant1.c.o
+[45/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jmemmgr.c.o
+[46/201] Building C object CMakeFiles/pvz_jpeg.dir/3rdparty/jpeg/jquant2.c.o
+[47/201] Linking C static library libpvz_jpeg.a
+[48/201] Building CXX object CMakeFiles/pvz_graphics.dir/src/graphics/NeonBlit.cpp.o
+[49/201] Building CXX object CMakeFiles/pvz_graphics.dir/src/graphics/SoftwareRenderer.cpp.o
+[50/201] Building CXX object CMakeFiles/pvz_input.dir/src/input/HandheldInput.cpp.o
+[51/201] Linking CXX static library libpvz_input.a
+[52/201] Linking CXX static library libpvz_graphics.a
+[53/201] Building CXX object CMakeFiles/pvz_audio.dir/src/audio/OpenMptMusicInterface.cpp.o
+[54/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/Coin.cpp.o
+[55/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/CursorObject.cpp.o
+[56/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/GameObject.cpp.o
+[57/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/GridItem.cpp.o
+[58/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/LawnMower.cpp.o
+[59/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/CutScene.cpp.o
+[60/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/MessageWidget.cpp.o
+[61/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/Challenge.cpp.o
+[62/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/LawnCommon.cpp.o
+[63/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/System/DataSync.cpp.o
+[64/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/Projectile.cpp.o
+[65/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/Board.cpp.o
+[66/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/System/PoolEffect.cpp.o
+[67/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/Plant.cpp.o
+[68/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/SeedPacket.cpp.o
+[69/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/System/Music.cpp.o
+[70/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/System/ProfileMgr.cpp.o
+[71/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/System/TypingCheck.cpp.o
+[72/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/System/PlayerInfo.cpp.o
+[73/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/System/ReanimationLawn.cpp.o
+[74/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/System/Zombatar.cpp.o
+[75/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/ToolTipWidget.cpp.o
+[76/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/Widget/AchievementsScreen.cpp.o
+[77/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/Widget/AwardScreen.cpp.o
+[78/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/Widget/ContinueDialog.cpp.o
+[79/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/Widget/AlmanacDialog.cpp.o
+[80/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/Widget/ChallengeScreen.cpp.o
+[81/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/Widget/CheatDialog.cpp.o
+[82/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/System/SaveGame.cpp.o
+[83/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/Widget/GameButton.cpp.o
+[84/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/Widget/ImitaterDialog.cpp.o
+[85/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/Widget/LawnDialog.cpp.o
+[86/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/Widget/NewOptionsDialog.cpp.o
+[87/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/Widget/NewUserDialog.cpp.o
+[88/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/Widget/CreditScreen.cpp.o
+[89/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/Widget/SeedChooserScreen.cpp.o
+[90/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/Widget/UserDialog.cpp.o
+[91/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/Widget/ZombatarTOS.cpp.o
+[92/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/Widget/GameSelector.cpp.o
+[93/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/Widget/StoreScreen.cpp.o
+[94/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/Widget/TitleScreen.cpp.o
+[95/201] Building CXX object CMakeFiles/PvZ.dir/src/PvzpLib/Attachment.cpp.o
+[96/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/ZenGarden.cpp.o
+[97/201] Building CXX object CMakeFiles/PvZ.dir/src/PvzpLib/FilterEffect.cpp.o
+[98/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/Widget/ZombatarWidget.cpp.o
+[99/201] Building CXX object CMakeFiles/PvZ.dir/src/LawnApp.cpp.o
+[100/201] Building CXX object CMakeFiles/PvZ.dir/src/PvzpLib/Definition.cpp.o
+[101/201] Building CXX object CMakeFiles/PvZ.dir/src/Lawn/Zombie.cpp.o
+[102/201] Building CXX object CMakeFiles/PvZ.dir/src/PvzpLib/PvzpDebug.cpp.o
+[103/201] Building CXX object CMakeFiles/PvZ.dir/src/PvzpLib/PvzpFoley.cpp.o
+[104/201] Building CXX object CMakeFiles/PvZ.dir/src/PvzpLib/PvzpList.cpp.o
+[105/201] Building CXX object CMakeFiles/PvZ.dir/src/PvzpLib/PvzpCommon.cpp.o
+[106/201] Building CXX object CMakeFiles/PvZ.dir/src/PvzpLib/ReanimRigEvaluator.cpp.o
+[107/201] Building CXX object CMakeFiles/PvZ.dir/src/PvzpLib/PvzpParticle.cpp.o
+[108/201] Building CXX object CMakeFiles/PvZ.dir/src/PvzpLib/PvzpStringFile.cpp.o
+[109/201] Building CXX object CMakeFiles/PvZ.dir/src/PvzpLib/ReanimAtlas.cpp.o
+[110/201] Building CXX object CMakeFiles/PvZ.dir/src/PvzpLib/SpriteCacheBaker.cpp.o
+[111/201] Building CXX object CMakeFiles/PvZ.dir/src/PvzpLib/SpriteStreamer.cpp.o
+[112/201] Building CXX object CMakeFiles/PvZ.dir/src/PvzpLib/Reanimator.cpp.o
+[113/201] Building CXX object CMakeFiles/PvZ.dir/src/PvzpLib/Trail.cpp.o
+[114/201] Building CXX object CMakeFiles/PvZ.dir/src/PvzpLib/SpriteCachePool.cpp.o
+[115/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/Common.cpp.o
+[116/201] Building CXX object CMakeFiles/PvZ.dir/src/Resources.cpp.o
+[117/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/graphics/Color.cpp.o
+[118/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/SexyApp.cpp.o
+[119/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/graphics/Font.cpp.o
+[120/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/graphics/GLImage.cpp.o
+[121/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/graphics/Image.cpp.o
+[122/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/graphics/GLInterface.cpp.o
+[123/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/graphics/Graphics.cpp.o
+[124/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/graphics/NativeDisplay.cpp.o
+[125/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/graphics/Quantize.cpp.o
+[126/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/graphics/Reanimation.cpp.o
+[127/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/SexyAppBase.cpp.o
+[128/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/graphics/SharedImage.cpp.o
+[129/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/graphics/ImageFont.cpp.o
+[130/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/graphics/MemoryImage.cpp.o
+[131/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/imagelib/ImageLib.cpp.o
+[132/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/misc/Flags.cpp.o
+[133/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/misc/DescParser.cpp.o
+In file included from /home/alex/RG35XX/Work/pvz-release/clean-build/sdk/miyoo/arm-miyoo-linux-uclibcgnueabi/include/c++/7.3.0/vector:69:0,
+                 from /home/alex/RG35XX/Work/pvz-release/PvZ_RG35XX/sources/pvz/src/SexyAppFramework/Common.h:30,
+                 from /home/alex/RG35XX/Work/pvz-release/PvZ_RG35XX/sources/pvz/src/SexyAppFramework/misc/DescParser.h:28,
+                 from /home/alex/RG35XX/Work/pvz-release/PvZ_RG35XX/sources/pvz/src/SexyAppFramework/misc/DescParser.cpp:25:
+/home/alex/RG35XX/Work/pvz-release/clean-build/sdk/miyoo/arm-miyoo-linux-uclibcgnueabi/include/c++/7.3.0/bits/vector.tcc: In member function 'void std::vector<_Tp, _Alloc>::_M_realloc_insert(std::vector<_Tp, _Alloc>::iterator, _Args&& ...) [with _Args = {const double&}; _Tp = double; _Alloc = std::allocator<double>]':
+/home/alex/RG35XX/Work/pvz-release/clean-build/sdk/miyoo/arm-miyoo-linux-uclibcgnueabi/include/c++/7.3.0/bits/vector.tcc:394:7: note: parameter passing for argument of type 'std::vector<double>::iterator {aka __gnu_cxx::__normal_iterator<double*, std::vector<double> >}' changed in GCC 7.1
+       vector<_Tp, _Alloc>::
+       ^~~~~~~~~~~~~~~~~~~
+In file included from /home/alex/RG35XX/Work/pvz-release/clean-build/sdk/miyoo/arm-miyoo-linux-uclibcgnueabi/include/c++/7.3.0/vector:64:0,
+                 from /home/alex/RG35XX/Work/pvz-release/PvZ_RG35XX/sources/pvz/src/SexyAppFramework/Common.h:30,
+                 from /home/alex/RG35XX/Work/pvz-release/PvZ_RG35XX/sources/pvz/src/SexyAppFramework/misc/DescParser.h:28,
+                 from /home/alex/RG35XX/Work/pvz-release/PvZ_RG35XX/sources/pvz/src/SexyAppFramework/misc/DescParser.cpp:25:
+/home/alex/RG35XX/Work/pvz-release/clean-build/sdk/miyoo/arm-miyoo-linux-uclibcgnueabi/include/c++/7.3.0/bits/stl_vector.h: In member function 'bool Sexy::DescParser::DataToDoubleVector(Sexy::DataElement*, Sexy::DoubleVector*)':
+/home/alex/RG35XX/Work/pvz-release/clean-build/sdk/miyoo/arm-miyoo-linux-uclibcgnueabi/include/c++/7.3.0/bits/stl_vector.h:948:21: note: parameter passing for argument of type '__gnu_cxx::__normal_iterator<double*, std::vector<double> >' changed in GCC 7.1
+    _M_realloc_insert(end(), __x);
+    ~~~~~~~~~~~~~~~~~^~~~~~~~~~~~
+[134/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/misc/Buffer.cpp.o
+[135/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/misc/Debug.cpp.o
+[136/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/misc/KeyCodes.cpp.o
+[137/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/misc/Ratio.cpp.o
+[138/201] Building CXX object CMakeFiles/PvZ.dir/src/PvzpLib/EffectSystem.cpp.o
+[139/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/misc/MTRand.cpp.o
+[140/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/misc/SexyMatrix.cpp.o
+[141/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/misc/XMLParser.cpp.o
+[142/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/misc/PerfTimer.cpp.o
+In file included from /home/alex/RG35XX/Work/pvz-release/clean-build/sdk/miyoo/arm-miyoo-linux-uclibcgnueabi/include/c++/7.3.0/vector:69:0,
+                 from /home/alex/RG35XX/Work/pvz-release/PvZ_RG35XX/sources/pvz/src/SexyAppFramework/Common.h:30,
+                 from /home/alex/RG35XX/Work/pvz-release/PvZ_RG35XX/sources/pvz/src/SexyAppFramework/misc/PerfTimer.h:28,
+                 from /home/alex/RG35XX/Work/pvz-release/PvZ_RG35XX/sources/pvz/src/SexyAppFramework/misc/PerfTimer.cpp:25:
+/home/alex/RG35XX/Work/pvz-release/clean-build/sdk/miyoo/arm-miyoo-linux-uclibcgnueabi/include/c++/7.3.0/bits/vector.tcc: In member function 'void std::vector<_Tp, _Alloc>::_M_realloc_insert(std::vector<_Tp, _Alloc>::iterator, _Args&& ...) [with _Args = {const PerfRecord&}; _Tp = PerfRecord; _Alloc = std::allocator<PerfRecord>]':
+/home/alex/RG35XX/Work/pvz-release/clean-build/sdk/miyoo/arm-miyoo-linux-uclibcgnueabi/include/c++/7.3.0/bits/vector.tcc:394:7: note: parameter passing for argument of type 'std::vector<PerfRecord>::iterator {aka __gnu_cxx::__normal_iterator<PerfRecord*, std::vector<PerfRecord> >}' changed in GCC 7.1
+       vector<_Tp, _Alloc>::
+       ^~~~~~~~~~~~~~~~~~~
+In file included from /home/alex/RG35XX/Work/pvz-release/clean-build/sdk/miyoo/arm-miyoo-linux-uclibcgnueabi/include/c++/7.3.0/vector:64:0,
+                 from /home/alex/RG35XX/Work/pvz-release/PvZ_RG35XX/sources/pvz/src/SexyAppFramework/Common.h:30,
+                 from /home/alex/RG35XX/Work/pvz-release/PvZ_RG35XX/sources/pvz/src/SexyAppFramework/misc/PerfTimer.h:28,
+                 from /home/alex/RG35XX/Work/pvz-release/PvZ_RG35XX/sources/pvz/src/SexyAppFramework/misc/PerfTimer.cpp:25:
+/home/alex/RG35XX/Work/pvz-release/clean-build/sdk/miyoo/arm-miyoo-linux-uclibcgnueabi/include/c++/7.3.0/bits/stl_vector.h: In static member function 'static void Sexy::SexyPerf::StopTiming(const char*)':
+/home/alex/RG35XX/Work/pvz-release/clean-build/sdk/miyoo/arm-miyoo-linux-uclibcgnueabi/include/c++/7.3.0/bits/stl_vector.h:948:21: note: parameter passing for argument of type '__gnu_cxx::__normal_iterator<PerfRecord*, std::vector<PerfRecord> >' changed in GCC 7.1
+    _M_realloc_insert(end(), __x);
+    ~~~~~~~~~~~~~~~~~^~~~~~~~~~~~
+/home/alex/RG35XX/Work/pvz-release/clean-build/sdk/miyoo/arm-miyoo-linux-uclibcgnueabi/include/c++/7.3.0/bits/stl_vector.h: In static member function 'static void Sexy::SexyPerf::StartTiming(const char*)':
+/home/alex/RG35XX/Work/pvz-release/clean-build/sdk/miyoo/arm-miyoo-linux-uclibcgnueabi/include/c++/7.3.0/bits/stl_vector.h:948:21: note: parameter passing for argument of type '__gnu_cxx::__normal_iterator<PerfRecord*, std::vector<PerfRecord> >' changed in GCC 7.1
+    _M_realloc_insert(end(), __x);
+    ~~~~~~~~~~~~~~~~~^~~~~~~~~~~~
+[143/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/misc/PropertiesParser.cpp.o
+[144/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/misc/RegEmu.cpp.o
+[145/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/platform/default/Input.cpp.o
+[146/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/platform/default/Window.cpp.o
+[147/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/sound/SDLMusicInterface.cpp.o
+[148/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/misc/ResourceManager.cpp.o
+[149/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/paklib/PakInterface.cpp.o
+In file included from /home/alex/RG35XX/Work/pvz-release/clean-build/sdk/miyoo/arm-miyoo-linux-uclibcgnueabi/include/c++/7.3.0/vector:69:0,
+                 from /home/alex/RG35XX/Work/pvz-release/clean-build/sdk/miyoo/arm-miyoo-linux-uclibcgnueabi/include/c++/7.3.0/functional:61,
+                 from /home/alex/RG35XX/Work/pvz-release/PvZ_RG35XX/sources/pvz/include/ghc/filesystem.hpp:202,
+                 from /home/alex/RG35XX/Work/pvz-release/PvZ_RG35XX/sources/pvz/include/filesystem:2,
+                 from /home/alex/RG35XX/Work/pvz-release/PvZ_RG35XX/sources/pvz/src/SexyAppFramework/paklib/PakInterface.cpp:26:
+/home/alex/RG35XX/Work/pvz-release/clean-build/sdk/miyoo/arm-miyoo-linux-uclibcgnueabi/include/c++/7.3.0/bits/vector.tcc: In member function 'void std::vector<_Tp, _Alloc>::_M_realloc_insert(std::vector<_Tp, _Alloc>::iterator, _Args&& ...) [with _Args = {PakRecord}; _Tp = PakRecord; _Alloc = std::allocator<PakRecord>]':
+/home/alex/RG35XX/Work/pvz-release/clean-build/sdk/miyoo/arm-miyoo-linux-uclibcgnueabi/include/c++/7.3.0/bits/vector.tcc:394:7: note: parameter passing for argument of type 'std::vector<PakRecord>::iterator {aka __gnu_cxx::__normal_iterator<PakRecord*, std::vector<PakRecord> >}' changed in GCC 7.1
+       vector<_Tp, _Alloc>::
+       ^~~~~~~~~~~~~~~~~~~
+/home/alex/RG35XX/Work/pvz-release/clean-build/sdk/miyoo/arm-miyoo-linux-uclibcgnueabi/include/c++/7.3.0/bits/vector.tcc: In member function 'bool PakInterface::AddPakFile(const string&)':
+/home/alex/RG35XX/Work/pvz-release/clean-build/sdk/miyoo/arm-miyoo-linux-uclibcgnueabi/include/c++/7.3.0/bits/vector.tcc:105:21: note: parameter passing for argument of type '__gnu_cxx::__normal_iterator<PakRecord*, std::vector<PakRecord> >' changed in GCC 7.1
+    _M_realloc_insert(end(), std::forward<_Args>(__args)...);
+    ~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[150/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/sound/SDLSoundInstance.cpp.o
+[151/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/widget/ButtonWidget.cpp.o
+[152/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/widget/Checkbox.cpp.o
+[153/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/widget/DialogButton.cpp.o
+[154/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/widget/Insets.cpp.o
+[155/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/widget/Dialog.cpp.o
+[156/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/widget/HyperlinkWidget.cpp.o
+[157/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/sound/SDLSoundManager.cpp.o
+[158/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/widget/EditWidget.cpp.o
+[159/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/widget/ScrollbuttonWidget.cpp.o
+[160/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/widget/ScrollbarWidget.cpp.o
+[161/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/widget/ListWidget.cpp.o
+[162/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/widget/Slider.cpp.o
+[163/201] Building CXX object CMakeFiles/PvZ.dir/src/threading/ComputeWorker.cpp.o
+[164/201] Building C object CMakeFiles/PvZ.dir/src/SexyAppFramework/fcaseopen/fcaseopen.c.o
+[165/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/widget/TextWidget.cpp.o
+[166/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/widget/Widget.cpp.o
+[167/201] Building CXX object CMakeFiles/PvZ.dir/platform/rg35xx/Platform.cpp.o
+[168/201] Building C object CMakeFiles/setup_core.dir/src/setup/setup_converter.c.o
+[169/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/widget/WidgetManager.cpp.o
+[170/201] Building C object CMakeFiles/setup_miyoo.dir/src/setup/setup_miyoo.c.o
+[171/201] Building C object CMakeFiles/setup_core.dir/src/setup/fb_progress.c.o
+[172/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/widget/WidgetContainer.cpp.o
+[173/201] Building CXX object CMakeFiles/test_viewport_scale.dir/tests/test_viewport_scale.cpp.o
+[174/201] Building CXX object CMakeFiles/PvZ.dir/src/main_miyoo.cpp.o
+[175/201] Linking CXX executable test_viewport_scale
+[176/201] Building CXX object CMakeFiles/test_setup_conversion.dir/tests/test_setup_conversion.cpp.o
+[177/201] Building C object src/SexyAppFramework/sound/SDL-Mixer-X/CMakeFiles/SDL2_mixer_ext_Static.dir/src/codecs/load_aiff.c.o
+<command-line>:0:0: warning: "_POSIX_C_SOURCE" redefined
+<command-line>:0:0: note: this is the location of the previous definition
+[178/201] Building CXX object CMakeFiles/PvZ.dir/src/SexyAppFramework/graphics/SWTri.cpp.o
+[179/201] Building C object src/SexyAppFramework/sound/SDL-Mixer-X/CMakeFiles/SDL2_mixer_ext_Static.dir/src/codecs/load_voc.c.o
+<command-line>:0:0: warning: "_POSIX_C_SOURCE" redefined
+<command-line>:0:0: note: this is the location of the previous definition
+[180/201] Building C object src/SexyAppFramework/sound/SDL-Mixer-X/CMakeFiles/SDL2_mixer_ext_Static.dir/src/codecs/music_wav.c.o
+<command-line>:0:0: warning: "_POSIX_C_SOURCE" redefined
+<command-line>:0:0: note: this is the location of the previous definition
+[181/201] Building CXX object CMakeFiles/test_input_mapping.dir/tests/test_input_mapping.cpp.o
+[182/201] Building C object src/SexyAppFramework/sound/SDL-Mixer-X/CMakeFiles/SDL2_mixer_ext_Static.dir/src/codecs/music_openmpt.c.o
+<command-line>:0:0: warning: "_POSIX_C_SOURCE" redefined
+<command-line>:0:0: note: this is the location of the previous definition
+[183/201] Building C object src/SexyAppFramework/sound/SDL-Mixer-X/CMakeFiles/SDL2_mixer_ext_Static.dir/src/codecs/music_cmd.c.o
+<command-line>:0:0: warning: "_POSIX_C_SOURCE" redefined
+<command-line>:0:0: note: this is the location of the previous definition
+[184/201] Building C object src/SexyAppFramework/sound/SDL-Mixer-X/CMakeFiles/SDL2_mixer_ext_Static.dir/src/effects_internal.c.o
+<command-line>:0:0: warning: "_POSIX_C_SOURCE" redefined
+<command-line>:0:0: note: this is the location of the previous definition
+[185/201] Building C object src/SexyAppFramework/sound/SDL-Mixer-X/CMakeFiles/SDL2_mixer_ext_Static.dir/src/effect_stereoreverse.c.o
+<command-line>:0:0: warning: "_POSIX_C_SOURCE" redefined
+<command-line>:0:0: note: this is the location of the previous definition
+[186/201] Linking CXX executable test_input_mapping
+[187/201] Building C object src/SexyAppFramework/sound/SDL-Mixer-X/CMakeFiles/SDL2_mixer_ext_Static.dir/src/effect_position.c.o
+<command-line>:0:0: warning: "_POSIX_C_SOURCE" redefined
+<command-line>:0:0: note: this is the location of the previous definition
+[188/201] Building C object src/SexyAppFramework/sound/SDL-Mixer-X/CMakeFiles/SDL2_mixer_ext_Static.dir/src/mixer_x_deprecated.c.o
+<command-line>:0:0: warning: "_POSIX_C_SOURCE" redefined
+<command-line>:0:0: note: this is the location of the previous definition
+[189/201] Building C object src/SexyAppFramework/sound/SDL-Mixer-X/CMakeFiles/SDL2_mixer_ext_Static.dir/src/mixer.c.o
+<command-line>:0:0: warning: "_POSIX_C_SOURCE" redefined
+<command-line>:0:0: note: this is the location of the previous definition
+[190/201] Building C object src/SexyAppFramework/sound/SDL-Mixer-X/CMakeFiles/SDL2_mixer_ext_Static.dir/src/utils.c.o
+<command-line>:0:0: warning: "_POSIX_C_SOURCE" redefined
+<command-line>:0:0: note: this is the location of the previous definition
+[191/201] Building C object src/SexyAppFramework/sound/SDL-Mixer-X/CMakeFiles/SDL2_mixer_ext_Static.dir/src/codecs/mp3utils.c.o
+<command-line>:0:0: warning: "_POSIX_C_SOURCE" redefined
+<command-line>:0:0: note: this is the location of the previous definition
+[192/201] Building C object src/SexyAppFramework/sound/SDL-Mixer-X/CMakeFiles/SDL2_mixer_ext_Static.dir/src/music.c.o
+<command-line>:0:0: warning: "_POSIX_C_SOURCE" redefined
+<command-line>:0:0: note: this is the location of the previous definition
+[193/201] Building C object src/SexyAppFramework/sound/SDL-Mixer-X/CMakeFiles/SDL2_mixer_ext_Static.dir/src/codecs/music_drmp3.c.o
+<command-line>:0:0: warning: "_POSIX_C_SOURCE" redefined
+<command-line>:0:0: note: this is the location of the previous definition
+[194/201] Building C object src/SexyAppFramework/sound/SDL-Mixer-X/CMakeFiles/SDL2_mixer_ext_Static.dir/src/codecs/music_ogg_stb.c.o
+<command-line>:0:0: warning: "_POSIX_C_SOURCE" redefined
+<command-line>:0:0: note: this is the location of the previous definition
+[195/201] Linking C static library lib/libSDL2_mixer_ext.a
+[196/201] Linking CXX static library libpvz_audio.a
+[197/201] Linking CXX executable PvZ
+[198/201] Building C object CMakeFiles/setup_core.dir/src/setup/stb_impl.c.o
+[199/201] Linking C static library libsetup_core.a
+[200/201] Linking C executable setup_miyoo
+[201/201] Linking CXX executable test_setup_conversion

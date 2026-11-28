@@ -1,0 +1,143 @@
+# ==============================================================================
+# Build, Compiler, and Distribution Artifacts
+# ==============================================================================
+/build/
+/dist/
+build/
+dist/
+out/
+Testing/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+CTestTestfile.cmake
+Makefile
+
+# ==============================================================================
+# Distribution Anti-Virus & Clean-Room Asset Rules (BYOD)
+# ==============================================================================
+*.exe
+*.pak
+*.dat
+*.mp3
+*.wav
+*.mo3
+src/SexyAppFramework/sound/SDL-Mixer-X/test/
+
+# ==============================================================================
+# Compiled Objects, Intermediate Libraries & Native Binaries
+# ==============================================================================
+*.o
+*.obj
+*.a
+*.so*
+*.dylib
+*.dll
+
+# ==============================================================================
+# Explicit Whitelist Exceptions (Required for Build & Console Staging)
+# ==============================================================================
+!*.sh
+!*.cmake
+!CMakeLists.txt
+!/3rdparty/libopenmpt/lib/libopenmpt.a
+!/packaging/Roms/PORTS/Games/Plants vs. Zombies/libs/*.so*
+!/ports/Games/Plants vs. Zombies/libs/*.so*
+!/bin/PvZ
+!/bin/setup_miyoo
+!/packaging/Roms/PORTS/Games/Plants vs. Zombies/PvZ
+!/packaging/Roms/PORTS/Games/Plants vs. Zombies/setup_miyoo
+!/ports/Games/Plants vs. Zombies/PvZ
+!/ports/Games/Plants vs. Zombies/setup_miyoo
+
+# ==============================================================================
+# AI Assistants, LLM Tools & Agent Configurations (Not Part of Game Source)
+# ==============================================================================
+.claude/
+.gemini/
+.trail/
+.cursor/
+.cursorrules
+.windsurf/
+.copilot/
+.continue/
+.cody/
+.aider*
+.agents/
+.superpowers/
+AGENTS.md
+GEMINI.md
+CLAUDE.md
+COPILOT.md
+*_report.md
+concepts_brief.md
+design_draft.md
+
+# ==============================================================================
+# IDE, Editor & Developer Workspace Artifacts
+# ==============================================================================
+.vscode/
+.idea/
+.vs/
+*.suo
+*.user
+*.userosv
+*.sln.docstates
+.fleet/
+.history/
+.settings/
+.project
+.cproject
+.clangd/
+compile_commands.json
+*.swp
+*.swo
+*~
+*.bak
+
+# ==============================================================================
+# Python, Testing, Coverage & Virtual Environments
+# ==============================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+env/
+ENV/
+
+# ==============================================================================
+# Operating System & Environment Clutter
+# ==============================================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ==============================================================================
+# Logs, Crash Dumps & Diagnostics
+# ==============================================================================
+*.log
+*.tlog
+*.strace
+core
+core.*
+
+# ==============================================================================
+# Runtime Sprite Cache (BYOD Clean-Room Compliance)
+# ==============================================================================
+*.spc
+cached_sprites/
+
+# Required fmt header, not a crash dump.
+!include/fmt/core.h

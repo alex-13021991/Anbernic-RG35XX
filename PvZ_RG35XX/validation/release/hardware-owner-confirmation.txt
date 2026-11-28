@@ -1,0 +1,3 @@
+2026-11-28, latest version 1.0.1.
+User confirmation: «новая последняя версия все тесты на приставке прошла».
+No additional numeric measurements or detailed scenario log supplied. Binary unchanged after this confirmation.

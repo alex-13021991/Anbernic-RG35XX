@@ -1,0 +1,25 @@
+#pragma once
+#include <type_traits>
+#include <cstring>
+#if __has_include(<bit>) && (!defined(__GNUC__) || __GNUC__ >= 10)
+  #include <bit>
+#else
+  namespace std {
+    enum class endian {
+      little = __ORDER_LITTLE_ENDIAN__,
+      big = __ORDER_BIG_ENDIAN__,
+      native = __BYTE_ORDER__
+    };
+    template <typename To, typename From>
+    typename std::enable_if<
+        sizeof(To) == sizeof(From) &&
+        std::is_trivially_copyable<From>::value &&
+        std::is_trivially_copyable<To>::value,
+        To>::type
+    bit_cast(const From& src) noexcept {
+        To dst;
+        std::memcpy(&dst, &src, sizeof(To));
+        return dst;
+    }
+  }
+#endif
