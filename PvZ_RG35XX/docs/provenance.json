@@ -8,6 +8,6 @@
   "anbernic_commit": "dccc57f7d4eb7d5656a9a3d7c7da361f438ab2ed",
   "ghc_filesystem": "v1.5.14",
   "libopenmpt": "0.5.34",
-  "release": "1.0.1",
+  "release": "1.0.2",
   "toolchain": "external: RG35XX-Development Miyoo GCC 7.3.0, not bundled"
 }

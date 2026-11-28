@@ -258,6 +258,25 @@ void AlmanacDialog::EnsurePageResources(AlmanacPage thePage)
 	if (!mApp || !mApp->mResourceManager)
 		return;
 
+#ifdef PVZ_RG35XX
+    // Release inactive page art BEFORE allocating the new page, also when
+    // opening from the main menu (there is no Board in that case).
+    auto release = [&](const char* id, Image*& image) {
+        if (image) { mApp->mResourceManager->DeleteImage(id); image = nullptr; }
+    };
+    if (thePage != AlmanacPage::ALMANAC_PAGE_INDEX)
+        release("IMAGE_ALMANAC_INDEXBACK", Sexy::IMAGE_ALMANAC_INDEXBACK);
+    if (thePage != AlmanacPage::ALMANAC_PAGE_PLANTS) {
+        release("IMAGE_ALMANAC_PLANTBACK", Sexy::IMAGE_ALMANAC_PLANTBACK);
+        release("IMAGE_ALMANAC_PLANTCARD", Sexy::IMAGE_ALMANAC_PLANTCARD);
+    }
+    if (thePage != AlmanacPage::ALMANAC_PAGE_ZOMBIES) {
+        release("IMAGE_ALMANAC_ZOMBIEBACK", Sexy::IMAGE_ALMANAC_ZOMBIEBACK);
+        release("IMAGE_ALMANAC_ZOMBIECARD", Sexy::IMAGE_ALMANAC_ZOMBIECARD);
+    }
+    mApp->CleanSharedImages();
+    PvzpLogLn("RG35XX: Almanac page {} uses on-demand resources", static_cast<int>(thePage));
+#endif
 	if (thePage == AlmanacPage::ALMANAC_PAGE_ZOMBIES)
 	{
 		if (Sexy::IMAGE_ALMANAC_ZOMBIEBACK == nullptr)
@@ -455,6 +474,10 @@ void AlmanacDialog::Update()
 		}
 	}
 
+#ifndef PVZ_RG35XX
+    // Miyoo prewarms every entry, including locked ones, on the index page.
+    // RG35XX draws/bakes visible entries on demand instead: avoid loading the
+    // whole collection into the small remaining RAM after playing a level.
 	if (mApp->mReanimatorCache && (mPrewarmTickCounter++ % 2 == 0))
 	{
 		bool aPrewarmZombie = false;
@@ -510,6 +533,7 @@ void AlmanacDialog::Update()
 		}
 	}
 
+#endif
 	int aMouseX = mApp->mWidgetManager->mLastMouseX;
 	int aMouseY = mApp->mWidgetManager->mLastMouseY;
 	if (SeedHitTest(aMouseX, aMouseY) != SeedType::SEED_NONE || ZombieHitTest(aMouseX, aMouseY) != ZombieType::ZOMBIE_INVALID ||

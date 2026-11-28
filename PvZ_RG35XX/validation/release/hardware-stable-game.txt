@@ -1,0 +1,570 @@
+RG35XX launcher: requested width=640 selected width=640
+
+INFO: Product: io.github.wszqkzqk.pvz-portable
+
+INFO: BuildNum: 100
+
+INFO: CommitDate: 2026-10-12
+
+INFO: PakInterface: Mounted '/mnt/SDCARD/Roms/PORTS/PlantsVsZombies/main_mmp.pak' with 3198 files (data offset 143506, enc_header=false, enc_payload=true)
+
+INFO: PakInterface: AddPakFile('/mnt/SDCARD/Roms/PORTS/PlantsVsZombies/main.pak') failed to open file (errno=2)
+
+INFO: PakInterface: AddPakFile('main.pak') failed to open file (errno=2)
+
+INFO: Pak loading status: main_mmp.pak = true, main.pak = false
+
+INFO: RegEmu: Loaded from '/mnt/SDCARD/Roms/PORTS/PlantsVsZombies/save/data/io.github.wszqkzqk/PvZPortable/registry.regemu': 1 total key(s)
+
+RG35XX: logical=800x600 raster=640x480 output=640x480
+
+RG35XX: audio 44100Hz channels=2 requested_period=2048 samples
+
+INFO: session id: 1795886622
+
+RG35XX: audio affinity CPU2 result=0
+
+INFO: LOADED: 'LoaderBar' 126 ms on Game Loading
+
+INFO: 'reanim/LoadBar_sprout.reanim'
+
+INFO: 'reanim/LoadBar_Zombiehead.reanim'
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+INFO: First Draw Time: 419 ms
+
+fb0: 32-bit RGB 640x480 stride=2560 offset=0,0 channels=0/8/16 alpha=0
+
+RG35XX: presenting 640x480 -> 640x480
+
+RG35XX: present_fps=0.12 maxrss_kib=44992
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+INFO: loading 'resources' 3443 ms
+
+RG35XX: present_fps=15.09 maxrss_kib=93864
+
+RG35XX: present_fps=15.77 maxrss_kib=99144
+
+RG35XX: present_fps=15.79 maxrss_kib=104688
+
+RG35XX: present_fps=15.54 maxrss_kib=110560
+
+INFO: LOADED: 'DelayLoad_Almanac' 57 ms on Game Loading
+
+INFO: SpriteCache: Cache files verified on disk (.version = 3)
+
+INFO: loading 'stuff' 61 ms
+
+INFO: loading 'trail' 4 ms
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: cHRM chunk does not match sRGB
+
+INFO: 'reanim/Puff.reanim'
+
+INFO: 'reanim/LawnMoweredZombie.reanim'
+
+INFO: 'reanim/StartReadySetPlant.reanim'
+
+INFO: 'reanim/FinalWave.reanim'
+
+INFO: 'reanim/Sun.reanim'
+
+INFO: 'reanim/TextFadeOn.reanim'
+
+INFO: 'reanim/Zombie.reanim'
+
+INFO: LOADING:Long reanim 'reanim/Zombie.reanim' 218 ms on Game Loading
+
+INFO: 'reanim/Zombie_paper.reanim'
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+INFO: LOADING:Long reanim 'reanim/Zombie_paper.reanim' 146 ms on Game Loading
+
+INFO: 'reanim/SelectorScreen.reanim'
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+INFO: LOADING:Long reanim 'reanim/SelectorScreen.reanim' 511 ms on Game Loading
+
+INFO: 'reanim/Zombie_hand.reanim'
+
+INFO: LOADING:Long reanim 'reanim/Zombie_hand.reanim' 118 ms on Game Loading
+
+INFO: 'reanim/PeaShooterSingle.reanim'
+
+INFO: 'reanim/SunFlower.reanim'
+
+INFO: LOADING:Long reanim 'reanim/SunFlower.reanim' 132 ms on Game Loading
+
+INFO: 'reanim/CherryBomb.reanim'
+
+INFO: LOADING:Long reanim 'reanim/CherryBomb.reanim' 111 ms on Game Loading
+
+INFO: 'reanim/Zombie_charred.reanim'
+
+INFO: LOADING:Long reanim 'reanim/Zombie_charred.reanim' 115 ms on Game Loading
+
+INFO: 'reanim/Wallnut.reanim'
+
+INFO: 'reanim/PotatoMine.reanim'
+
+INFO: 'reanim/SnowPea.reanim'
+
+INFO: 'reanim/Chomper.reanim'
+
+INFO: LOADING:Long reanim 'reanim/Chomper.reanim' 135 ms on Game Loading
+
+INFO: 'reanim/PeaShooter.reanim'
+
+INFO: 'reanim/Puffshroom.reanim'
+
+INFO: 'reanim/Z.reanim'
+
+INFO: 'reanim/SunShroom.reanim'
+
+INFO: 'reanim/Fumeshroom.reanim'
+
+INFO: 'reanim/Gravebuster.reanim'
+
+INFO: 'reanim/Hypnoshroom.reanim'
+
+INFO: 'reanim/ScaredyShroom.reanim'
+
+INFO: 'reanim/Zombie_FlagPole.reanim'
+
+INFO: 'reanim/Zombie_polevaulter.reanim'
+
+INFO: LOADING:Long reanim 'reanim/Zombie_polevaulter.reanim' 128 ms on Game Loading
+
+INFO: 'reanim/Zombie_surprise.reanim'
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+INFO: 'reanim/Zombie_football.reanim'
+
+INFO: LOADING:Long reanim 'reanim/Zombie_football.reanim' 138 ms on Game Loading
+
+INFO: Resource Loading Time: 42329
+
+RG35XX: present_fps=14.74 maxrss_kib=129100
+
+RG35XX: present_fps=35.20 maxrss_kib=129100
+
+RG35XX: present_fps=35.17 maxrss_kib=129100
+
+RG35XX: present_fps=35.16 maxrss_kib=129100
+
+RG35XX: present_fps=35.19 maxrss_kib=129100
+
+RG35XX: present_fps=35.10 maxrss_kib=129100
+
+RG35XX: present_fps=32.60 maxrss_kib=129960
+
+RG35XX: present_fps=19.79 maxrss_kib=129960
+
+RG35XX: present_fps=20.00 maxrss_kib=129960
+
+RG35XX: present_fps=20.06 maxrss_kib=129960
+
+ALSA lib pcm.c:8323:(snd_pcm_recover) underrun occurred
+
+ALSA lib pcm.c:8323:(snd_pcm_recover) underrun occurred
+
+RG35XX: present_fps=12.36 maxrss_kib=130132
+
+INFO: LOADED: 'DelayLoad_Background2' 123 ms on Game Selector
+
+INFO: [SpriteCachePool] Level arena initialized (3670016 bytes, from DmaTexturePool)
+
+INFO: [SpriteCachePool] PreloadSynchronous complete. Active plant cache: 0 / 3670016 bytes
+
+ALSA lib pcm.c:8323:(snd_pcm_recover) underrun occurred
+
+INFO: 'reanim/Zombie_bungi.reanim'
+
+INFO: LOADING:Long reanim 'reanim/Zombie_bungi.reanim' 132 ms on 2-7
+
+INFO: 'reanim/Zombie_imp.reanim'
+
+INFO: 'reanim/Zombie_backup.reanim'
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+INFO: LOADING:Long reanim 'reanim/Zombie_backup.reanim' 149 ms on 2-7
+
+INFO: 'reanim/Zombie_bobsled.reanim'
+
+INFO: LOADING:Long reanim 'reanim/Zombie_bobsled.reanim' 117 ms on 2-7
+
+INFO: 'reanim/ZombiesWon.reanim'
+
+INFO: 'reanim/IceShroom.reanim'
+
+INFO: 'reanim/LawnMower.reanim'
+
+INFO: 'reanim/Coin_silver.reanim'
+
+INFO: 'reanim/Coin_gold.reanim'
+
+INFO: 'reanim/Diamond.reanim'
+
+INFO: preloading: 681 ms
+
+RG35XX: present_fps=10.31 maxrss_kib=155508
+
+INFO: [Board::Update] WARNING: RSS 151.86 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 151.86 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 151.86 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 151.89 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 151.89 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 151.89 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+RG35XX: present_fps=31.05 maxrss_kib=156024
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+RG35XX: present_fps=21.04 maxrss_kib=156024
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+RG35XX: present_fps=20.49 maxrss_kib=156024
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+RG35XX: present_fps=21.12 maxrss_kib=156024
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+RG35XX: present_fps=21.12 maxrss_kib=156024
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+RG35XX: present_fps=21.07 maxrss_kib=156024
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 152.37 MB exceeds 65.0 MB soft ceiling!
+
+INFO: LOADED: 'DelayLoad_Almanac' 55 ms on 2-7
+
+INFO: RG35XX: Almanac page 2 uses on-demand resources
+
+INFO: almanac load time: 152 ms
+
+RG35XX: present_fps=24.43 maxrss_kib=160960
+
+RG35XX: present_fps=27.94 maxrss_kib=160960
+
+RG35XX: present_fps=27.75 maxrss_kib=160960
+
+RG35XX: present_fps=26.93 maxrss_kib=160960
+
+INFO: [Board::Update] WARNING: RSS 153.44 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 153.44 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 153.44 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 153.44 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 153.44 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 153.44 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 153.44 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 153.44 MB exceeds 65.0 MB soft ceiling!
+
+RG35XX: present_fps=18.94 maxrss_kib=160960
+
+INFO: [Board::Update] WARNING: RSS 153.44 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 153.44 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 153.44 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 153.44 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 153.44 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 153.44 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 153.44 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 153.44 MB exceeds 65.0 MB soft ceiling!
+
+RG35XX: present_fps=19.17 maxrss_kib=160960
+
+INFO: [Board::Update] WARNING: RSS 153.44 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 153.44 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 153.44 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 153.44 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 153.44 MB exceeds 65.0 MB soft ceiling!
+
+INFO: [Board::Update] WARNING: RSS 153.44 MB exceeds 65.0 MB soft ceiling!
+
+RG35XX: present_fps=18.76 maxrss_kib=160960
+
+RG35XX: present_fps=19.92 maxrss_kib=160960
+
+RG35XX: present_fps=20.08 maxrss_kib=160960
+
+RG35XX: present_fps=19.90 maxrss_kib=160960
+
+RG35XX: present_fps=19.89 maxrss_kib=160960
+
+INFO: LOADED: 'DelayLoad_Almanac' 46 ms on Game Selector
+
+INFO: RG35XX: Almanac page 0 uses on-demand resources
+
+INFO: almanac load time: 144 ms
+
+RG35XX: present_fps=20.12 maxrss_kib=160960
+
+INFO: RG35XX: Almanac page 1 uses on-demand resources
+
+INFO: RG35XX: Almanac page 0 uses on-demand resources
+
+INFO: RG35XX: Almanac page 2 uses on-demand resources
+
+INFO: RG35XX: Almanac page 0 uses on-demand resources
+
+INFO: RG35XX: Almanac page 1 uses on-demand resources
+
+INFO: RG35XX: Almanac page 0 uses on-demand resources
+
+RG35XX: present_fps=23.29 maxrss_kib=160960
+
+INFO: RG35XX: Almanac page 2 uses on-demand resources
+
+INFO: RG35XX: Almanac page 0 uses on-demand resources
+
+INFO: RG35XX: Almanac page 1 uses on-demand resources
+
+INFO: RG35XX: Almanac page 0 uses on-demand resources
+
+INFO: RG35XX: Almanac page 2 uses on-demand resources
+
+INFO: RG35XX: Almanac page 0 uses on-demand resources
+
+RG35XX: present_fps=23.27 maxrss_kib=160960
+
+INFO: LOADED: 'DelayLoad_Almanac' 46 ms on Game Selector
+
+INFO: RG35XX: Almanac page 0 uses on-demand resources
+
+INFO: almanac load time: 136 ms
+
+RG35XX: present_fps=21.07 maxrss_kib=160960
+
+RG35XX: present_fps=19.86 maxrss_kib=160960
+
+RG35XX: present_fps=19.77 maxrss_kib=160960
+
+RG35XX: present_fps=19.81 maxrss_kib=160960
+
+RG35XX: present_fps=19.89 maxrss_kib=160960
+
+RG35XX: present_fps=19.82 maxrss_kib=160960
+
+RG35XX: present_fps=19.75 maxrss_kib=160960
+
+RG35XX: present_fps=19.88 maxrss_kib=160960
+
+RG35XX: present_fps=19.81 maxrss_kib=160960
+
+RG35XX: present_fps=19.80 maxrss_kib=160960
+
+RG35XX: present_fps=19.85 maxrss_kib=160960
+
+RG35XX: present_fps=19.93 maxrss_kib=160960
+
+RG35XX: present_fps=19.80 maxrss_kib=160960
+
+RG35XX: present_fps=19.93 maxrss_kib=160960
+

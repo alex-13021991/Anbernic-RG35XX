@@ -1,0 +1,83 @@
+--- a/src/Lawn/Widget/AlmanacDialog.cpp
++++ b/src/Lawn/Widget/AlmanacDialog.cpp
+@@ -258,6 +258,25 @@
+ 	if (!mApp || !mApp->mResourceManager)
+ 		return;
+ 
++#ifdef PVZ_RG35XX
++    // Release inactive page art BEFORE allocating the new page, also when
++    // opening from the main menu (there is no Board in that case).
++    auto release = [&](const char* id, Image*& image) {
++        if (image) { mApp->mResourceManager->DeleteImage(id); image = nullptr; }
++    };
++    if (thePage != AlmanacPage::ALMANAC_PAGE_INDEX)
++        release("IMAGE_ALMANAC_INDEXBACK", Sexy::IMAGE_ALMANAC_INDEXBACK);
++    if (thePage != AlmanacPage::ALMANAC_PAGE_PLANTS) {
++        release("IMAGE_ALMANAC_PLANTBACK", Sexy::IMAGE_ALMANAC_PLANTBACK);
++        release("IMAGE_ALMANAC_PLANTCARD", Sexy::IMAGE_ALMANAC_PLANTCARD);
++    }
++    if (thePage != AlmanacPage::ALMANAC_PAGE_ZOMBIES) {
++        release("IMAGE_ALMANAC_ZOMBIEBACK", Sexy::IMAGE_ALMANAC_ZOMBIEBACK);
++        release("IMAGE_ALMANAC_ZOMBIECARD", Sexy::IMAGE_ALMANAC_ZOMBIECARD);
++    }
++    mApp->CleanSharedImages();
++    PvzpLogLn("RG35XX: Almanac page {} uses on-demand resources", static_cast<int>(thePage));
++#endif
+ 	if (thePage == AlmanacPage::ALMANAC_PAGE_ZOMBIES)
+ 	{
+ 		if (Sexy::IMAGE_ALMANAC_ZOMBIEBACK == nullptr)
+@@ -455,6 +474,10 @@
+ 		}
+ 	}
+ 
++#ifndef PVZ_RG35XX
++    // Miyoo prewarms every entry, including locked ones, on the index page.
++    // RG35XX draws/bakes visible entries on demand instead: avoid loading the
++    // whole collection into the small remaining RAM after playing a level.
+ 	if (mApp->mReanimatorCache && (mPrewarmTickCounter++ % 2 == 0))
+ 	{
+ 		bool aPrewarmZombie = false;
+@@ -510,6 +533,7 @@
+ 		}
+ 	}
+ 
++#endif
+ 	int aMouseX = mApp->mWidgetManager->mLastMouseX;
+ 	int aMouseY = mApp->mWidgetManager->mLastMouseY;
+ 	if (SeedHitTest(aMouseX, aMouseY) != SeedType::SEED_NONE || ZombieHitTest(aMouseX, aMouseY) != ZombieType::ZOMBIE_INVALID ||
+--- a/src/PvzpLib/PvzpCommon.cpp
++++ b/src/PvzpLib/PvzpCommon.cpp
+@@ -1485,12 +1485,20 @@
+ 			continue;
+ 		}
+ 
+-		if (mCurResGroup == "DelayLoad_Almanac" && gLawnApp && gLawnApp->mBoard != nullptr)
++		if (mCurResGroup == "DelayLoad_Almanac" && gLawnApp
++#ifndef PVZ_RG35XX
++            && gLawnApp->mBoard != nullptr
++#endif
++        )
+ 		{
+ 			if (aRes->mId == "IMAGE_ALMANAC_INDEXBACK" ||
+ 			    aRes->mId == "IMAGE_ALMANAC_PLANTBACK" ||
+ 			    aRes->mId == "IMAGE_ALMANAC_ZOMBIEBACK" ||
+-			    aRes->mId == "IMAGE_ALMANAC_PLANTCARD")
++			    aRes->mId == "IMAGE_ALMANAC_PLANTCARD"
++#ifdef PVZ_RG35XX
++                || aRes->mId == "IMAGE_ALMANAC_ZOMBIECARD"
++#endif
++            )
+ 			{
+ 				mCurResGroupListItr++;
+ 				continue;
+--- a/src/main_miyoo.cpp
++++ b/src/main_miyoo.cpp
+@@ -425,7 +425,7 @@
+ int main(int argc, char* argv[]) {
+     for (int i = 1; i < argc; ++i) {
+         if (std::strcmp(argv[i], "--version") == 0 || std::strcmp(argv[i], "-v") == 0) {
+-            std::printf("Plants vs. Zombies Portable RG35XX v1.0.1\n");
++            std::printf("Plants vs. Zombies Portable RG35XX v1.0.2\n");
+             return 0;
+         }
+         if (std::strcmp(argv[i], "--help") == 0 || std::strcmp(argv[i], "-h") == 0) {

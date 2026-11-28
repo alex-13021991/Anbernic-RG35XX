@@ -34,10 +34,10 @@ def archive(folder,name):
     i=zipfile.ZipInfo.from_file(f,str(f.relative_to(folder)));i.external_attr=((0o100755 if f.suffix=='.sh' or f.name=='PvZ' else 0o100644)<<16)
     z.writestr(i,f.read_bytes(),compress_type=zipfile.ZIP_DEFLATED)
  print(out/name)
-archive(root,'PvZ_RG35XX_v1.0.1.zip')
+archive(root,'PvZ_RG35XX_v1.0.2.zip')
 if a.assets:
  private=stage/'private'
  if private.exists():shutil.rmtree(private)
  shutil.copytree(root,private);target=private/'Roms/PORTS/PlantsVsZombies'
  shutil.copy2(a.assets/'main_mmp.pak',target/'main_mmp.pak');shutil.copytree(a.assets/'properties',target/'properties')
- archive(private,'PvZ_RG35XX_v1.0.1_ready-to-play.zip')
+ archive(private,'PvZ_RG35XX_v1.0.2_ready-to-play.zip')

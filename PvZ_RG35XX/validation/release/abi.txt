@@ -10,7 +10,7 @@ ELF Header:
   Version:                           0x1
   Entry point address:               0x91c14
   Start of program headers:          52 (bytes into file)
-  Start of section headers:          5340968 (bytes into file)
+  Start of section headers:          5340032 (bytes into file)
   Flags:                             0x5000200, Version5 EABI, soft-float ABI
   Size of this header:               52 (bytes)
   Size of program headers:           32 (bytes)
@@ -21,11 +21,11 @@ ELF Header:
 
 Program Headers:
   Type           Offset   VirtAddr   PhysAddr   FileSiz MemSiz  Flg Align
-  EXIDX          0x473c4c 0x00483c4c 0x00483c4c 0x072e0 0x072e0 R   0x4
+  EXIDX          0x473c7c 0x00483c7c 0x00483c7c 0x072f0 0x072f0 R   0x4
   PHDR           0x000034 0x00010034 0x00010034 0x00120 0x00120 R   0x4
   INTERP         0x000154 0x00010154 0x00010154 0x00014 0x00014 R   0x1
       [Requesting program interpreter: /lib/ld-uClibc.so.0]
-  LOAD           0x000000 0x00010000 0x00010000 0x47af30 0x47af30 R E 0x10000
+  LOAD           0x000000 0x00010000 0x00010000 0x47af70 0x47af70 R E 0x10000
   LOAD           0x47bb30 0x0049bb30 0x0049bb30 0x02f50 0x216a48 RW  0x10000
   DYNAMIC        0x47bedc 0x0049bedc 0x0049bedc 0x00120 0x00120 RW  0x4
   TLS            0x47bb30 0x0049bb30 0x0049bb30 0x00000 0x1142d R   0x8
@@ -54,7 +54,7 @@ Dynamic section at offset 0x47bedc contains 31 entries:
  0x00000001 (NEEDED)                     Shared library: [libgcc_s.so.1]
  0x00000001 (NEEDED)                     Shared library: [libc.so.0]
  0x0000000c (INIT)                       0x8e5c4
- 0x0000000d (FINI)                       0x44d4e4
+ 0x0000000d (FINI)                       0x44d4bc
  0x00000019 (INIT_ARRAY)                 0x49bb30
  0x0000001b (INIT_ARRAYSZ)               448 (bytes)
  0x0000001a (FINI_ARRAY)                 0x49bcf0

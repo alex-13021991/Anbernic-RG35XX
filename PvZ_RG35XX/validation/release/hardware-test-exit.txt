@@ -1,0 +1,522 @@
+RG35XX launcher: requested width=640 selected width=640
+
+INFO: Product: io.github.wszqkzqk.pvz-portable
+
+INFO: BuildNum: 100
+
+INFO: CommitDate: 2026-10-12
+
+INFO: PakInterface: Mounted '/mnt/SDCARD/Roms/PORTS/PlantsVsZombies/main_mmp.pak' with 3198 files (data offset 143506, enc_header=false, enc_payload=true)
+
+INFO: PakInterface: AddPakFile('/mnt/SDCARD/Roms/PORTS/PlantsVsZombies/main.pak') failed to open file (errno=2)
+
+INFO: PakInterface: AddPakFile('main.pak') failed to open file (errno=2)
+
+INFO: Pak loading status: main_mmp.pak = true, main.pak = false
+
+INFO: RegEmu: Loaded from '/mnt/SDCARD/Roms/PORTS/PlantsVsZombies/save/data/io.github.wszqkzqk/PvZPortable/registry.regemu': 1 total key(s)
+
+RG35XX: logical=800x600 raster=640x480 output=640x480
+
+RG35XX: audio 44100Hz channels=2 requested_period=2048 samples
+
+INFO: session id: 1795885972
+
+RG35XX: audio affinity CPU2 result=0
+
+INFO: LOADED: 'Init' 22 ms on Game Loading
+
+INFO: LOADED: 'LoaderBar' 146 ms on Game Loading
+
+INFO: 'reanim/LoadBar_sprout.reanim'
+
+INFO: 'reanim/LoadBar_Zombiehead.reanim'
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+INFO: First Draw Time: 471 ms
+
+fb0: 32-bit RGB 640x480 stride=2560 offset=0,0 channels=0/8/16 alpha=0
+
+RG35XX: presenting 640x480 -> 640x480
+
+RG35XX: present_fps=0.12 maxrss_kib=44772
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+INFO: loading 'resources' 3542 ms
+
+RG35XX: present_fps=14.98 maxrss_kib=93620
+
+RG35XX: present_fps=15.79 maxrss_kib=99428
+
+RG35XX: present_fps=15.81 maxrss_kib=104972
+
+RG35XX: present_fps=15.64 maxrss_kib=110976
+
+INFO: LOADED: 'DelayLoad_Almanac' 56 ms on Game Loading
+
+INFO: SpriteCache: Cache files verified on disk (.version = 3)
+
+INFO: loading 'stuff' 65 ms
+
+INFO: loading 'trail' 6 ms
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: cHRM chunk does not match sRGB
+
+INFO: 'reanim/Puff.reanim'
+
+INFO: 'reanim/LawnMoweredZombie.reanim'
+
+INFO: 'reanim/StartReadySetPlant.reanim'
+
+INFO: 'reanim/FinalWave.reanim'
+
+INFO: 'reanim/Sun.reanim'
+
+INFO: 'reanim/TextFadeOn.reanim'
+
+INFO: 'reanim/Zombie.reanim'
+
+INFO: LOADING:Long reanim 'reanim/Zombie.reanim' 231 ms on Game Loading
+
+INFO: 'reanim/Zombie_paper.reanim'
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+INFO: LOADING:Long reanim 'reanim/Zombie_paper.reanim' 146 ms on Game Loading
+
+INFO: 'reanim/SelectorScreen.reanim'
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+INFO: LOADING:Long reanim 'reanim/SelectorScreen.reanim' 507 ms on Game Loading
+
+INFO: 'reanim/Zombie_hand.reanim'
+
+INFO: LOADING:Long reanim 'reanim/Zombie_hand.reanim' 124 ms on Game Loading
+
+INFO: 'reanim/PeaShooterSingle.reanim'
+
+INFO: LOADING:Long reanim 'reanim/PeaShooterSingle.reanim' 103 ms on Game Loading
+
+INFO: 'reanim/SunFlower.reanim'
+
+INFO: LOADING:Long reanim 'reanim/SunFlower.reanim' 142 ms on Game Loading
+
+INFO: 'reanim/CherryBomb.reanim'
+
+INFO: LOADING:Long reanim 'reanim/CherryBomb.reanim' 124 ms on Game Loading
+
+INFO: 'reanim/Zombie_charred.reanim'
+
+INFO: LOADING:Long reanim 'reanim/Zombie_charred.reanim' 141 ms on Game Loading
+
+INFO: 'reanim/Wallnut.reanim'
+
+INFO: 'reanim/PotatoMine.reanim'
+
+INFO: 'reanim/SnowPea.reanim'
+
+INFO: 'reanim/Chomper.reanim'
+
+INFO: LOADING:Long reanim 'reanim/Chomper.reanim' 131 ms on Game Loading
+
+INFO: 'reanim/PeaShooter.reanim'
+
+INFO: 'reanim/Puffshroom.reanim'
+
+INFO: 'reanim/Z.reanim'
+
+INFO: 'reanim/SunShroom.reanim'
+
+INFO: 'reanim/Fumeshroom.reanim'
+
+INFO: 'reanim/Gravebuster.reanim'
+
+INFO: 'reanim/Hypnoshroom.reanim'
+
+INFO: 'reanim/ScaredyShroom.reanim'
+
+INFO: 'reanim/Zombie_FlagPole.reanim'
+
+INFO: 'reanim/Zombie_polevaulter.reanim'
+
+INFO: LOADING:Long reanim 'reanim/Zombie_polevaulter.reanim' 137 ms on Game Loading
+
+INFO: 'reanim/Zombie_surprise.reanim'
+
+INFO: 'reanim/Zombie_football.reanim'
+
+libpng warning: iCCP: known incorrect sRGB profile
+
+INFO: LOADING:Long reanim 'reanim/Zombie_football.reanim' 157 ms on Game Loading
+
+INFO: Resource Loading Time: 42246
+
+RG35XX: present_fps=14.97 maxrss_kib=129172
+
+RG35XX: present_fps=35.33 maxrss_kib=129172
+
+RG35XX: present_fps=35.26 maxrss_kib=129172
+
+RG35XX: present_fps=32.04 maxrss_kib=129984
+
+RG35XX: present_fps=19.73 maxrss_kib=129984
+
+RG35XX: present_fps=19.70 maxrss_kib=129984
+
+RG35XX: present_fps=19.60 maxrss_kib=129984
+
+RG35XX: present_fps=19.16 maxrss_kib=129984
+
+RG35XX: present_fps=19.74 maxrss_kib=129984
+
+RG35XX: present_fps=19.22 maxrss_kib=129984
+
+RG35XX: present_fps=19.61 maxrss_kib=129984
+
+RG35XX: present_fps=19.74 maxrss_kib=129984
+
+INFO: RG35XX: Almanac page 0 uses on-demand resources
+
+INFO: almanac load time: 92 ms
+
+RG35XX: present_fps=22.14 maxrss_kib=131580
+
+RG35XX: present_fps=28.00 maxrss_kib=131580
+
+RG35XX: present_fps=27.96 maxrss_kib=131580
+
+RG35XX: present_fps=27.64 maxrss_kib=131580
+
+RG35XX: present_fps=28.16 maxrss_kib=131580
+
+RG35XX: present_fps=28.12 maxrss_kib=131580
+
+RG35XX: present_fps=28.04 maxrss_kib=131580
+
+RG35XX: present_fps=28.31 maxrss_kib=131580
+
+RG35XX: present_fps=28.05 maxrss_kib=131580
+
+RG35XX: present_fps=27.42 maxrss_kib=131580
+
+RG35XX: present_fps=28.03 maxrss_kib=131580
+
+RG35XX: present_fps=28.23 maxrss_kib=131580
+
+RG35XX: present_fps=28.14 maxrss_kib=131580
+
+RG35XX: present_fps=28.12 maxrss_kib=131580
+
+RG35XX: present_fps=28.06 maxrss_kib=131580
+
+RG35XX: present_fps=28.31 maxrss_kib=131580
+
+RG35XX: present_fps=28.07 maxrss_kib=131580
+
+RG35XX: present_fps=27.34 maxrss_kib=131580
+
+RG35XX: present_fps=28.06 maxrss_kib=131580
+
+RG35XX: present_fps=28.30 maxrss_kib=131580
+
+RG35XX: present_fps=28.05 maxrss_kib=131580
+
+RG35XX: present_fps=27.44 maxrss_kib=131580
+
+RG35XX: present_fps=28.12 maxrss_kib=131580
+
+RG35XX: present_fps=28.26 maxrss_kib=131580
+
+RG35XX: present_fps=28.08 maxrss_kib=131580
+
+RG35XX: present_fps=28.08 maxrss_kib=131580
+
+RG35XX: present_fps=28.14 maxrss_kib=131580
+
+RG35XX: present_fps=28.20 maxrss_kib=131580
+
+RG35XX: present_fps=27.45 maxrss_kib=131580
+
+RG35XX: present_fps=28.09 maxrss_kib=131580
+
+RG35XX: present_fps=28.16 maxrss_kib=131580
+
+RG35XX: present_fps=27.56 maxrss_kib=131580
+
+RG35XX: present_fps=28.05 maxrss_kib=131580
+
+RG35XX: present_fps=28.11 maxrss_kib=131580
+
+RG35XX: present_fps=28.24 maxrss_kib=131580
+
+INFO: RG35XX: Almanac page 1 uses on-demand resources
+
+RG35XX: present_fps=27.40 maxrss_kib=132580
+
+RG35XX: present_fps=23.45 maxrss_kib=132580
+
+RG35XX: present_fps=24.01 maxrss_kib=132580
+
+RG35XX: present_fps=24.09 maxrss_kib=132580
+
+RG35XX: present_fps=23.94 maxrss_kib=132580
+
+INFO: RG35XX: Almanac page 0 uses on-demand resources
+
+RG35XX: present_fps=23.13 maxrss_kib=133992
+
+INFO: RG35XX: Almanac page 2 uses on-demand resources
+
+RG35XX: present_fps=24.58 maxrss_kib=134212
+
+RG35XX: present_fps=23.76 maxrss_kib=134212
+
+RG35XX: present_fps=23.65 maxrss_kib=134212
+
+RG35XX: present_fps=23.74 maxrss_kib=134212
+
+RG35XX: present_fps=23.79 maxrss_kib=134212
+
+INFO: RG35XX: Almanac page 0 uses on-demand resources
+
+RG35XX: present_fps=23.58 maxrss_kib=134908
+
+RG35XX: present_fps=19.96 maxrss_kib=134908
+
+RG35XX: present_fps=18.72 maxrss_kib=134908
+
+RG35XX: present_fps=19.04 maxrss_kib=134908
+
+RG35XX: present_fps=18.76 maxrss_kib=134908
+
+RG35XX: present_fps=19.64 maxrss_kib=134908
+
+RG35XX: present_fps=19.78 maxrss_kib=134908
+
+RG35XX: present_fps=19.70 maxrss_kib=134908
+
+RG35XX: present_fps=19.27 maxrss_kib=134908
+
+RG35XX: present_fps=19.58 maxrss_kib=134908
+
+RG35XX: present_fps=19.74 maxrss_kib=134908
+
+RG35XX: present_fps=19.51 maxrss_kib=134908
+
+RG35XX: present_fps=19.55 maxrss_kib=134908
+
+RG35XX: present_fps=19.53 maxrss_kib=134908
+
+RG35XX: present_fps=19.55 maxrss_kib=134908
+
+RG35XX: present_fps=19.41 maxrss_kib=134908
+
+RG35XX: present_fps=19.47 maxrss_kib=134908
+
+RG35XX: present_fps=19.52 maxrss_kib=134908
+
+RG35XX: present_fps=19.15 maxrss_kib=134908
+
+RG35XX: present_fps=19.56 maxrss_kib=134908
+
+RG35XX: present_fps=19.70 maxrss_kib=134908
+
+RG35XX: present_fps=19.23 maxrss_kib=134908
+
+RG35XX: present_fps=19.62 maxrss_kib=134908
+
+RG35XX: present_fps=19.82 maxrss_kib=134908
+
+RG35XX: present_fps=19.39 maxrss_kib=134908
+
+RG35XX: present_fps=19.82 maxrss_kib=134908
+
+RG35XX: present_fps=19.95 maxrss_kib=134908
+
+RG35XX: present_fps=20.09 maxrss_kib=134908
+
+RG35XX: present_fps=20.00 maxrss_kib=134908
+
+RG35XX: present_fps=20.08 maxrss_kib=134908
+
+RG35XX: present_fps=20.22 maxrss_kib=134908
+
+RG35XX: present_fps=20.34 maxrss_kib=134908
+
+RG35XX: present_fps=20.23 maxrss_kib=134908
+
+RG35XX: present_fps=20.39 maxrss_kib=134908
+
+RG35XX: present_fps=20.37 maxrss_kib=134908
+
+RG35XX: present_fps=20.33 maxrss_kib=134908
+
+RG35XX: present_fps=20.31 maxrss_kib=134908
+
+RG35XX: present_fps=20.39 maxrss_kib=134908
+
+INFO: LOADED: 'DelayLoad_Almanac' 46 ms on Game Selector
+
+INFO: RG35XX: Almanac page 0 uses on-demand resources
+
+INFO: almanac load time: 138 ms
+
+INFO: RG35XX: Almanac page 1 uses on-demand resources
+
+RG35XX: present_fps=21.72 maxrss_kib=135168
+
+INFO: RG35XX: Almanac page 0 uses on-demand resources
+
+INFO: RG35XX: Almanac page 2 uses on-demand resources
+
+RG35XX: present_fps=22.36 maxrss_kib=135188
+
+INFO: RG35XX: Almanac page 0 uses on-demand resources
+
+INFO: RG35XX: Almanac page 1 uses on-demand resources
+
+INFO: RG35XX: Almanac page 0 uses on-demand resources
+
+INFO: RG35XX: Almanac page 2 uses on-demand resources
+
+INFO: RG35XX: Almanac page 0 uses on-demand resources
+
+INFO: RG35XX: Almanac page 1 uses on-demand resources
+
+INFO: RG35XX: Almanac page 0 uses on-demand resources
+
+RG35XX: present_fps=23.36 maxrss_kib=135188
+
+INFO: RG35XX: Almanac page 2 uses on-demand resources
+
+INFO: RG35XX: Almanac page 0 uses on-demand resources
+
+INFO: RG35XX: Almanac page 1 uses on-demand resources
+
+INFO: RG35XX: Almanac page 0 uses on-demand resources
+
+INFO: RG35XX: Almanac page 2 uses on-demand resources
+
+INFO: RG35XX: Almanac page 0 uses on-demand resources
+
+RG35XX: present_fps=23.63 maxrss_kib=135188
+
+INFO: RG35XX: Almanac page 1 uses on-demand resources
+
+INFO: RG35XX: Almanac page 0 uses on-demand resources
+
+INFO: RG35XX: Almanac page 2 uses on-demand resources
+
+INFO: RG35XX: Almanac page 0 uses on-demand resources
+
+RG35XX: present_fps=24.66 maxrss_kib=135188
+
+RG35XX: present_fps=28.08 maxrss_kib=135188
+
+RG35XX: present_fps=28.01 maxrss_kib=135188
+
+RG35XX: present_fps=28.19 maxrss_kib=135188
+
+RG35XX: present_fps=28.11 maxrss_kib=135188
+
+RG35XX: present_fps=28.07 maxrss_kib=135188
+
+RG35XX: present_fps=28.00 maxrss_kib=135188
+
+RG35XX: present_fps=28.25 maxrss_kib=135188
+
+RG35XX: present_fps=28.06 maxrss_kib=135188
+
+RG35XX: present_fps=28.09 maxrss_kib=135188
+
+RG35XX: present_fps=28.10 maxrss_kib=135188
+
+RG35XX: present_fps=28.22 maxrss_kib=135188
+
+RG35XX: present_fps=28.01 maxrss_kib=135188
+
+RG35XX: present_fps=28.08 maxrss_kib=135188
+
+RG35XX: present_fps=28.21 maxrss_kib=135188
+
+RG35XX: present_fps=25.71 maxrss_kib=135188
+
+INFO: RG35XX: clean exit: profile saved; requesting standard board save
+
+INFO: Seconds       = 619.907
+
+INFO: Sleep Count   = 71
+
+INFO: Update Count  = 59755
+
+INFO: Draw Count    = 14392
+
+INFO: Draw Time     = 286839
+
+INFO: Screen Blt    = 20
+
+INFO: Avg FPS       = 50
+

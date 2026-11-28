@@ -1,5 +1,5 @@
-# Plants vs. Zombies Portable — RG35XX 1.0.1
-Версия 1.0.1 проверена владельцем на реальной приставке; [протоколы и история](docs/TESTING-RU.md).
+# Plants vs. Zombies Portable — RG35XX 1.0.2
+Версия 1.0.2 проверена по ADB на реальной приставке с профилем уровня 2-7; [протоколы и история](docs/TESTING-RU.md).
 
 Порт для **оригинальной RG35XX, GarlicOS 1.4.9, Cortex-A9/softfp/uClibc**. Не сборка для RG35XX Plus/H/SP.
 
@@ -28,3 +28,5 @@ python3 scripts/package.py --out "$PWD/dist"
 This product includes portions of the PopCap Games Framework, © 2005-2009 PopCap Games, Inc. All rights reserved. (http://popcapframework.sourceforge.net/).
 
 SELECT на уровне: ×0,5 → ×2 → ×1. Музыка сохраняет обычный темп. Удержание MENU ~1,5 с выполняет штатное сохранение уровня/профиля и выход, с теми же ограничениями сохранения, что и меню игры. Превью: Roms/PORTS/Imgs/PlantsVsZombies.png.
+
+1.0.2: исправлена избыточная подготовка альманаха — ресурсы страниц и миниатюры загружаются по необходимости. [Разбор и проверки](docs/ALMANAC-1.0.2-RU.md).

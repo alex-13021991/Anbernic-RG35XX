@@ -1,4 +1,4 @@
-Plants vs. Zombies Portable RG35XX 1.0.1
+Plants vs. Zombies Portable RG35XX 1.0.2
 Оригинальная RG35XX, GarlicOS 1.4.9. Архив распаковать в корень TF2.
 Roms/PORTS/PlantsVsZombies.sh должен соседствовать с папкой PlantsVsZombies.
 Запуск из PORTS. Существующие сохранения перед обновлением скопировать отдельно.

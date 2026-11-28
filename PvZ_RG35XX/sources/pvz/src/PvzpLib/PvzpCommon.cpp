@@ -1485,12 +1485,20 @@ bool PvzpResourceManager::PvzpLoadNextResource()
 			continue;
 		}
 
-		if (mCurResGroup == "DelayLoad_Almanac" && gLawnApp && gLawnApp->mBoard != nullptr)
+		if (mCurResGroup == "DelayLoad_Almanac" && gLawnApp
+#ifndef PVZ_RG35XX
+            && gLawnApp->mBoard != nullptr
+#endif
+        )
 		{
 			if (aRes->mId == "IMAGE_ALMANAC_INDEXBACK" ||
 			    aRes->mId == "IMAGE_ALMANAC_PLANTBACK" ||
 			    aRes->mId == "IMAGE_ALMANAC_ZOMBIEBACK" ||
-			    aRes->mId == "IMAGE_ALMANAC_PLANTCARD")
+			    aRes->mId == "IMAGE_ALMANAC_PLANTCARD"
+#ifdef PVZ_RG35XX
+                || aRes->mId == "IMAGE_ALMANAC_ZOMBIECARD"
+#endif
+            )
 			{
 				mCurResGroupListItr++;
 				continue;
