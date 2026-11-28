@@ -15,6 +15,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("work", type=Path)
 parser.add_argument("content", type=Path)
 parser.add_argument("--level")
+parser.add_argument("--resolution",type=int,choices=[304,320,384,480,640])
 parser.add_argument("--bpp", type=int, choices=[16,24,32], default=32)
 parser.add_argument("--padded", action="store_true")
 parser.add_argument("--garlic", action="store_true", help="Actual device RGB offsets 0/8/16, no alpha")
@@ -39,10 +40,14 @@ with tempfile.TemporaryDirectory(dir=work, prefix="qemu-") as tmp:
     pipe = os.open(pad, os.O_RDWR | os.O_NONBLOCK)
     (root / "Content").symlink_to(content)
     (root / "Saves").mkdir()
+    if args.resolution:
+        index=[304,320,384,480,640].index(args.resolution)
+        (root/"Saves/RG35XX.options").write_bytes(struct.pack("<Iiiii",0x324F4752,index,30,1,1))
     name = args.level.replace("/", "-") if args.level else "intro"
     name += f"-{args.bpp}" + ("-padded" if args.padded else "")
     if args.binary: name += "-package"
     if args.garlic: name += "-garlic"
+    if args.resolution: name += "-render"+str(args.resolution)
     logpath = work / "reports" / f"qemu-{name}.log"
     env = dict(SDL_VIDEODRIVER="dummy", JAZZ2_RESOLUTION="640x480", LANG="ru_RU.UTF-8",
                ALSOFT_DRIVERS="null", HOME=str(root / "Saves"), TEST_FB=str(fb), TEST_PAD=str(pad),
@@ -78,6 +83,8 @@ with tempfile.TemporaryDirectory(dir=work, prefix="qemu-") as tmp:
                     images.add(hashlib.sha256(pixels).digest())
                     if i == 35:
                         (work / "reports" / f"{name}.raw").write_bytes(pixels)
+            if args.resolution and continue_test:
+                assert f"internal {args.resolution}x" in logpath.read_text(errors="replace")
             if continue_test and len(images) < 2:
                 raise RuntimeError(f"Нет смены кадров. Журнал {logpath}")
             # Linux ARM32 input_event: timeval32, type, code, value.

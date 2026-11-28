@@ -14,9 +14,17 @@ link=(-Wl,-dynamic-linker,/lib/ld-uClibc.so.0,-rpath-link,"$RG_SYSROOT/usr/lib",
 "$cc" "${flags[@]}" "$PORT/tests/music.c" -o "$WORK/tests/music" -lopenmpt -lopenal "${link[@]}"
 "$cc" "${flags[@]}" -fPIC -shared "$PORT/tests/simulated-io.c" -ldl -o "$WORK/tests/simulated-io.so"
 "$cxx" "${flags[@]}" -std=gnu++17 -DTEST_FIXED_MEMSET "$PORT/tests/memset.cpp" -o "$WORK/tests/memset-fixed" "${link[@]}"
+"$cxx" "${flags[@]}" -std=gnu++17 -DTEST_VIDEO_WIDTH=320 -I"$RG_SYSROOT/usr/include/SDL2" "$PORT/tests/video.cpp" -o "$WORK/tests/video320" -lSDL2 "${link[@]}"
+"$cxx" "${flags[@]}" -std=gnu++17 "$PORT/tests/video-colors.cpp" -o "$WORK/tests/video-colors" "${link[@]}"
+"$cxx" "${flags[@]}" -std=gnu++17 -DTEST_VIDEO_WIDTH=384 -DTEST_VIDEO_HEIGHT=288 -I"$RG_SYSROOT/usr/include/SDL2" "$PORT/tests/video.cpp" -o "$WORK/tests/video384" -lSDL2 "${link[@]}"
+"$cxx" "${flags[@]}" -std=gnu++17 -DTEST_VIDEO_WIDTH=384 -DTEST_VIDEO_HEIGHT=288 "$PORT/tests/video-colors.cpp" -o "$WORK/tests/video-colors384" "${link[@]}"
 unset LD_LIBRARY_PATH
 qemu-arm -cpu cortex-a9 -L "$RG_SYSROOT" "$WORK/tests/memset-fixed"
 python3 "$PORT/tests/framebuffer.py" "$WORK"
+TEST_VIDEO_WIDTH=320 python3 "$PORT/tests/framebuffer.py" "$WORK"
+python3 "$PORT/tests/framebuffer-colors.py" "$WORK"
+TEST_VIDEO_WIDTH=384 TEST_VIDEO_HEIGHT=288 python3 "$PORT/tests/framebuffer.py" "$WORK"
+TEST_VIDEO_WIDTH=384 TEST_VIDEO_HEIGHT=288 python3 "$PORT/tests/framebuffer-colors.py" "$WORK"
 for elf in "$bin" "$WORK/tests/video" "$WORK/tests/music"; do
     python3 "$PORT/scripts/abi.py" "$elf" "$RG_SYSROOT" > "$WORK/reports/${elf##*/}.abi.txt"
 done
@@ -35,5 +43,6 @@ if [[ $# -gt 0 ]]; then
     python3 "$PORT/tests/smoke.py" "$WORK" "$content" --level prince/01_castle1 --garlic
     python3 "$PORT/tests/smoke.py" "$WORK" "$content" --bpp 16
     python3 "$PORT/tests/smoke.py" "$WORK" "$content" --padded
+    python3 "$PORT/tests/smoke.py" "$WORK" "$content" --level prince/01_castle1 --garlic --resolution 384
     python3 "$PORT/tests/smoke.py" "$WORK" "$content" --bpp 24
 fi

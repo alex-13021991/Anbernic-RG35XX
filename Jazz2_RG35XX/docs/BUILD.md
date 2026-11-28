@@ -1,3 +1,19 @@
+# Сборка 1.1.2
+
+Используйте новый каталог сборки, чтобы исходники были подготовлены с текущими платформенными заголовками:
+
+```bash
+export RG_TOOLCHAIN="$HOME/RG35XX/RG35XX-SDK/miyoo-gcc-7.3.0"
+export JAZZ2_WORK="$HOME/RG35XX/Work/jazz2-1.1.2-clean"
+bash scripts/prepare.sh
+bash scripts/build.sh
+bash scripts/verify.sh /путь/к/Content
+```
+
+verify.sh теперь автоматически проверяет NEON-пути 320 и 384, все RGB565 цвета, защиту концов исходных строк и запуск игры при 384×288. Публичные архивы получают версию и текущие changelog/validation из VERSION. Значения по умолчанию 320×240 / 45 FPS подтверждены отдельным запуском без сохранённых настроек и FPS-аргумента.
+
+Далее сохранена подробная инструкция и история подготовки предыдущих версий.
+
 Дополнение — прогон №3: патч 0005 включает MENU/save и восстановление моторчика. Тесты: `tests/menu-save.py`, `tests/rumble-long.py`, `tests/rumble-recovery.cpp`.
 
 # Сборка 1.1.0 в WSL Ubuntu 24.04

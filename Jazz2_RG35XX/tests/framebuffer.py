@@ -9,6 +9,7 @@ import tempfile
 
 work = Path(sys.argv[1]).resolve()
 width=int(os.environ.get('TEST_VIDEO_WIDTH','304'))
+height=int(os.environ.get('TEST_VIDEO_HEIGHT','228'))
 bars = [0xf800,0x07e0,0x001f,0xffe0,0xf81f,0x07ff,0xffff,0]
 for bpp, padded, garlic in [(16,False,False),(32,False,False),(16,True,False),
                             (32,True,False),(32,False,True),(32,True,True)]:
@@ -39,7 +40,7 @@ for bpp, padded, garlic in [(16,False,False),(32,False,False),(16,True,False),
         if padded: env["TEST_PADDED"]="1"
         cmd=["qemu-arm","-cpu","cortex-a9","-L",str(root)]
         for key,value in env.items(): cmd += ["-E",f"{key}={value}"]
-        result=subprocess.run(cmd+[str(work/("tests/video320" if width==320 else "tests/video"))],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=20)
+        result=subprocess.run(cmd+[str(work/("tests/video" if width==304 else "tests/video"+str(width)))],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=20)
         os.close(pipe)
         assert result.returncode == 0, result.stdout.decode(errors="replace")
         keys=[line[4:] for line in result.stdout.decode().splitlines() if line.startswith('key=')]
@@ -51,8 +52,8 @@ for bpp, padded, garlic in [(16,False,False),(32,False,False),(16,True,False),
             row=pixels[(y+yoff)*stride+xoff*(bpp//8): (y+yoff)*stride+(xoff+640)*(bpp//8)]
             for x,pixel in enumerate(struct.iter_unpack("<H" if bpp==16 else "<I",row)):
                 sx=x*width//640
-                sy=227-y*228//480
-                color=0xffff if sy>207 and sx<20 else bars[sx//(width//8)]
+                sy=height-1-y*height//480
+                color=0xffff if sy>height-21 and sx<20 else bars[sx//(width//8)]
                 if bpp==32:
                     r=(color>>11)&31; g=(color>>5)&63; b=color&31
                     color=0xff000000 | ((r<<3|r>>2)<<16) | ((g<<2|g>>4)<<8) | (b<<3|b>>2)

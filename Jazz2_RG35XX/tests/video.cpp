@@ -8,7 +8,11 @@
 #define TEST_VIDEO_WIDTH 304
 #endif
 static constexpr int Width = TEST_VIDEO_WIDTH;
-static uint16_t pixels[228][Width];
+#ifndef TEST_VIDEO_HEIGHT
+#define TEST_VIDEO_HEIGHT 228
+#endif
+static constexpr int Height = TEST_VIDEO_HEIGHT;
+static uint16_t pixels[Height][Width];
 static void timedOut(int) {}
 static double seconds() {
     timespec t{};
@@ -40,9 +44,9 @@ int main(int argc, char** argv) {
     if (SDL_Init(SDL_INIT_VIDEO) < 0) return 1;
     Rg35xx::Input pad;
     const uint16_t bars[] = {0xf800,0x07e0,0x001f,0xffe0,0xf81f,0x07ff,0xffff,0};
-    for (int y=0;y<228;++y)
+    for (int y=0;y<Height;++y)
         for (int x=0;x<Width;++x)
-            pixels[y][x] = (y>207 && x<20) ? 0xffff : bars[x/(Width/8)];
+            pixels[y][x] = (y>Height-21 && x<20) ? 0xffff : bars[x/(Width/8)];
     auto start = seconds();
     unsigned frames = 0;
     bool done = false;
@@ -55,7 +59,7 @@ int main(int argc, char** argv) {
                 if (event.key.keysym.sym == SDLK_HOME) done = true;
             }
         }
-        screen.present(pixels,Width,228,sizeof(pixels[0]));
+        screen.present(pixels,Width,Height,sizeof(pixels[0]));
         ++frames;
     }
     printf("frames=%u elapsed_s=%.3f copy_fps=%.1f\n",frames,seconds()-start,frames/(seconds()-start));

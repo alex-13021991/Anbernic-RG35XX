@@ -7,6 +7,7 @@
 #include <linux/input.h>
 #include <stdarg.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
@@ -40,6 +41,12 @@ int ioctl(int fd, unsigned long request, ...) {
                 v->transp.offset=24; v->transp.length=8;
                 if (getenv("TEST_GARLIC_RGB")) {
                     v->red.offset=0; v->blue.offset=16; v->transp.length=0;
+                }
+            }
+            if (bpp==32 && getenv("TEST_CHANNELS")) {
+                unsigned ro,go,bo,ao,al;
+                if(sscanf(getenv("TEST_CHANNELS"),"%u:%u:%u:%u:%u",&ro,&go,&bo,&ao,&al)==5) {
+                    v->red.offset=ro;v->green.offset=go;v->blue.offset=bo;v->transp.offset=ao;v->transp.length=al;
                 }
             }
             if (padded) { v->xoffset=8; v->yoffset=2; v->xres_virtual+=16; v->yres_virtual+=4; }

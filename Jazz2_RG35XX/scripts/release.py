@@ -52,11 +52,13 @@ shutil.copytree(port/'LICENSES',tools_stage/'LICENSES')
 shutil.copy2(port/'docs/DEPENDENCIES.md',stage/'LICENSES/DEPENDENCIES.md')
 shutil.copy2(port/'docs/INSTALL-RU.txt',stage/'README_RU.txt')
 shutil.copy2(port/'docs/CHANGELOG-1.1.0-RU.md',stage/'CHANGELOG-1.1.0-RU.md')
-if (port/'docs/CHANGELOG-1.1.1-RU.md').exists():
-    shutil.copy2(port/'docs/CHANGELOG-1.1.1-RU.md',stage/'CHANGELOG-1.1.1-RU.md')
+current_changelog=port/'docs'/('CHANGELOG-'+version+'-RU.md')
+if current_changelog.exists():
+    shutil.copy2(current_changelog,stage/current_changelog.name)
 shutil.copy2(port/'docs/VALIDATION-1.1.0.txt',stage/'VALIDATION-1.1.0.txt')
-if (port/'docs/VALIDATION-1.1.1-RU.txt').exists():
-    shutil.copy2(port/'docs/VALIDATION-1.1.1-RU.txt',stage/'VALIDATION-1.1.1-RU.txt')
+current_validation=port/'docs'/('VALIDATION-'+version+'-RU.txt')
+if current_validation.exists():
+    shutil.copy2(current_validation,stage/current_validation.name)
 shutil.copy2(port/'docs/PROGON-03-RU.md',stage/'PROGON-03-RU.md')
 shutil.copy2(port/'vendor/SHA256SUMS',stage/'LICENSES/SOURCE-ARCHIVE-SHA256SUMS')
 for filename in ['AssetPacker.exe','AssetPacker-linux']:
