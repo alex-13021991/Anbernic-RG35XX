@@ -1,0 +1,12 @@
+{
+  "andrigamerita": "4a00108e751fdbacb7418d8da874fcabb0278e67",
+  "dmitrysmagin": "861a05f94e2d197248e0ed19074638bf170d28c2",
+  "high_resolution_data": "b1619ec4210bb9a89a990826287d0615d2c115cc",
+  "build": "GCC 7.3.0; -marm -mcpu=cortex-a9 -mfpu=neon -mfloat-abi=softfp -O2",
+  "localization": "Russian text, UTF-8, separate Cyrillic bitmap fonts; original game artwork unchanged",
+  "urls": {
+    "andrigamerita": "https://github.com/andrigamerita/supertux",
+    "dmitrysmagin": "https://github.com/dmitrysmagin/supertux"
+  },
+  "source_snapshots": "sources/upstream is an unmodified Git archive of andrigamerita; auxiliary archives preserve dmitrysmagin snapshots"
+}

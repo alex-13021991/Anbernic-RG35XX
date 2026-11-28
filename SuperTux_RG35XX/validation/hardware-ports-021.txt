@@ -1,0 +1,4 @@
+Datadir: /mnt/SDCARD/Roms/PORTS/SuperTux/./data
+SuperTux fb0: 640x480 virtual=640x960 bpp=32 stride=2560 offset=0,0 RGB=0:8/8:8/16:8 alpha=24:0
+SuperTux RG35XX: framebuffer 640x480, input=5
+SuperTux exit: 0

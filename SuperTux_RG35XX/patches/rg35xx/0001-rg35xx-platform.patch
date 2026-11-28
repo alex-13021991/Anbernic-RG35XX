@@ -1,0 +1,305 @@
+--- /dev/null
++++ b/Makefile.rg35xx
+@@ -0,0 +1,19 @@
++.DEFAULT_GOAL := supertux
++export LD_LIBRARY_PATH = $(SDK)/lib
++SDK ?= $(HOME)/RG35XX/RG35XX-SDK/miyoo-gcc-7.3.0
++SYSROOT ?= $(CURDIR)/../sysroot
++CXX = $(SDK)/bin/arm-linux-g++
++CPU = -marm -mcpu=cortex-a9 -mfpu=neon -mfloat-abi=softfp
++CPPFLAGS = -DNOOPENGL -DHAVE_SOUND -DRG35XX -DVERSION=\"0.1.3-rg35xx-0.1.1\"
++CXXFLAGS = $(CPU) --sysroot=$(SYSROOT) -O2 -std=gnu++03 -Wall -I$(SYSROOT)/usr/include/SDL -include platform/rg35xx.h
++LDLIBS = -lSDL_mixer -lSDL_image -lSDL_gfx -lSDL -lz -lm -lpthread
++LDFLAGS = $(CPU) --sysroot=$(SYSROOT) -Wl,-rpath-link,$(SYSROOT)/usr/lib:$(SYSROOT)/lib
++build/platform/rg35xx.o: CPPFLAGS += -DRG_IMPLEMENTATION
++
++SOURCES = $(wildcard src/*.cpp) platform/rg35xx.cpp
++OBJECTS = $(patsubst %.cpp,build/%.o,$(SOURCES))
++supertux: $(OBJECTS)
++	$(CXX) $(LDFLAGS) $^ $(LDLIBS) -o $@
++build/%.o: %.cpp platform/rg35xx.h
++	@mkdir -p $(dir $@)
++	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
+--- /dev/null
++++ b/platform/rg35xx.cpp
+@@ -0,0 +1,163 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++#include "rg35xx.h"
++#include "../src/menu.h"
++#include <linux/fb.h>
++#include <linux/input.h>
++#include <sys/ioctl.h>
++#include <sys/mman.h>
++#include <fcntl.h>
++#include <unistd.h>
++#include <cstdio>
++#include <cstdlib>
++#include <cstring>
++#include <deque>
++static int fb=-1, pad=-1;
++static fb_fix_screeninfo fi;
++static fb_var_screeninfo va;
++static unsigned char* mem=0;
++static Uint32 reds[32], greens[64], blues[32], opacity=0;
++static Uint8 keys[SDLK_LAST];
++static SDLKey binding[KEY_MAX+1];
++static bool pressed[KEY_MAX+1];
++static std::deque<SDL_Event> pending;
++static void cleanup() {
++    if(mem) munmap(mem,fi.smem_len);
++    if(fb>=0) close(fb);
++    if(pad>=0) { ioctl(pad,EVIOCGRAB,0); close(pad); }
++}
++static void key(SDLKey k,bool down) {
++    if(keys[k]==down) return;
++    keys[k]=down;
++    SDL_Event e; memset(&e,0,sizeof(e));
++    e.type=down?SDL_KEYDOWN:SDL_KEYUP;
++    e.key.state=down?SDL_PRESSED:SDL_RELEASED;
++    e.key.keysym.sym=k;
++    pending.push_back(e);
++}
++static void volume(int step) {
++    FILE* f=fopen("/sys/class/volume/value","r");
++    int v;
++    if(!f) return;
++    bool ok=fscanf(f,"%d",&v)==1 && v>=0 && v<=40;
++    fclose(f);
++    if(!ok || v+step<0 || v+step>40) return;
++    f=fopen("/sys/class/volume/value","w");
++    if(f) { fprintf(f,"%d\n",v+step); fclose(f); }
++}
++static void input() {
++    if(pad<0) return;
++    input_event e;
++    while(read(pad,&e,sizeof(e))==sizeof(e)) {
++        if(e.type==EV_ABS && e.code==ABS_HAT0X) { key(SDLK_LEFT,e.value<0); key(SDLK_RIGHT,e.value>0); }
++        if(e.type==EV_ABS && e.code==ABS_HAT0Y) { key(SDLK_UP,e.value<0); key(SDLK_DOWN,e.value>0); }
++        if(e.type==EV_KEY && e.code<=KEY_MAX && e.value!=2) {
++            SDLKey k=SDLK_UNKNOWN;
++            switch(e.code) {
++            case 0x130: k=SDLK_LCTRL; break;
++            case 0x131: k=Menu::current()?SDLK_ESCAPE:SDLK_SPACE; break;
++            case 0x133: k=SDLK_UNKNOWN; break;
++            case 0x134: k=SDLK_UNKNOWN; break;
++            case 0x13a: k=SDLK_ESCAPE; break;
++            case 0x13b: k=Menu::current()?SDLK_RETURN:SDLK_p; break;
++            case 0x13d: if(e.value) volume(1); break;
++            case 0x13e: if(e.value) volume(-1); break;
++            case 0x13c: k=SDLK_ESCAPE; break;
++            }
++            if(e.value) {
++                binding[e.code]=k;
++                pressed[e.code]=true;
++            } else {
++                k=binding[e.code];
++                pressed[e.code]=false;
++            }
++            if(k!=SDLK_UNKNOWN) {
++                bool held=false;
++                for(unsigned n=0;n<=KEY_MAX;++n)
++                    if(pressed[n] && binding[n]==k) { held=true; break; }
++                key(k,held);
++            }
++        }
++    }
++}
++SDL_Surface* rg_video(int w,int h,int,Uint32) {
++    if(fb<0) {
++        fb=open("/dev/fb0",O_RDWR);
++        if(fb<0 || ioctl(fb,FBIOGET_FSCREENINFO,&fi)<0 || ioctl(fb,FBIOGET_VSCREENINFO,&va)<0) {
++            perror("SuperTux fb0"); exit(1);
++        }
++        fprintf(stderr,"SuperTux fb0: %ux%u virtual=%ux%u bpp=%u stride=%u offset=%u,%u RGB=%u:%u/%u:%u/%u:%u alpha=%u:%u\n",
++                va.xres,va.yres,va.xres_virtual,va.yres_virtual,va.bits_per_pixel,fi.line_length,
++                va.xoffset,va.yoffset,va.red.offset,va.red.length,va.green.offset,va.green.length,
++                va.blue.offset,va.blue.length,va.transp.offset,va.transp.length);
++        bool rgb565=va.bits_per_pixel==16 &&
++            va.red.offset==11 && va.red.length==5 && va.green.offset==5 && va.green.length==6 &&
++            va.blue.offset==0 && va.blue.length==5 && !va.transp.length;
++        bool rgb32=va.bits_per_pixel==32 &&
++            va.red.length==8 && va.green.length==8 && va.blue.length==8 &&
++            va.red.offset<=24 && va.green.offset<=24 && va.blue.offset<=24 &&
++            va.red.offset%8==0 && va.green.offset%8==0 && va.blue.offset%8==0 &&
++            va.red.offset!=va.green.offset && va.red.offset!=va.blue.offset && va.green.offset!=va.blue.offset &&
++            (!va.transp.length || (va.transp.length==8 && va.transp.offset<=24 && va.transp.offset%8==0 &&
++             va.transp.offset!=va.red.offset && va.transp.offset!=va.green.offset && va.transp.offset!=va.blue.offset));
++        unsigned bytes=va.bits_per_pixel/8;
++        if(va.xres!=640 || va.yres!=480 || (!rgb565 && !rgb32) ||
++           fi.type!=FB_TYPE_PACKED_PIXELS || fi.visual!=FB_VISUAL_TRUECOLOR ||
++           va.nonstd || va.grayscale || va.red.msb_right || va.green.msb_right || va.blue.msb_right || va.transp.msb_right ||
++           va.xoffset+va.xres>va.xres_virtual || va.yoffset+va.yres>va.yres_virtual ||
++           (va.xoffset+640)*bytes>fi.line_length || fi.line_length%bytes ||
++           (va.yoffset+480)*fi.line_length>fi.smem_len) {
++            fprintf(stderr,"SuperTux: unsupported framebuffer format\n"); exit(1);
++        }
++        if(rgb32) {
++            for(unsigned n=0;n<32;++n) {
++                reds[n]=((n<<3)|(n>>2))<<va.red.offset;
++                blues[n]=((n<<3)|(n>>2))<<va.blue.offset;
++            }
++            for(unsigned n=0;n<64;++n) greens[n]=((n<<2)|(n>>4))<<va.green.offset;
++            if(va.transp.length) opacity=Uint32(255)<<va.transp.offset;
++        }
++        void* p=mmap(0,fi.smem_len,PROT_READ|PROT_WRITE,MAP_SHARED,fb,0);
++        if(p==MAP_FAILED) { perror("mmap fb0"); exit(1); }
++        mem=(unsigned char*)p;
++        atexit(cleanup);
++        for(int n=0;n<16;++n) {
++            char path[64],name[128]={0};
++            snprintf(path,sizeof(path),"/dev/input/event%d",n);
++            int f=open(path,O_RDONLY|O_NONBLOCK);
++            if(f<0) continue;
++            if(ioctl(f,EVIOCGNAME(sizeof(name)),name)>=0 && strstr(name,"RG35XX Gamepad")) {
++                pad=f; ioctl(pad,EVIOCGRAB,1); break;
++            }
++            close(f);
++        }
++        fprintf(stderr,"SuperTux RG35XX: framebuffer %ux%u, input=%d\n",va.xres,va.yres,pad);
++        if(pad<0) { fprintf(stderr,"SuperTux: gamepad not found\n"); exit(1); }
++    }
++    return SDL_SetVideoMode(w,h,16,SDL_SWSURFACE);
++}
++int rg_flip(SDL_Surface* s) {
++    if(!mem || !s) return -1;
++    if(SDL_MUSTLOCK(s) && SDL_LockSurface(s)<0) return -1;
++    for(unsigned y=0;y<480;++y) {
++        unsigned bytes=va.bits_per_pixel/8;
++        unsigned char* dst=mem+(y+va.yoffset)*fi.line_length+va.xoffset*bytes;
++        const Uint16* row=(const Uint16*)((unsigned char*)s->pixels+(y*s->h/480)*s->pitch);
++        if(bytes==2) {
++            if(s->w==640) memcpy(dst,row,1280);
++            else for(unsigned x=0;x<640;++x) ((Uint16*)dst)[x]=row[x*s->w/640];
++        } else {
++            for(unsigned x=0;x<640;++x) {
++                Uint16 pixel=row[s->w==640?x:x*s->w/640];
++                ((Uint32*)dst)[x]=reds[pixel>>11]|greens[(pixel>>5)&63]|blues[pixel&31]|opacity;
++            }
++        }
++    }
++    if(SDL_MUSTLOCK(s)) SDL_UnlockSurface(s);
++    return 0;
++}
++int rg_poll(SDL_Event* e) {
++    input();
++    if(!pending.empty()) { *e=pending.front(); pending.pop_front(); return 1; }
++    return SDL_PollEvent(e);
++}
++Uint8* rg_keys(int* count) { input(); if(count) *count=SDLK_LAST; return keys; }
+--- /dev/null
++++ b/platform/rg35xx.h
+@@ -0,0 +1,13 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++#pragma once
++#include <SDL.h>
++SDL_Surface* rg_video(int,int,int,Uint32);
++int rg_flip(SDL_Surface*);
++int rg_poll(SDL_Event*);
++Uint8* rg_keys(int*);
++#ifndef RG_IMPLEMENTATION
++#define SDL_SetVideoMode rg_video
++#define SDL_Flip rg_flip
++#define SDL_PollEvent rg_poll
++#define SDL_GetKeyState rg_keys
++#endif
+--- a/src/music_manager.cpp
++++ b/src/music_manager.cpp
+@@ -40,8 +40,8 @@
+     return MusicRef(0);
+ 
+   if(!exists_music(file)) {
+-    printf("\nCouldn't load musicfile "); printf(file.c_str());
+-    return NULL; // just play without music if loading fails
++    printf("\nCouldn't load musicfile "); printf("%s", file.c_str());
++    return MusicRef(0); // continue without missing music
+   }
+ 
+   std::map<std::string, MusicResource>::iterator i = musics.find(file);
+@@ -158,7 +158,7 @@
+ #endif
+   } else {
+ #ifndef USEMIKMOD
+-    Mix_PlayMusic(current_music->music, -1);
++    if(current_music) Mix_PlayMusic(current_music->music, -1);
+ #else
+     Player_Start(current_music->music);
+ #endif
+--- a/src/setup.cpp
++++ b/src/setup.cpp
+@@ -74,7 +74,7 @@
+ #define SCREEN_H 240
+ #endif
+ 
+-#ifdef GP2X
++#ifndef DATA_PREFIX
+ #define DATA_PREFIX "data/"
+ #endif
+ 
+@@ -319,7 +319,7 @@
+   char str[1024];
+   /* Get home directory (from $HOME variable)... if we can't determine it,
+      use the current directory ("."): */
+-#if defined(GP2X) && !defined(WIN32)
++#if !defined(WIN32)
+   if (getenv("HOME") != NULL)
+     home = getenv("HOME");
+   else
+@@ -356,9 +356,9 @@
+   if (datadir.empty())
+     {
+       // Detect datadir
+-      char exe_file[PATH_MAX];
++      char exe_file[PATH_MAX] = {0};
+ #ifndef WIN32
+-      if (readlink("/proc/self/exe", exe_file, PATH_MAX) < 0)
++      if (readlink("/proc/self/exe", exe_file, PATH_MAX-1) < 0)
+         {
+           puts("Couldn't read /proc/self/exe, using default path: " DATA_PREFIX);
+           datadir = DATA_PREFIX;
+@@ -412,7 +412,9 @@
+   main_menu->additem(MN_GOTO, "Options",0,options_menu, MNID_OPTIONMENU);
+   
+ #ifndef GP2X
++#ifndef RG35XX
+   main_menu->additem(MN_ACTION,"Level Editor",0,0, MNID_LEVELEDITOR);
++#endif
+ #endif
+   main_menu->additem(MN_ACTION,"Credits",0,0, MNID_CREDITS);
+   main_menu->additem(MN_ACTION,"Quit",0,0, MNID_QUITMAINMENU);
+@@ -420,12 +422,14 @@
+   options_menu->additem(MN_LABEL,"Options",0,0);
+   options_menu->additem(MN_HL,"",0,0);
+ #ifndef GP2X
++#if !defined(RG35XX)
+ #ifndef NOOPENGL
+   options_menu->additem(MN_TOGGLE,"OpenGL",use_gl,0, MNID_OPENGL);
+ #else
+   options_menu->additem(MN_DEACTIVE,"OpenGL (not supported)",use_gl, 0, MNID_OPENGL);
+ #endif
+   options_menu->additem(MN_TOGGLE,"Fullscreen",use_fullscreen,0, MNID_FULLSCREEN);
++#endif
+ #endif
+ #ifndef NOSOUND
+   if(audio_device)
+@@ -867,6 +871,11 @@
+ 
+ void st_joystick_setup(void)
+ {
++#ifdef RG35XX
++  use_joystick = false;
++  return;
++#endif
++
+ 
+   /* Init Joystick: */
+ 
+--- a/src/supertux.cpp
++++ b/src/supertux.cpp
+@@ -37,6 +37,7 @@
+ #undef main
+ int main(int argc, char * argv[])
+ {
++  setvbuf(stdout, NULL, _IOLBF, 0);
+   st_directory_setup();
+   parseargs(argc, argv);
+   

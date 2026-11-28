@@ -1,0 +1,10 @@
+- SuperTux Miyoo porting changes -
+http://super-tux.sf.net/
+
+Last update: August 27, 2021
+
+0.2
+- Fixed miyoo music loading issue, and made music loading fail safely
+
+0.1
+- Initial release.

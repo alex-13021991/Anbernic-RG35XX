@@ -1,0 +1,5 @@
+* text=auto eol=lf
+sources/upstream/** -text
+sources/*.tar.gz -text
+patches/** -text
+screenshots/*.png -text

@@ -1,0 +1,8 @@
+Диагностика до исправления, прочитанная через ADB из установленного Logs/run.log:
+Datadir: /mnt/SDCARD/Roms/PORTS/SuperTux/./data
+Warning: Unable to open the file "/mnt/SDCARD/Roms/PORTS/SuperTux/Saves/.supertux/config" for read!!!
+SuperTux: unsupported framebuffer format
+SuperTux exit: 1
+
+После исправления фактический режим записан в hardware-ports-021.txt.
+Отдельный hardware-ports-play-021.txt — журнал успешного прохождения нескольких уровней после замены бинарника.

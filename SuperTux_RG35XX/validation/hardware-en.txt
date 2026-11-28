@@ -1,0 +1,7 @@
+Datadir: /dev/shm/supertux-test/./data
+Warning: Unable to open the file "/dev/shm/supertux-test/.supertux/config" for read!!!
+SuperTux RG35XX: framebuffer 640x480 RGB565, input=5
+loadgame: /dev/shm/supertux-test/.supertux/save/slot1.stsg
+Enter the current level: world1/level1.stl
+savegame: /dev/shm/supertux-test/.supertux/save/slot1.stsg
+__SUPERTUX_EXIT=0

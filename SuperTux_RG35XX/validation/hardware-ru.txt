@@ -1,0 +1,13 @@
+Datadir: /dev/shm/supertux-ru-test/./data
+SuperTux RG35XX: framebuffer 640x480 RGB565, input=5
+loadgame: /dev/shm/supertux-ru-test/.supertux/save/slot1.stsg
+Nothing to enter at: 4, 5
+Enter the current level: world1/level1.stl
+Walk to dir: 4
+savegame: /dev/shm/supertux-ru-test/.supertux/save/slot1.stsg
+Enter the current level: world1/level2.stl
+Walk to dir: 2
+savegame: /dev/shm/supertux-ru-test/.supertux/save/slot1.stsg
+Enter the current level: world1/level3.stl
+savegame: /dev/shm/supertux-ru-test/.supertux/save/slot1.stsg
+__SUPERTUX_EXIT=0
