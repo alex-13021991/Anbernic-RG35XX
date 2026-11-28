@@ -17,9 +17,10 @@ parser.add_argument('--converter',type=Path,help='Windows AssetPacker; defaults 
 parser.add_argument('--runtime-libs',type=Path,help='Optional previously validated runtime libraries; remaining dependencies use sysroot')
 args=parser.parse_args()
 port=Path(__file__).resolve().parents[1]
-stem='Jazz2_RG35XX_v1.1.0'
+version=(port/'VERSION').read_text().strip()
+stem='Jazz2_RG35XX_v'+version
 stage=args.output/stem
-tools_stage=args.output/'Jazz2_RG35XX_Tools_v1.1.0'
+tools_stage=args.output/('Jazz2_RG35XX_Tools_v'+version)
 if stage.exists() or tools_stage.exists(): raise SystemExit('Output stage already exists')
 args.output.mkdir(parents=True,exist_ok=True)
 shutil.copytree(port/'RG35XXPackage',stage)
@@ -51,7 +52,11 @@ shutil.copytree(port/'LICENSES',tools_stage/'LICENSES')
 shutil.copy2(port/'docs/DEPENDENCIES.md',stage/'LICENSES/DEPENDENCIES.md')
 shutil.copy2(port/'docs/INSTALL-RU.txt',stage/'README_RU.txt')
 shutil.copy2(port/'docs/CHANGELOG-1.1.0-RU.md',stage/'CHANGELOG-1.1.0-RU.md')
+if (port/'docs/CHANGELOG-1.1.1-RU.md').exists():
+    shutil.copy2(port/'docs/CHANGELOG-1.1.1-RU.md',stage/'CHANGELOG-1.1.1-RU.md')
 shutil.copy2(port/'docs/VALIDATION-1.1.0.txt',stage/'VALIDATION-1.1.0.txt')
+if (port/'docs/VALIDATION-1.1.1-RU.txt').exists():
+    shutil.copy2(port/'docs/VALIDATION-1.1.1-RU.txt',stage/'VALIDATION-1.1.1-RU.txt')
 shutil.copy2(port/'docs/PROGON-03-RU.md',stage/'PROGON-03-RU.md')
 shutil.copy2(port/'vendor/SHA256SUMS',stage/'LICENSES/SOURCE-ARCHIVE-SHA256SUMS')
 for filename in ['AssetPacker.exe','AssetPacker-linux']:

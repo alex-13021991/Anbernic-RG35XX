@@ -11,6 +11,9 @@
 #include <sys/resource.h>
 #include <ctime>
 #include <unistd.h>
+#if defined(__ARM_NEON)
+#include <arm_neon.h>
+#endif
 
 namespace Rg35xx {
 class Framebuffer {
@@ -93,7 +96,20 @@ public:
             int srcY = height - 1 - int(y * unsigned(height) / 480);
             if (srcY != lastY) {
                 const auto* row = reinterpret_cast<const uint16_t*>(static_cast<const uint8_t*>(pixels) + srcY * stride);
-                for (unsigned x=0; x<640; ++x) line[x] = row[xmap[x]];
+#if defined(__ARM_NEON)
+                if (width == 320) {
+                    // Exact 2x scaling: duplicate eight RGB565 pixels per load.
+                    for (unsigned x=0; x<320; x+=8) {
+                        const uint16x8_t p = vld1q_u16(row+x);
+                        const uint16x8x2_t doubled = vzipq_u16(p,p);
+                        vst1q_u16(line+2*x,doubled.val[0]);
+                        vst1q_u16(line+2*x+8,doubled.val[1]);
+                    }
+                } else
+#endif
+                {
+                    for (unsigned x=0; x<640; ++x) line[x] = row[xmap[x]];
+                }
                 if (bytes == 4) for (unsigned x=0; x<640; ++x) {
                     const unsigned p = line[x];
                     line32[x] = red[p >> 11] | green[(p >> 5) & 63] | blue[p & 31] | alpha;

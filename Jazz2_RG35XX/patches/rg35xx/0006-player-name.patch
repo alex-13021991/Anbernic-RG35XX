@@ -1,0 +1,15 @@
+--- a/Sources/Jazz2/PreferencesCache.cpp
++++ b/Sources/Jazz2/PreferencesCache.cpp
+@@ -1645,6 +1645,12 @@
+ 
+ 	String PreferencesCache::GetEffectivePlayerName()
+ 	{
++#if defined(JAZZ2_RG35XX)
++		// GarlicOS runs games as root. Migrate its cached default name too.
++		if (PlayerName.empty() || PlayerName == "root"_s) {
++			return "RG35XX"_s;
++		}
++#endif
+ 		// Discord display name has the highest priority, then the player name set in the preferences, and finally the system username
+ 
+ 		String playerName;
